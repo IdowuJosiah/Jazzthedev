@@ -7,47 +7,77 @@ import "./index.css";
 import { MdArrowOutward } from "react-icons/md";
 
 const experiences = [
-  {
-    company: "ByteCraft",
-    role: "Frontend Developer",
-    period: "2024 - Present",
-    location: "Remote",
-    description:
-      "Built polished product interfaces for a SaaS platform, focusing on reusable components, responsive layouts, and smoother onboarding flows.",
-    highlights: [
-      "Shipped modular UI components that reduced duplicated frontend code across product pages.",
-      "Improved mobile responsiveness and accessibility for the main customer dashboard.",
-      "Partnered closely with design to translate Figma concepts into production-ready experiences.",
-    ],
-  },
-  {
-    company: "Nova Studio",
-    role: "Frontend Engineer",
-    period: "2022 - 2024",
-    location: "Milan, Italy",
-    description:
-      "Worked on marketing websites and internal tools, balancing performance, motion, and visual polish across multiple launches.",
-    highlights: [
-      "Developed high-converting landing pages with strong Lighthouse performance scores.",
-      "Created scalable styling patterns that sped up delivery for new client pages.",
-      "Integrated CMS-driven sections so content teams could update pages without code changes.",
-    ],
-  },
-  {
-    company: "Pixel Forge",
-    role: "Junior Frontend Developer",
-    period: "2021 - 2022",
-    location: "Hybrid",
-    description:
-      "Supported product delivery by building feature pages, refining UI states, and fixing layout bugs across desktop and mobile.",
-    highlights: [
-      "Implemented responsive sections from scratch using React and modern CSS.",
-      "Fixed cross-browser UI issues and tightened spacing consistency across the app.",
-      "Helped maintain a smoother handoff between design, frontend, and QA.",
-    ],
-  },
+    {
+        company: "SphiderAssWeb",
+        role: "Frontend Developer → Operations Officer",
+        period: "Oct 2023 - Oct 2024",
+        location: "Lagos, Nigeria",
+        description:
+            "Started as a Frontend Developer before transitioning into an Operations Officer role, contributing to both product development and internal company growth.",
+        highlights: [
+            "Built and maintained the company’s main website using modern frontend technologies.",
+            "Contributed to the development of a ticketing platform that powered an event with 3,000+ ticket sales.",
+            "Led recruitment efforts that increased the company workforce by over 300%.",
+            "Improved internal workflows and communication between departments.",
+            "Managed client relationships and translated business requirements into actionable development tasks.",
+        ],
+    },
+    {
+        company: "Freelance / Web3 Projects",
+        role: "Frontend Developer",
+        period: "2024 - Feb 2025",
+        location: "Remote",
+        description:
+            "Worked with multiple clients in the crypto and NFT space, building fast-paced landing pages and digital experiences for Web3 projects.",
+        highlights: [
+            "Designed and developed 30+ one-page websites for meme coin and NFT projects.",
+            "Built responsive and conversion-focused landing pages using React.js and Next.js.",
+            "Managed multiple client projects across different time zones and fast delivery cycles.",
+            "Focused on performance, responsiveness, and visually engaging UI experiences.",
+        ],
+    },
+    {
+        company: "Eeko",
+        role: "Product Manager",
+        period: "Apr 2025 - Dec 2025",
+        location: "Remote",
+        description:
+            "Led product planning and execution for an interactive Yoruba learning platform focused on engagement and immersive education.",
+        highlights: [
+            "Defined product features, user flows, and development priorities.",
+            "Collaborated closely with design and engineering teams to improve product delivery.",
+            "Focused on onboarding, engagement, and improving the learning experience for users.",
+            "Managed communication between stakeholders and development teams.",
+        ],
+    },
+    {
+        company: "WeTalkSound",
+        role: "Freelance Frontend Developer",
+        period: "2025",
+        location: "Remote",
+        description:
+            "Developed production-ready cultural and music-focused platforms that blended storytelling, visuals, and performance-driven frontend development.",
+        highlights: [
+            "Built and launched Mara Mania, a documentary storytelling platform.",
+            "Developed Cafe Riddim, a digital platform for an African electronic music collective.",
+            "Integrated Spotify APIs, Cloudinary media management, and Resend email systems.",
+            "Translated Figma designs into responsive, high-performance interfaces using Next.js and TypeScript.",
+        ],
+    },
+    {
+        company: "Health Connect",
+        role: "Frontend Developer & Product Lead",
+        period: "2025 - Present",
+        location: "Remote",
+        description:
+            "Currently leading both product direction and frontend development for a health-focused platform aimed at improving healthcare accessibility and connectivity.",
+        highlights: [
+            "Leading product planning, feature direction, and frontend architecture.",
+            "Building scalable healthcare-focused interfaces with modern frontend technologies.",
+            "Balancing user experience, accessibility, and product strategy during development.",
+        ],
+    },
 ];
-
 const skillGroups = [
 
   {
