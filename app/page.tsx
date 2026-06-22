@@ -15,7 +15,7 @@ const experiences = [
         description:
             "Started as a Frontend Developer before transitioning into an Operations Officer role, contributing to both product development and internal company growth.",
         highlights: [
-            "Built and maintained the company’s main website using modern frontend technologies.",
+            "Built and maintained the company's main website using modern frontend technologies.",
             "Contributed to the development of a ticketing platform that powered an event with 3,000+ ticket sales.",
             "Led recruitment efforts that increased the company workforce by over 300%.",
             "Improved internal workflows and communication between departments.",
@@ -309,23 +309,23 @@ export default function Home() {
                   My Story<span className="story-dot">.</span>
               </p>
               <div className="story-content">
-                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.05s’ }}>
+                  <p className="story-paragraph reveal" style={{ transitionDelay: '0.05s' }}>
                       My journey into tech started with curiosity and creativity — building interfaces, experimenting with ideas, and learning how products shape the way people interact online. Over time, I transitioned from simply writing code into understanding how to build experiences people genuinely connect with.
                   </p>
 
-                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.1s’ }}>
+                  <p className="story-paragraph reveal" style={{ transitionDelay: '0.1s' }}>
                       I started working as a <span className="story-accent">front-end developer</span>, building responsive websites and web applications using modern technologies like ReactJS and NextJS while collaborating with teams on client and in-house products.
                   </p>
 
-                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.15s’ }}>
+                  <p className="story-paragraph reveal" style={{ transitionDelay: '0.15s' }}>
                       As I gained more experience, I naturally moved into <span className="story-accent">product and project management</span>, helping teams organize workflows, structure development processes, manage timelines, and turn ideas into scalable digital products.
                   </p>
 
-                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.2s’ }}>
-                      I’ve worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
+                  <p className="story-paragraph reveal" style={{ transitionDelay: '0.2s' }}>
+                      I've worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
                   </p>
 
-                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.25s’ }}>
+                  <p className="story-paragraph reveal" style={{ transitionDelay: '0.25s' }}>
                       Today, I combine both technical and product thinking to create experiences that are not only visually engaging but also functional, scalable, and user-focused. I genuinely enjoy building products, leading ideas from concept to execution, and continuously improving my craft. <span className="story-heart">💜</span>
                   </p>
               </div>          </section>
