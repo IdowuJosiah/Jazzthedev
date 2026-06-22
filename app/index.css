@@ -1217,7 +1217,6 @@
     text-decoration: none;
     color: inherit;
     transition: transform 0.4s cubic-bezier(0.22,1,0.36,1),
-                box-shadow 0.4s ease,
                 opacity 0.7s cubic-bezier(0.22,1,0.36,1);
 }
 .project-list-top-left:hover,
@@ -1225,7 +1224,22 @@
 .project-list-bottom-left:hover,
 .project-list-bottom-right:hover {
     transform: translateY(-7px);
-    box-shadow: 0 18px 44px rgba(110, 6, 242, 0.12);
+}
+
+/* Shadow lives on the image so it follows the border-radius */
+.pj-image-4,
+.pj-image-6 {
+    transition: box-shadow 0.4s ease;
+}
+.project-list-top-left:hover .pj-image-4,
+.project-list-top-left:hover .pj-image-6,
+.project-list-top-right:hover .pj-image-4,
+.project-list-top-right:hover .pj-image-6,
+.project-list-bottom-left:hover .pj-image-4,
+.project-list-bottom-left:hover .pj-image-6,
+.project-list-bottom-right:hover .pj-image-4,
+.project-list-bottom-right:hover .pj-image-6 {
+    box-shadow: 0 20px 48px rgba(110, 6, 242, 0.18);
 }
 
 /* ─── Experience tab-switch animation ─── */
