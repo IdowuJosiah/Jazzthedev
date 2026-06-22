@@ -31,16 +31,16 @@ export default function SiteFooter() {
                         ))}
                     </div>
                     <div className="footer-socials">
-                        <Link href="https://instagram.com" aria-label="Instagram" className="footer-social-link">
+                        <Link href="https://www.instagram.com/jazz_thedev/" aria-label="Instagram" className="footer-social-link" target="_blank" rel="noopener noreferrer">
                             <FiInstagram />
                         </Link>
-                        <Link href="https://linkedin.com" aria-label="LinkedIn" className="footer-social-link">
+                        <Link href="https://linkedin.com" aria-label="LinkedIn" className="footer-social-link" target="_blank" rel="noopener noreferrer">
                             <FiLinkedin />
                         </Link>
-                        <Link href="https://github.com" aria-label="GitHub" className="footer-social-link">
+                        <Link href="https://github.com/IdowuJosiah" aria-label="GitHub" className="footer-social-link" target="_blank" rel="noopener noreferrer">
                             <FiGithub />
                         </Link>
-                        <Link href="https://dribbble.com" aria-label="Dribbble" className="footer-social-link">
+                        <Link href="https://dribbble.com" aria-label="Dribbble" className="footer-social-link" target="_blank" rel="noopener noreferrer">
                             <FiDribbble />
                         </Link>
                     </div>

@@ -1164,6 +1164,101 @@
     }
 }
 
+/* ═══════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════ */
+
+@keyframes fadeUpIn {
+    from { opacity: 0; transform: translateY(32px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleInFade {
+    from { opacity: 0; transform: scale(0.9); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@keyframes floatY {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-14px); }
+}
+@keyframes detailsFadeIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── Hero load-time entrance ─── */
+.hero-first-line  { animation: fadeUpIn 0.7s cubic-bezier(0.22,1,0.36,1) both; }
+.hero-second-line { animation: fadeUpIn 0.75s cubic-bezier(0.22,1,0.36,1) 0.12s both; }
+.hero-third-line  { animation: fadeUpIn 0.75s cubic-bezier(0.22,1,0.36,1) 0.24s both; }
+.hero-fourth-line { animation: fadeUpIn 0.75s cubic-bezier(0.22,1,0.36,1) 0.38s both; }
+.hero-profile     { animation: scaleInFade 0.9s cubic-bezier(0.22,1,0.36,1) 0.18s both; }
+
+/* ─── Floating profile circle ─── */
+.hero-profile-circle {
+    animation: floatY 6s ease-in-out infinite;
+}
+
+/* ─── Scroll reveal ─── */
+.reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1),
+                transform 0.7s cubic-bezier(0.22,1,0.36,1);
+}
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ─── Project card link reset + hover lift ─── */
+.project-list-top-left,
+.project-list-top-right,
+.project-list-bottom-left,
+.project-list-bottom-right {
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.4s cubic-bezier(0.22,1,0.36,1),
+                box-shadow 0.4s ease,
+                opacity 0.7s cubic-bezier(0.22,1,0.36,1);
+}
+.project-list-top-left:hover,
+.project-list-top-right:hover,
+.project-list-bottom-left:hover,
+.project-list-bottom-right:hover {
+    transform: translateY(-7px);
+    box-shadow: 0 18px 44px rgba(110, 6, 242, 0.12);
+}
+
+/* ─── Experience tab-switch animation ─── */
+.experience-details-card {
+    animation: detailsFadeIn 0.35s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+/* ─── Button hover glow ─── */
+.git {
+    transition: box-shadow 0.3s ease, transform 0.25s ease;
+}
+.git:hover {
+    box-shadow: 0 8px 28px rgba(110, 6, 242, 0.4);
+    transform: translateY(-2px);
+}
+.bp {
+    transition: background 0.3s ease, border-color 0.3s ease, transform 0.25s ease;
+}
+.bp:hover {
+    background: rgba(110, 6, 242, 0.06);
+    border-color: rgb(110, 6, 242);
+    transform: translateY(-2px);
+}
+
+/* ─── Footer social link hover ─── */
+.footer-social-link {
+    transition: color 0.25s ease, transform 0.25s ease;
+}
+.footer-social-link:hover {
+    color: rgb(110, 6, 242);
+    transform: translateY(-3px);
+}
+
 @media (max-width: 390px) {
     .page-width{
         padding: 0.85rem;

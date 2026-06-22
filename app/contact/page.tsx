@@ -15,17 +15,17 @@ export default function ContactPage() {
                         Looking to partner or work together? Reach out through the form and I&apos;ll get back to you in the next 48 hours.
                     </p>
                     <div className="contact-info-list">
-                        <Link href="mailto:info@purplefolio.com" className="contact-info-item">
+                        <Link href="mailto:josiahidowutioluwanimi@gmail.com" className="contact-info-item">
                             <span className="contact-info-icon">
                                 <FiMail />
                             </span>
-                            <span>info@purplefolio.com</span>
+                            <span>josiahidowutioluwanimi@gmail.com</span>
                         </Link>
-                        <Link href="tel:+11231231234" className="contact-info-item">
+                        <Link href="tel:+2348081274082" className="contact-info-item">
                             <span className="contact-info-icon">
                                 <FiPhone />
                             </span>
-                            <span>+1 123 123 1234</span>
+                            <span>+234 808 127 4082</span>
                         </Link>
                     </div>
                 </div>

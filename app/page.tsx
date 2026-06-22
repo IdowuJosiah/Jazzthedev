@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import "./index.css";
@@ -107,6 +107,7 @@ const featuredProjects = [
     image: "/images/caferridim.png",
     imageClassName: "pj-image-4",
     alt: "Cafe Riddim project preview",
+    url: "https://www.caferiddim.com",
     description:
         "A cultural hub and digital home for Cafe Riddim, blending music, visuals, artist submissions, and community experiences.",
   },
@@ -115,6 +116,7 @@ const featuredProjects = [
     image: "/images/eekoo.png",
     imageClassName: "pj-image-6",
     alt: "Eko project preview",
+    url: "https://eeko.site",
     description:
         "An interactive Yoruba learning platform with mini-games, pronunciation exercises, quizzes, and responsive learning flows.",
   },
@@ -123,6 +125,7 @@ const featuredProjects = [
     image: "/images/cRf6OhI78D9fHIZyhDlqODIP0.webp",
     imageClassName: "pj-image-6",
     alt: "Northstar project preview",
+    url: null,
     description:
         "A modular product showcase page built around reusable sections, elegant scaling, and premium content transitions.",
   },
@@ -131,6 +134,7 @@ const featuredProjects = [
     image: "/images/mara.png",
     imageClassName: "pj-image-4",
     alt: "Mara Mania project preview",
+    url: "https://www.maramania.live",
     description:
         "A cinematic documentary experience for bold visuals, storytelling-focused layouts, and African street culture presentation.",
   },
@@ -140,6 +144,18 @@ const featuredProjects = [
 export default function Home() {
   const [selectedExperience, setSelectedExperience] = useState(0);
   const activeExperience = experiences[selectedExperience];
+
+  useEffect(() => {
+    const els = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }
+      }),
+      { threshold: 0.1 }
+    );
+    els.forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
 
   return (
       <main className="page-width" id="home">
@@ -160,7 +176,7 @@ export default function Home() {
                       I&apos;m a frontend developer based in Italy, I&apos;ll help you build beautiful websites your users will love.
                   </div>
                   <div className="hero-fourth-line">
-                      <Link href="#contact" className="git">
+                      <Link href="/contact" className="git">
                         Get In Touch
                       </Link>
                       <Link href="#projects" className="bp">
@@ -178,12 +194,12 @@ export default function Home() {
           </div>
           <section className="landing-page-projects" id="projects">
             <div className="landing-page-projects-container">
-                <h1 className="projects-heading">
+                <h1 className="projects-heading reveal">
                     Projects
                 </h1>
                 <div className="list-projects-container" >
                     <section className="project-list-top">
-                        <div className="project-list-top-left">
+                        <Link href={featuredProjects[0].url ?? "#"} target={featuredProjects[0].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-top-left reveal" style={{ transitionDelay: '0.1s' }}>
                             <Image src={featuredProjects[0].image} className={featuredProjects[0].imageClassName} alt={featuredProjects[0].alt} width={200} height={200} />
                             <p className="landing-project-title">
                                <span className="l-project-name">{featuredProjects[0].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
@@ -191,8 +207,8 @@ export default function Home() {
                             <p className="landing-project-description">
                                 {featuredProjects[0].description}
                             </p>
-                        </div>
-                        <div className="project-list-top-right">
+                        </Link>
+                        <Link href={featuredProjects[1].url ?? "#"} target={featuredProjects[1].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-top-right reveal" style={{ transitionDelay: '0.2s' }}>
                             <Image src={featuredProjects[1].image} className={featuredProjects[1].imageClassName} alt={featuredProjects[1].alt} width={200} height={200} />
                             <p className="landing-project-title">
                                 <span className="l-project-name">{featuredProjects[1].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
@@ -200,10 +216,10 @@ export default function Home() {
                             <p className="landing-project-description">
                                 {featuredProjects[1].description}
                             </p>
-                        </div>
+                        </Link>
                     </section>
                     <section className="project-list-bottom">
-                        <div className="project-list-bottom-left">
+                        <Link href={featuredProjects[2].url ?? "#"} target={featuredProjects[2].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-bottom-left reveal" style={{ transitionDelay: '0.15s' }}>
                             <Image src={featuredProjects[2].image} className={featuredProjects[2].imageClassName} alt={featuredProjects[2].alt} width={200} height={200} />
                             <p className="landing-project-title">
                                 <span className="l-project-name">{featuredProjects[2].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
@@ -211,8 +227,8 @@ export default function Home() {
                             <p className="landing-project-description">
                                 {featuredProjects[2].description}
                             </p>
-                        </div>
-                        <div className="project-list-bottom-right">
+                        </Link>
+                        <Link href={featuredProjects[3].url ?? "#"} target={featuredProjects[3].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-bottom-right reveal" style={{ transitionDelay: '0.25s' }}>
                             <Image src={featuredProjects[3].image} className={featuredProjects[3].imageClassName} alt={featuredProjects[3].alt} width={200} height={200} />
                             <p className="landing-project-title">
                                 <span className="l-project-name">{featuredProjects[3].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
@@ -220,18 +236,18 @@ export default function Home() {
                             <p className="landing-project-description">
                                 {featuredProjects[3].description}
                             </p>
-                        </div>
+                        </Link>
                     </section>
                 </div>
             </div>
           </section>
           <section id="experience">
             <div className="experience-section">
-                <p className="experience-heading">
+                <p className="experience-heading reveal">
                     Experience
                 </p>
                 <div className="experience-content">
-                    <div className="experience-company-list">
+                    <div className="experience-company-list reveal" style={{ transitionDelay: '0.1s' }}>
                         {experiences.map((experience, index) => (
                             <button
                                 key={experience.company}
@@ -244,7 +260,7 @@ export default function Home() {
                             </button>
                         ))}
                     </div>
-                    <div className="experience-details-card">
+                    <div key={selectedExperience} className="experience-details-card">
                         <div className="experience-details-top">
                             <div>
                                 <p className="experience-role">{activeExperience.role}</p>
@@ -270,12 +286,12 @@ export default function Home() {
             </div>
           </section>
           <section className="skills-section" id="skills">
-              <p className="skills-heading">
+              <p className="skills-heading reveal">
                   Skills<span className="skills-dot">.</span>
               </p>
               <div className="skills-grid">
-                  {skillGroups.map((group) => (
-                      <article key={group.title} className="skill-column">
+                  {skillGroups.map((group, index) => (
+                      <article key={group.title} className="skill-column reveal" style={{ transitionDelay: `${index * 0.12}s` }}>
                           <h3 className="skill-card-title">{group.title}</h3>
                           <div className="skill-list">
                               {group.skills.map((skill) => (
@@ -289,27 +305,27 @@ export default function Home() {
               </div>
           </section>
           <section className="story-section" id="about">
-              <p className="story-heading">
+              <p className="story-heading reveal">
                   My Story<span className="story-dot">.</span>
               </p>
               <div className="story-content">
-                  <p className="story-paragraph">
+                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.05s’ }}>
                       My journey into tech started with curiosity and creativity — building interfaces, experimenting with ideas, and learning how products shape the way people interact online. Over time, I transitioned from simply writing code into understanding how to build experiences people genuinely connect with.
                   </p>
 
-                  <p className="story-paragraph">
+                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.1s’ }}>
                       I started working as a <span className="story-accent">front-end developer</span>, building responsive websites and web applications using modern technologies like ReactJS and NextJS while collaborating with teams on client and in-house products.
                   </p>
 
-                  <p className="story-paragraph">
+                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.15s’ }}>
                       As I gained more experience, I naturally moved into <span className="story-accent">product and project management</span>, helping teams organize workflows, structure development processes, manage timelines, and turn ideas into scalable digital products.
                   </p>
 
-                  <p className="story-paragraph">
+                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.2s’ }}>
                       I’ve worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
                   </p>
 
-                  <p className="story-paragraph">
+                  <p className="story-paragraph reveal" style={{ transitionDelay: ‘0.25s’ }}>
                       Today, I combine both technical and product thinking to create experiences that are not only visually engaging but also functional, scalable, and user-focused. I genuinely enjoy building products, leading ideas from concept to execution, and continuously improving my craft. <span className="story-heart">💜</span>
                   </p>
               </div>          </section>
