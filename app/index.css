@@ -1305,3 +1305,98 @@
         top: 5.25rem !important;
     }
 }
+
+/* ═══════════════════════════════════
+   DARK MODE OVERRIDES
+═══════════════════════════════════ */
+
+@media (prefers-color-scheme: dark) {
+    /* ─── Headings with hardcoded dark colors ─── */
+    .projects-page-heading,
+    .about-heading,
+    .contact-heading,
+    .project-showcase-title,
+    .project-showcase-link,
+    .about-stack-heading,
+    .about-section-heading,
+    .experience-timeline-number,
+    .experience-timeline-company {
+        color: #ededed;
+    }
+
+    /* ─── Body / paragraph text ─── */
+    .experience-description,
+    .experience-highlight-item,
+    .story-paragraph,
+    .about-intro,
+    .experience-timeline-paragraph,
+    .projects-page-description,
+    .project-showcase-description,
+    .contact-description,
+    .contact-info-item {
+        color: rgb(160, 160, 165);
+    }
+    .experience-meta {
+        color: rgb(150, 150, 155);
+    }
+    .skill-list-item {
+        color: rgb(160, 160, 165);
+    }
+    .footer-nav-link,
+    .footer-social-link,
+    .projects-page-panel-list,
+    .cta-footer-title {
+        color: rgb(175, 175, 180);
+    }
+    .cta-footer-right {
+        color: rgb(140, 140, 145);
+    }
+
+    /* ─── Hero "Browse Projects" button ─── */
+    .bp {
+        border-color: rgba(237, 237, 237, 0.25);
+        color: #ededed;
+    }
+    .footer-browse-button {
+        color: #ededed;
+    }
+
+    /* ─── Experience company list ─── */
+    .experience-company-item {
+        background: transparent;
+        color: rgb(175, 175, 180);
+        border-left-color: rgba(237, 237, 237, 0.2);
+    }
+
+    /* ─── Project showcase cards ─── */
+    .project-showcase-card {
+        background: linear-gradient(180deg, rgba(20, 20, 24, 0.95), rgba(14, 14, 18, 0.98));
+        border-color: rgba(237, 237, 237, 0.06);
+        box-shadow: 0 35px 80px rgba(0, 0, 0, 0.5);
+    }
+    .project-showcase-tag {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(237, 237, 237, 0.1);
+        color: rgb(160, 160, 165);
+    }
+
+    /* ─── About page blocks ─── */
+    .about-stack-block,
+    .about-feature-block {
+        background: rgba(20, 20, 24, 0.7);
+    }
+
+    /* ─── Projects page hero panel ─── */
+    .projects-page-hero-panel {
+        background:
+            radial-gradient(circle at top left, rgba(110, 6, 242, 0.14), transparent 45%),
+            linear-gradient(180deg, rgba(20, 20, 24, 1), rgba(14, 14, 18, 1));
+        border-color: rgba(237, 237, 237, 0.08);
+    }
+
+    /* ─── Contact info icon border ─── */
+    .contact-info-icon {
+        border-color: rgba(237, 237, 237, 0.2);
+        color: rgb(160, 160, 165);
+    }
+}

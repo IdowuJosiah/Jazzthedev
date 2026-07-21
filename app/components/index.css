@@ -96,3 +96,19 @@
         margin-left: auto;
     }
 }
+
+@media (prefers-color-scheme: dark) {
+    .navbar {
+        background: rgba(10, 10, 10, 0.9);
+    }
+    .navbar-brand {
+        color: #ededed;
+    }
+    .nav-brand-dot {
+        background-color: #ededed;
+    }
+    .nav-chat-icon {
+        background-color: #ededed;
+        color: #0a0a0a;
+    }
+}
