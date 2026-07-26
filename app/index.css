@@ -408,11 +408,10 @@
 .projects-showcase-section{
     display: flex;
     flex-direction: column;
-    gap: 8rem;
-    padding-bottom: max(12rem, 32vh);
+    gap: 6rem;
+    padding-bottom: 4rem;
 }
 .project-showcase-card{
-    position: sticky;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -421,7 +420,7 @@
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 247, 249, 0.98));
     border: 1px solid rgba(23, 23, 23, 0.06);
     box-shadow: 0 35px 80px rgba(21, 24, 34, 0.12);
-    transform: translateY(32px) scale(0.96);
+    transform: translateY(32px) scale(0.98);
     opacity: 0;
     transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.9s ease;
     overflow: hidden;
@@ -433,7 +432,7 @@
 .project-showcase-image-wrap{
     position: relative;
     width: 100%;
-    height: min(52vh, 34rem);
+    height: min(66vh, 42rem);
     border-radius: 24px;
     overflow: hidden;
 }
@@ -1035,7 +1034,6 @@
         padding-bottom: 6rem;
     }
     .project-showcase-card{
-        top: 6rem !important;
         padding: 0.7rem;
         border-radius: 20px;
         gap: 1rem;
@@ -1331,9 +1329,6 @@
     }
     .experience-timeline-company{
         font-size: 1.75rem;
-    }
-    .project-showcase-card{
-        top: 5.25rem !important;
     }
 }
 
