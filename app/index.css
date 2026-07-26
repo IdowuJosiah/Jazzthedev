@@ -421,8 +421,8 @@
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 247, 249, 0.98));
     border: 1px solid rgba(23, 23, 23, 0.06);
     box-shadow: 0 35px 80px rgba(21, 24, 34, 0.12);
-    transform: translateY(70px) scale(0.96);
-    opacity: 0.35;
+    transform: translateY(32px) scale(0.96);
+    opacity: 0;
     transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.9s ease;
     overflow: hidden;
 }
@@ -433,7 +433,7 @@
 .project-showcase-image-wrap{
     position: relative;
     width: 100%;
-    height: min(66vh, 42rem);
+    height: min(52vh, 34rem);
     border-radius: 24px;
     overflow: hidden;
 }
@@ -1271,6 +1271,37 @@
 .footer-social-link:hover {
     color: rgb(110, 6, 242);
     transform: translateY(-3px);
+}
+
+/* ─── Reduced-motion: show everything, skip the motion ─── */
+@media (prefers-reduced-motion: reduce) {
+    .hero-first-line,
+    .hero-second-line,
+    .hero-third-line,
+    .hero-fourth-line,
+    .hero-profile,
+    .experience-details-card {
+        animation: none;
+    }
+    .hero-profile-circle {
+        animation: none;
+    }
+    .reveal,
+    .reveal.visible {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+    .project-showcase-card {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+    .project-showcase-image,
+    .project-showcase-card-visible .project-showcase-image {
+        transform: none;
+        transition: none;
+    }
 }
 
 @media (max-width: 390px) {

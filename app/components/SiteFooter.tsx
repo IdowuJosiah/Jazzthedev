@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FiDribbble, FiGithub, FiInstagram, FiLinkedin } from "react-icons/fi";
+import { FiGithub, FiInstagram, FiLinkedin } from "react-icons/fi";
 
 const footerLinks = [
     { href: "/", label: "Home" },
@@ -34,14 +34,11 @@ export default function SiteFooter() {
                         <Link href="https://www.instagram.com/jazz_thedev/" aria-label="Instagram" className="footer-social-link" target="_blank" rel="noopener noreferrer">
                             <FiInstagram />
                         </Link>
-                        <Link href="https://linkedin.com" aria-label="LinkedIn" className="footer-social-link" target="_blank" rel="noopener noreferrer">
+                        <Link href="https://www.linkedin.com/in/josiah-idowu-7282a6232/" aria-label="LinkedIn" className="footer-social-link" target="_blank" rel="noopener noreferrer">
                             <FiLinkedin />
                         </Link>
                         <Link href="https://github.com/IdowuJosiah" aria-label="GitHub" className="footer-social-link" target="_blank" rel="noopener noreferrer">
                             <FiGithub />
-                        </Link>
-                        <Link href="https://dribbble.com" aria-label="Dribbble" className="footer-social-link" target="_blank" rel="noopener noreferrer">
-                            <FiDribbble />
                         </Link>
                     </div>
                 </div>

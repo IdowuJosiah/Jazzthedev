@@ -99,7 +99,7 @@ export default function ProjectsPage() {
                         }}
                         data-index={index}
                         className={`project-showcase-card ${visibleCards.includes(index) ? "project-showcase-card-visible" : ""}`}
-                        style={{ top: `${7 + index * 1.5}rem` }}
+                        style={{ top: `${7 + index * 2.75}rem` }}
                     >
                         <div className="project-showcase-image-wrap">
                             <Image

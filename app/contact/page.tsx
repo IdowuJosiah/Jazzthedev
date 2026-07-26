@@ -12,7 +12,7 @@ export default function ContactPage() {
                         Get In Touch<span className="story-dot">.</span>
                     </p>
                     <p className="contact-description">
-                        Looking to partner or work together? Reach out through the form and I&apos;ll get back to you in the next 48 hours.
+                        Looking to partner or work together? Reach out by email or phone and I&apos;ll get back to you in the next 48 hours.
                     </p>
                     <div className="contact-info-list">
                         <Link href="mailto:josiahidowutioluwanimi@gmail.com" className="contact-info-item">
