@@ -136,16 +136,16 @@ export default function AboutPage() {
                 </p>
             </section>
 
-            <section className="about-stack-section">
-                <h2 className="about-stack-heading">What I Work With</h2>
-                <div className="about-stack-list">
-                    {stackItems.map((item) => (
-                        <span key={item} className="about-stack-item">
-                            {item}
-                        </span>
-                    ))}
-                </div>
-            </section>
+            {/*<section className="about-stack-section">*/}
+            {/*    <h2 className="about-stack-heading">What I Work With</h2>*/}
+            {/*    <div className="about-stack-list">*/}
+            {/*        {stackItems.map((item) => (*/}
+            {/*            <span key={item} className="about-stack-item">*/}
+            {/*                {item}*/}
+            {/*            </span>*/}
+            {/*        ))}*/}
+            {/*    </div>*/}
+            {/*</section>*/}
 
             <section className="about-story-section">
                 <h2 className="about-section-heading">

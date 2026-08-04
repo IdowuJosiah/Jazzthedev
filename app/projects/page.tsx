@@ -26,19 +26,19 @@ const projects = [
         tags: ["Frontend", "Gamification", "UX Design", "Responsive UI"],
     },
     {
-        title: "Northstar",
-        subtitle: "Product Showcase Platform",
-        year: "2026",
-        image: "/images/cRf6OhI78D9fHIZyhDlqODIP0.webp",
+        title: "VoiceRank",
+        subtitle: "Content Creator Platform",
+        year: "Still in construction",
+        image: "/images/voicerankimage.png",
         description:
-            "A modular product presentation page designed around reusable sections, elegant scaling across devices, and premium-feeling content transitions.",
+            " Nigerian creator-marketing platform where brands fund campaigns and TikTok creators earn real cash for posting videos that promote them. It verifies creator ownership and views via the TikTok API, then routes approved payouts straight to creators bank",
         tags: ["React", "Component Systems", "Accessibility"],
     },
     {
         title: "Mara Mania",
         subtitle: "Documentary & Cultural Storytelling Platform",
         year: "2026",
-        image: "/images/mara.png",
+        image: "/images/maramaniaimage.png",
         description:
             "A cinematic documentary experience built to showcase Mara Mania through bold visuals, storytelling-focused layouts, and immersive presentation of African street culture, music, and movement.",
         tags: ["Creative Direction", "Visual Storytelling", "UI Design", "Motion"],

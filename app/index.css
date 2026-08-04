@@ -43,7 +43,7 @@
 }
 .git{
     display: flex;
-    background: rgb(110, 6, 242);
+    background: rgb(29, 78, 216);
     border-radius: 10px;
     padding: .7rem 1.5rem;
     color: white;
@@ -63,7 +63,7 @@
 }
 .hero-profile-circle{
     padding: 15px;
-    border: 1px solid mediumpurple;
+    border: 1px solid rgba(29, 78, 216, 0.5);
     border-radius: 50%;
     width: 25rem;
     height: 25rem;
@@ -148,10 +148,10 @@
     font-weight: 600;
 }
 .l-project-link{
-    color: rgb(110, 6, 242) ;
+    color: rgb(29, 78, 216) ;
     width: 25px;
     height: 25px;
-    border: 2px solid rgb(110, 6, 242);
+    border: 2px solid rgb(29, 78, 216);
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -161,7 +161,7 @@
 }
 .l-project-link:hover{
     color: white;
-    background-color: rgb(110, 6, 242);
+    background-color: rgb(29, 78, 216);
     cursor: pointer;
 }
 .landing-project-description{
@@ -209,9 +209,9 @@
 }
 
 .active-experience{
-    border-left:2px solid rgb(110, 6, 242);
-    color: rgb(110, 6, 242);
-    box-shadow: 0 20px 40px rgba(110, 6, 242, 0.16);
+    border-left:2px solid rgb(29, 78, 216);
+    color: rgb(29, 78, 216);
+    box-shadow: 0 20px 40px rgba(29, 78, 216, 0.16);
 }
 .experience-company-period{
     font-size: 0.95rem;
@@ -236,7 +236,7 @@
 }
 .experience-company-name{
     font-size: 1.1rem;
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
     font-weight: 600;
 }
 .experience-meta{
@@ -270,7 +270,7 @@
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 50%;
-    background: rgb(110, 6, 242);
+    background: rgb(29, 78, 216);
 }
 .skills-section{
     min-height: 60vh;
@@ -285,7 +285,7 @@
     line-height: 1;
 }
 .skills-dot{
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
 }
 .skills-grid{
     display: grid;
@@ -325,7 +325,7 @@
     line-height: 1;
 }
 .story-dot{
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
 }
 .story-content{
     max-width: 100%;
@@ -341,7 +341,7 @@
 }
 .story-accent,
 .story-heart{
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
 }
 .projects-page-shell{
     padding-top: 3rem;
@@ -364,7 +364,7 @@
     font-size: 1rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
     font-weight: 600;
 }
 .projects-page-heading{
@@ -384,7 +384,7 @@
     padding: 2rem;
     border-radius: 28px;
     background:
-        radial-gradient(circle at top left, rgba(110, 6, 242, 0.14), transparent 45%),
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.14), transparent 45%),
         linear-gradient(180deg, rgba(250, 250, 252, 1), rgba(244, 244, 247, 1));
     border: 1px solid rgba(23, 23, 23, 0.08);
     display: flex;
@@ -395,7 +395,7 @@
     font-size: 0.95rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
     font-weight: 700;
 }
 .projects-page-panel-list{
@@ -465,7 +465,7 @@
 .project-showcase-subtitle{
     display: inline-flex;
     align-items: center;
-    border-radius: 999px;
+    border-radius: 8px;
     padding: 0.7rem 1rem;
     background: rgba(255, 255, 255, 0.88);
     backdrop-filter: blur(10px);
@@ -512,7 +512,7 @@
 }
 .project-showcase-tag{
     padding: 0.8rem 1rem;
-    border-radius: 999px;
+    border-radius: 8px;
     border: 1px solid rgba(23, 23, 23, 0.08);
     background: white;
     color: rgb(73, 73, 73);
@@ -562,7 +562,7 @@
 .about-stack-item{
     padding: 0.8rem 1rem;
     border-radius: 999px;
-    background: rgba(110, 6, 242, 0.08);
+    background: rgba(29, 78, 216, 0.08);
     color: rgb(73, 73, 73);
     font-weight: 500;
 }
@@ -605,14 +605,14 @@
 .experience-timeline-line{
     width: 4px;
     height: 16rem;
-    background: rgba(110, 6, 242, 0.12);
+    background: rgba(29, 78, 216, 0.12);
     overflow: hidden;
     position: relative;
 }
 .experience-timeline-line-progress{
     position: absolute;
     inset: 0;
-    background: rgb(110, 6, 242);
+    background: rgb(29, 78, 216);
     transform: scaleY(0);
     transform-origin: top;
     transition: transform 0.12s linear;
@@ -625,7 +625,7 @@
 }
 .experience-timeline-role{
     font-size: 1.1rem;
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
     font-weight: 500;
 }
 .experience-timeline-company{
@@ -728,7 +728,7 @@
     width: 34rem;
     height: 34rem;
     border-radius: 50%;
-    border: 1px solid rgba(110, 6, 242, 0.3);
+    border: 1px solid rgba(29, 78, 216, 0.3);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -764,7 +764,7 @@
     color: rgb(80, 82, 91);
 }
 .active-footer-nav-link{
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
 }
 .footer-social-link{
     display: flex;
@@ -1237,7 +1237,7 @@
 .project-list-bottom-left:hover .pj-image-6,
 .project-list-bottom-right:hover .pj-image-4,
 .project-list-bottom-right:hover .pj-image-6 {
-    box-shadow: 0 20px 48px rgba(110, 6, 242, 0.18);
+    box-shadow: 0 20px 48px rgba(29, 78, 216, 0.18);
 }
 
 /* ─── Experience tab-switch animation ─── */
@@ -1250,15 +1250,15 @@
     transition: box-shadow 0.3s ease, transform 0.25s ease;
 }
 .git:hover {
-    box-shadow: 0 8px 28px rgba(110, 6, 242, 0.4);
+    box-shadow: 0 8px 28px rgba(29, 78, 216, 0.4);
     transform: translateY(-2px);
 }
 .bp {
     transition: background 0.3s ease, border-color 0.3s ease, transform 0.25s ease;
 }
 .bp:hover {
-    background: rgba(110, 6, 242, 0.06);
-    border-color: rgb(110, 6, 242);
+    background: rgba(29, 78, 216, 0.06);
+    border-color: rgb(29, 78, 216);
     transform: translateY(-2px);
 }
 
@@ -1267,7 +1267,7 @@
     transition: color 0.25s ease, transform 0.25s ease;
 }
 .footer-social-link:hover {
-    color: rgb(110, 6, 242);
+    color: rgb(29, 78, 216);
     transform: translateY(-3px);
 }
 
@@ -1415,7 +1415,7 @@
     /* ─── Projects page hero panel ─── */
     .projects-page-hero-panel {
         background:
-            radial-gradient(circle at top left, rgba(110, 6, 242, 0.14), transparent 45%),
+            radial-gradient(circle at top left, rgba(29, 78, 216, 0.14), transparent 45%),
             linear-gradient(180deg, rgba(20, 20, 24, 1), rgba(14, 14, 18, 1));
         border-color: rgba(237, 237, 237, 0.08);
     }
