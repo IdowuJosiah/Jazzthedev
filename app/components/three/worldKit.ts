@@ -5,6 +5,8 @@ import {
     frontendProjects,
     journeyStops,
     skillTotems,
+    ekoMilestones,
+    yorubaWords,
 } from "@/app/field/content/world";
 
 // ─────────────────────────────────────────────────────────────
@@ -38,10 +40,12 @@ export interface Interactable {
     contentIndex?: number;
     screen?: THREE.Mesh;
     booted?: boolean;
-    // marker (waypoint / totem)
+    // marker (waypoint / totem / milestone)
     info?: InfoContent;
     promptTitle?: string;
     promptSub?: string;
+    /** if set, interacting counts toward the sector's progress meter */
+    progressId?: string;
 }
 
 export interface SectorScene {
@@ -49,6 +53,8 @@ export interface SectorScene {
     interactables: Interactable[];
     spawn: { x: number; z: number; yaw: number };
     dispose: () => void;
+    /** number of milestones for the optional progress meter */
+    progressTotal?: number;
 }
 
 function hex(c: number) {
@@ -523,5 +529,220 @@ export function buildJourneySector(loader: THREE.TextureLoader): SectorScene {
         interactables,
         spawn: { x: 0, z: 17, yaw: 0 },
         dispose: () => disposables.forEach((d) => d.dispose()),
+    };
+}
+
+// ── Sector B — Eko (Yoruba learning app) ──
+
+const OCHRE = 0xd98a3d;
+const OCHRE_LIGHT = 0xf0b054;
+
+/** Procedural adire-style indigo textile pattern (white resist motifs). */
+function makeAdireTexture(track: Track): THREE.CanvasTexture {
+    const s = 256;
+    const c = document.createElement("canvas");
+    c.width = s;
+    c.height = s;
+    const g = c.getContext("2d")!;
+    g.fillStyle = "#1e2657";
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = "rgba(233,238,255,0.55)";
+    g.fillStyle = "rgba(233,238,255,0.5)";
+    g.lineWidth = 3;
+    // concentric-circle motifs at four cells
+    for (const [cx, cy] of [[64, 64], [192, 192], [192, 64], [64, 192]] as const) {
+        for (let r = 8; r <= 40; r += 10) {
+            g.beginPath();
+            g.arc(cx, cy, r, 0, Math.PI * 2);
+            g.stroke();
+        }
+        g.beginPath();
+        g.arc(cx, cy, 4, 0, Math.PI * 2);
+        g.fill();
+    }
+    // dotted cross-hatch between
+    for (let x = 16; x < s; x += 32) {
+        for (let y = 16; y < s; y += 32) {
+            g.beginPath();
+            g.arc(x, y, 2, 0, Math.PI * 2);
+            g.fill();
+        }
+    }
+    const t = track(new THREE.CanvasTexture(c));
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+}
+
+/** An Eko milestone monument along the path (ochre/indigo themed). */
+function buildMilestone(track: Track, adire: THREE.Texture, index: number): { group: THREE.Group; interactable: Interactable } {
+    const m = ekoMilestones[index];
+    const group = new THREE.Group();
+
+    const base = new THREE.Mesh(
+        track(new THREE.CylinderGeometry(1, 1.15, 0.4, 6)),
+        track(new THREE.MeshStandardMaterial({ color: 0x2a2f66, roughness: 0.85 }))
+    );
+    base.position.y = 0.2;
+    base.receiveShadow = true;
+    group.add(base);
+
+    // patterned monolith
+    const slab = new THREE.Mesh(
+        track(new THREE.BoxGeometry(1.8, 2.6, 0.35)),
+        track(new THREE.MeshStandardMaterial({ map: adire, roughness: 0.8 }))
+    );
+    slab.position.y = 1.7;
+    slab.castShadow = true;
+    group.add(slab);
+
+    // ochre cap
+    const cap = new THREE.Mesh(
+        track(new THREE.BoxGeometry(2, 0.25, 0.5)),
+        track(new THREE.MeshStandardMaterial({ color: OCHRE_LIGHT, emissive: OCHRE, emissiveIntensity: 0.5, roughness: 0.5 }))
+    );
+    cap.position.y = 3.1;
+    group.add(cap);
+
+    const label = makeLabel(track, m.title, m.step, 5, OCHRE_LIGHT);
+    label.position.y = 3.9;
+    group.add(label);
+
+    const halo = new THREE.Mesh(
+        track(new THREE.PlaneGeometry(2.6, 3.4)),
+        track(new THREE.MeshBasicMaterial({ color: OCHRE_LIGHT, transparent: true, opacity: 0 }))
+    );
+    halo.position.set(0, 1.9, -0.2);
+    group.add(halo);
+
+    const info: InfoContent = {
+        title: m.title,
+        sub: m.step,
+        body: m.body,
+        links: m.liveUrl ? [{ label: "Visit Eko", url: m.liveUrl }] : undefined,
+    };
+
+    return {
+        group,
+        interactable: {
+            x: 0,
+            z: 0,
+            kind: "marker",
+            halo,
+            promptTitle: m.title,
+            promptSub: m.step,
+            info,
+            progressId: `eko-${index}`,
+        },
+    };
+}
+
+/** A floating vocabulary orb with an always-visible word + translation. */
+function buildVocabOrb(track: Track, index: number): THREE.Group {
+    const v = yorubaWords[index % yorubaWords.length];
+    const group = new THREE.Group();
+    const orb = new THREE.Mesh(
+        track(new THREE.SphereGeometry(0.35, 18, 18)),
+        track(new THREE.MeshStandardMaterial({ color: OCHRE_LIGHT, emissive: OCHRE, emissiveIntensity: 1.1, roughness: 0.3 }))
+    );
+    group.add(orb);
+    const label = makeLabel(track, v.word, v.meaning, 3.2, OCHRE_LIGHT);
+    label.position.y = 0.85;
+    label.scale.setScalar(0.85);
+    group.add(label);
+    return group;
+}
+
+/**
+ * Sector B — Eko: a warm, culturally-rooted product-journey space. A
+ * short winding path of milestone monuments (indigo + adire textile
+ * patterns, ochre accents) with floating Yoruba vocabulary orbs nearby.
+ */
+export function buildEkoSector(loader: THREE.TextureLoader): SectorScene {
+    void loader;
+    const disposables: Array<{ dispose: () => void }> = [];
+    const track: Track = (o) => {
+        disposables.push(o);
+        return o;
+    };
+
+    const scene = new THREE.Scene();
+    const bg = 0x2a2352;
+    scene.background = new THREE.Color(bg);
+    scene.fog = new THREE.Fog(bg, 20, 78);
+
+    scene.add(new THREE.HemisphereLight(0xf3c9a0, 0x1a1636, 0.9));
+    const sun = new THREE.DirectionalLight(0xffd9a0, 1.15);
+    sun.position.set(12, 20, -8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.far = 70;
+    sun.shadow.camera.left = -32;
+    sun.shadow.camera.right = 32;
+    sun.shadow.camera.top = 32;
+    sun.shadow.camera.bottom = -32;
+    scene.add(sun);
+    const glow = new THREE.PointLight(OCHRE, 40, 45, 2);
+    glow.position.set(0, 8, -2);
+    scene.add(glow);
+
+    // adire-patterned ground
+    const adire = makeAdireTexture(track);
+    adire.repeat.set(18, 18);
+    const ground = new THREE.Mesh(
+        track(new THREE.CircleGeometry(80, 64)),
+        track(new THREE.MeshStandardMaterial({ map: adire, color: 0x6a74c9, roughness: 0.95 }))
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // winding path centreline through the milestones
+    const milestonePts: Array<[number, number]> = [[0, 12], [4.5, 6], [-3.5, 0], [3.5, -6], [-3, -12]];
+    const pathPts = [[0, 17] as [number, number], ...milestonePts];
+    const lineMat = track(new THREE.MeshBasicMaterial({ color: OCHRE_LIGHT, transparent: true, opacity: 0.85 }));
+    for (let i = 0; i < pathPts.length - 1; i++) {
+        const [x1, z1] = pathPts[i];
+        const [x2, z2] = pathPts[i + 1];
+        const dx = x2 - x1;
+        const dz = z2 - z1;
+        const len = Math.hypot(dx, dz);
+        const seg = new THREE.Mesh(track(new THREE.BoxGeometry(0.18, 0.06, len)), lineMat);
+        seg.position.set((x1 + x2) / 2, 0.08, (z1 + z2) / 2);
+        seg.rotation.y = Math.atan2(dx, dz);
+        scene.add(seg);
+    }
+
+    const interactables: Interactable[] = [];
+    ekoMilestones.forEach((_, i) => {
+        const [x, z] = milestonePts[i];
+        const { group, interactable } = buildMilestone(track, adire, i);
+        group.position.set(x, 0, z);
+        group.lookAt(0, group.position.y, z + 4);
+        interactable.x = x;
+        interactable.z = z;
+        scene.add(group);
+        interactables.push(interactable);
+    });
+
+    // floating vocabulary orbs scattered near the path
+    const orbGroup = new THREE.Group();
+    orbGroup.name = "orbs";
+    for (let i = 0; i < yorubaWords.length; i++) {
+        const orb = buildVocabOrb(track, i);
+        const ang = (i / yorubaWords.length) * Math.PI * 2;
+        const rad = 7 + (i % 3) * 2.5;
+        orb.position.set(Math.cos(ang) * rad, 1.8 + (i % 3) * 0.5, Math.sin(ang) * rad - 3);
+        orb.userData.baseY = orb.position.y;
+        orbGroup.add(orb);
+    }
+    scene.add(orbGroup);
+
+    return {
+        scene,
+        interactables,
+        spawn: { x: 0, z: 17, yaw: 0 },
+        dispose: () => disposables.forEach((d) => d.dispose()),
+        progressTotal: ekoMilestones.length,
     };
 }

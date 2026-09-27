@@ -8,6 +8,7 @@ import {
     buildGateway,
     buildFrontendSector,
     buildJourneySector,
+    buildEkoSector,
     type Interactable,
     type SectorScene,
     type InfoContent,
@@ -38,6 +39,7 @@ export default function ProjectField() {
     const [panel, setPanel] = useState<PanelInfo>(null);
     const [area, setArea] = useState<AreaId>("hub");
     const [transitioning, setTransitioning] = useState(false);
+    const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
     // Shared handles the scene exposes to React overlay buttons.
     const apiRef = useRef<{
@@ -402,9 +404,11 @@ export default function ProjectField() {
         const sectorBuilders: Partial<Record<SectorMeta["id"], (l: THREE.TextureLoader) => SectorScene>> = {
             frontend: buildFrontendSector,
             journey: buildJourneySector,
+            eko: buildEkoSector,
         };
 
         const hubSpawn = { x: 0, z: 22, yaw: 0 };
+        const visited = new Set<string>();
 
         const placeCar = (into: THREE.Scene, sx: number, sz: number, yaw: number) => {
             car.parent?.remove(car);
@@ -430,6 +434,8 @@ export default function ProjectField() {
                 activeList = s.interactables;
                 currentArea = id;
                 placeCar(s.scene, s.spawn.x, s.spawn.z, s.spawn.yaw);
+                visited.clear();
+                setProgress(s.progressTotal ? { done: 0, total: s.progressTotal } : null);
                 setArea(id);
                 setPrompt(null);
                 setTransitioning(false);
@@ -448,6 +454,7 @@ export default function ProjectField() {
                 activeList = hubInteractables;
                 currentArea = "hub";
                 placeCar(scene, hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
+                setProgress(null);
                 setArea("hub");
                 setPrompt(null);
                 setTransitioning(false);
@@ -476,6 +483,10 @@ export default function ProjectField() {
             } else if (it.kind === "terminal" && it.contentIndex != null) {
                 openPanel({ kind: "terminal", project: frontendProjects[it.contentIndex] });
             } else if (it.kind === "marker" && it.info) {
+                if (it.progressId && !visited.has(it.progressId)) {
+                    visited.add(it.progressId);
+                    setProgress((p) => (p ? { ...p, done: visited.size } : p));
+                }
                 openPanel({ kind: "info", content: it.info });
             }
         };
@@ -649,6 +660,13 @@ export default function ProjectField() {
                 } else {
                     const glyphs = activeScene.getObjectByName("glyphs");
                     if (glyphs) glyphs.rotation.y = t * 0.03;
+                    const orbGroup = activeScene.getObjectByName("orbs");
+                    if (orbGroup) {
+                        orbGroup.children.forEach((o, i) => {
+                            const baseY = (o.userData.baseY as number) ?? o.position.y;
+                            o.position.y = baseY + Math.sin(t * 0.9 + i) * 0.18;
+                        });
+                    }
                 }
             }
 
@@ -772,6 +790,22 @@ export default function ProjectField() {
                         ← Hub
                     </button>
                 </>
+            )}
+
+            {/* milestone progress meter */}
+            {started && area !== "hub" && progress && (
+                <div className="field-progress">
+                    <span className="field-progress-count">
+                        {progress.done} / {progress.total}
+                    </span>
+                    <span className="field-progress-label">milestones</span>
+                    <div className="field-progress-bar">
+                        <div
+                            className="field-progress-fill"
+                            style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                        />
+                    </div>
+                </div>
             )}
 
             {/* touch driving controls */}

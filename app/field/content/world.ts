@@ -26,7 +26,7 @@ export interface Terminal {
 /** The four sector gateways shown in the hub, in arc order. */
 export const sectors: SectorMeta[] = [
     { id: "frontend", name: "Frontend Projects", blurb: "Shipped frontend work", color: 0x1d4ed8, active: true },
-    { id: "eko", name: "Eko", blurb: "Product case study", color: 0xd97706, active: false },
+    { id: "eko", name: "Eko", blurb: "Product case study", color: 0xd97706, active: true },
     { id: "music", name: "Music Platform", blurb: "Spotify-powered", color: 0x9333ea, active: false },
     { id: "journey", name: "Journey & Skills", blurb: "Background & skills", color: 0x0d9488, active: true },
 ];
@@ -126,4 +126,53 @@ export const skillTotems: SkillTotem[] = [
         proof: "Day-to-day delivery across teams.",
         skills: ["Figma", "Notion", "Slack", "Analytics"],
     },
+];
+
+// ── Sector B — Eko (Yoruba Learning App), PM case study ──
+export interface EkoMilestone {
+    step: string;
+    title: string;
+    body: string;
+    liveUrl?: string;
+}
+
+export const ekoMilestones: EkoMilestone[] = [
+    {
+        step: "01 · Problem",
+        title: "The gap",
+        body: "Accessible, engaging Yoruba-learning tools are scarce. Most resources are academic or dry — not built for a new, mobile-first generation that wants to actually speak the language.",
+    },
+    {
+        step: "02 · Discovery",
+        title: "Research & insights",
+        body: "Talked to learners and diaspora users. The core insight: motivation collapses without play and pronunciation feedback — people needed quick wins, not grammar drills.",
+    },
+    {
+        step: "03 · Roadmap",
+        title: "Scope & priorities",
+        body: "Sequenced the core loops — vocabulary, pronunciation, quizzes, and mini-games — and deliberately cut scope to ship a focused, delightful MVP first.",
+    },
+    {
+        step: "04 · Delivery",
+        title: "Cross-functional build",
+        body: "Partnered with design and engineering to ship onboarding, interactive lessons, and gamified practice — balancing learning outcomes with engagement.",
+    },
+    {
+        step: "05 · Outcome",
+        title: "Where Eko is now",
+        body: "A live, interactive learning platform. Next up: expanding content depth and strengthening retention loops.",
+        liveUrl: "https://eeko.site",
+    },
+];
+
+/** Floating vocabulary orbs scattered near the path — playful texture. */
+export const yorubaWords: { word: string; meaning: string }[] = [
+    { word: "Ẹ káàbọ̀", meaning: "Welcome" },
+    { word: "Ọmọ", meaning: "Child" },
+    { word: "Ilé", meaning: "Home" },
+    { word: "Omi", meaning: "Water" },
+    { word: "Oúnjẹ", meaning: "Food" },
+    { word: "Ọ̀rẹ́", meaning: "Friend" },
+    { word: "Ìfẹ́", meaning: "Love" },
+    { word: "Ẹ ṣé", meaning: "Thank you" },
 ];

@@ -432,3 +432,42 @@
     .field-panel-close { background: rgba(255, 255, 255, 0.08); color: #cbd5e1; }
     .field-panel-tag { background: rgba(59, 130, 246, 0.14); color: #93b4ff; }
 }
+
+/* ── milestone progress meter ── */
+.field-progress {
+    position: absolute;
+    top: 3.9rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(10, 14, 23, 0.72);
+    color: #fff;
+    font-size: 0.82rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(240, 176, 84, 0.4);
+}
+.field-progress-count {
+    font-weight: 700;
+    color: #f0b054;
+}
+.field-progress-label {
+    opacity: 0.8;
+}
+.field-progress-bar {
+    width: 4.5rem;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    overflow: hidden;
+}
+.field-progress-fill {
+    height: 100%;
+    background: #f0b054;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
