@@ -9,6 +9,7 @@ import {
     buildFrontendSector,
     buildJourneySector,
     buildEkoSector,
+    buildMusicSector,
     type Interactable,
     type SectorScene,
     type InfoContent,
@@ -405,10 +406,90 @@ export default function ProjectField() {
             frontend: buildFrontendSector,
             journey: buildJourneySector,
             eko: buildEkoSector,
+            music: buildMusicSector,
         };
 
         const hubSpawn = { x: 0, z: 22, yaw: 0 };
         const visited = new Set<string>();
+
+        // ---- Web Audio demo (Sector C) — generated tone, never autoplays ----
+        let audioCtx: AudioContext | null = null;
+        let analyser: AnalyserNode | null = null;
+        let freqData: Uint8Array<ArrayBuffer> | null = null;
+        let bassOsc: OscillatorNode | null = null;
+        let masterGain: GainNode | null = null;
+        let arpTimer = 0;
+        let audioOn = false;
+
+        const startDemo = () => {
+            if (audioOn) return;
+            try {
+                const AC =
+                    window.AudioContext ||
+                    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                const ctx = new AC();
+                audioCtx = ctx;
+                void ctx.resume();
+                analyser = ctx.createAnalyser();
+                analyser.fftSize = 128;
+                freqData = new Uint8Array(analyser.frequencyBinCount);
+                masterGain = ctx.createGain();
+                masterGain.gain.value = 0;
+                masterGain.connect(analyser);
+                analyser.connect(ctx.destination);
+                // bass drone
+                bassOsc = ctx.createOscillator();
+                bassOsc.type = "sawtooth";
+                bassOsc.frequency.value = 55;
+                const bGain = ctx.createGain();
+                bGain.gain.value = 0.12;
+                bassOsc.connect(bGain);
+                bGain.connect(masterGain);
+                bassOsc.start();
+                // arpeggiated melody
+                const notes = [220, 277.18, 329.63, 440, 329.63, 277.18];
+                let step = 0;
+                arpTimer = window.setInterval(() => {
+                    if (!audioCtx || !masterGain) return;
+                    const now = audioCtx.currentTime;
+                    const o = audioCtx.createOscillator();
+                    o.type = "triangle";
+                    o.frequency.value = notes[step % notes.length];
+                    step++;
+                    const g = audioCtx.createGain();
+                    g.gain.setValueAtTime(0.0001, now);
+                    g.gain.linearRampToValueAtTime(0.3, now + 0.02);
+                    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+                    o.connect(g);
+                    g.connect(masterGain);
+                    o.start(now);
+                    o.stop(now + 0.4);
+                }, 250);
+                masterGain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.3);
+                audioOn = true;
+            } catch {
+                audioOn = false;
+            }
+        };
+        const stopDemo = () => {
+            audioOn = false;
+            if (arpTimer) {
+                clearInterval(arpTimer);
+                arpTimer = 0;
+            }
+            try {
+                bassOsc?.stop();
+            } catch {
+                /* already stopped */
+            }
+            bassOsc = null;
+            const ctx = audioCtx;
+            audioCtx = null;
+            analyser = null;
+            freqData = null;
+            masterGain = null;
+            if (ctx) ctx.close().catch(() => {});
+        };
 
         const placeCar = (into: THREE.Scene, sx: number, sz: number, yaw: number) => {
             car.parent?.remove(car);
@@ -445,6 +526,7 @@ export default function ProjectField() {
 
         const exitSector = () => {
             if (currentArea === "hub" || uiLocked) return;
+            stopDemo();
             uiLocked = true;
             panelOpen = false;
             setPanel(null);
@@ -488,6 +570,9 @@ export default function ProjectField() {
                     setProgress((p) => (p ? { ...p, done: visited.size } : p));
                 }
                 openPanel({ kind: "info", content: it.info });
+            } else if (it.kind === "audio") {
+                if (audioOn) stopDemo();
+                else startDemo();
             }
         };
 
@@ -608,18 +693,26 @@ export default function ProjectField() {
                 const d = Math.hypot(carPos.x - it.x, carPos.z - it.z);
                 if (d < nearestDist) {
                     nearestDist = d;
-                    activeIt = d < (it.kind === "gateway" ? 9 : 8) ? it : null;
+                    activeIt = d < (it.kind === "audio" ? 12 : it.kind === "gateway" ? 9 : 8) ? it : null;
                 }
             }
 
             // report prompt to React only when it changes
             const key = activeIt
-                ? `${activeIt.kind}:${activeIt.sectorId ?? activeIt.contentIndex ?? activeIt.promptTitle}`
+                ? activeIt.kind === "audio"
+                    ? `audio:${audioOn}`
+                    : `${activeIt.kind}:${activeIt.sectorId ?? activeIt.contentIndex ?? activeIt.promptTitle}`
                 : null;
             if (key !== reportedKey) {
                 reportedKey = key;
                 if (!activeIt) setPrompt(null);
-                else if (activeIt.kind === "gateway") {
+                else if (activeIt.kind === "audio") {
+                    setPrompt({
+                        title: activeIt.promptTitle ?? "Live demo",
+                        sub: audioOn ? "Playing — generated tone" : activeIt.promptSub ?? "",
+                        action: audioOn ? "Stop demo" : "Play demo",
+                    });
+                } else if (activeIt.kind === "gateway") {
                     setPrompt({
                         title: activeIt.sectorName ?? "",
                         sub: activeIt.active ? activeIt.blurb ?? "" : "Coming soon",
@@ -667,6 +760,33 @@ export default function ProjectField() {
                             o.position.y = baseY + Math.sin(t * 0.9 + i) * 0.18;
                         });
                     }
+                    if (currentArea === "music") {
+                        const sl = activeScene.getObjectByName("stagelights");
+                        if (sl) sl.rotation.y = t * 0.25;
+                    }
+                }
+            }
+
+            // audio-reactive visualizer (runs even under reduced-motion, since
+            // it is explicitly user-triggered)
+            if (currentArea === "music") {
+                const vis = activeScene.getObjectByName("visualizer");
+                const pulseLight = activeScene.getObjectByName("pulse") as THREE.PointLight | null;
+                if (vis) {
+                    if (audioOn && analyser && freqData) {
+                        analyser.getByteFrequencyData(freqData);
+                        vis.children.forEach((bar, i) => {
+                            const v = freqData![i % freqData!.length] / 255;
+                            bar.scale.y = 0.4 + v * 7;
+                            ((bar as THREE.Mesh).material as THREE.MeshStandardMaterial).emissiveIntensity = 0.4 + v * 2.4;
+                        });
+                        if (pulseLight) pulseLight.intensity = 6 + (freqData[2] / 255) * 34;
+                    } else if (!reduceMotion) {
+                        vis.children.forEach((bar, i) => {
+                            const target = 0.4 + (Math.sin(t * 2 + i * 0.4) * 0.5 + 0.5) * 0.6;
+                            bar.scale.y += (target - bar.scale.y) * 0.1;
+                        });
+                    }
                 }
             }
 
@@ -679,6 +799,7 @@ export default function ProjectField() {
         // ---- cleanup ----
         return () => {
             cancelAnimationFrame(raf);
+            stopDemo();
             renderer.domElement.removeEventListener("click", onClick);
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);

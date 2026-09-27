@@ -7,6 +7,7 @@ import {
     skillTotems,
     ekoMilestones,
     yorubaWords,
+    musicPillars,
 } from "@/app/field/content/world";
 
 // ─────────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ export interface InfoContent {
 export interface Interactable {
     x: number;
     z: number;
-    kind: "gateway" | "terminal" | "marker";
+    kind: "gateway" | "terminal" | "marker" | "audio";
     halo: THREE.Mesh;
     // gateway
     sectorId?: SectorMeta["id"];
@@ -46,6 +47,8 @@ export interface Interactable {
     promptSub?: string;
     /** if set, interacting counts toward the sector's progress meter */
     progressId?: string;
+    /** the audio-demo centerpiece toggles playback instead of a panel */
+    audio?: boolean;
 }
 
 export interface SectorScene {
@@ -744,5 +747,199 @@ export function buildEkoSector(loader: THREE.TextureLoader): SectorScene {
         spawn: { x: 0, z: 17, yaw: 0 },
         dispose: () => disposables.forEach((d) => d.dispose()),
         progressTotal: ekoMilestones.length,
+    };
+}
+
+// ── Sector C — Music Platform (Spotify API), audio-reactive stage ──
+
+const MAGENTA = 0xd946ef;
+const CYAN = 0x22d3ee;
+const AMBER = 0xf59e0b;
+
+/**
+ * Sector C — a dark stage/club space: a raised platform ringed by an
+ * audio-reactive visualizer of vertical bars, sweeping colored
+ * spotlights, and album-art pillars linking out to the platform. The
+ * bars/lights are driven by a Web Audio analyser in ProjectField once
+ * the player triggers "Play demo" (never autoplays).
+ */
+export function buildMusicSector(loader: THREE.TextureLoader): SectorScene {
+    void loader;
+    const disposables: Array<{ dispose: () => void }> = [];
+    const track: Track = (o) => {
+        disposables.push(o);
+        return o;
+    };
+
+    const scene = new THREE.Scene();
+    const bg = 0x090610;
+    scene.background = new THREE.Color(bg);
+    scene.fog = new THREE.Fog(bg, 18, 70);
+
+    scene.add(new THREE.HemisphereLight(0x2a1f44, 0x050308, 0.45));
+
+    // sweeping colored spotlights aimed at the stage centre
+    const target = new THREE.Object3D();
+    target.position.set(0, 0, 0);
+    scene.add(target);
+    const stagelights = new THREE.Group();
+    stagelights.name = "stagelights";
+    for (const [col, ang] of [[MAGENTA, 0], [CYAN, 2.1], [AMBER, 4.2]] as const) {
+        const sp = new THREE.SpotLight(col, 120, 60, Math.PI / 7, 0.4, 1.4);
+        sp.position.set(Math.cos(ang) * 14, 16, Math.sin(ang) * 14);
+        sp.target = target;
+        stagelights.add(sp);
+    }
+    scene.add(stagelights);
+
+    // pulsing centre light (driven by bass)
+    const pulse = new THREE.PointLight(MAGENTA, 6, 40, 2);
+    pulse.name = "pulse";
+    pulse.position.set(0, 3, 0);
+    scene.add(pulse);
+
+    // dark reflective floor + raised stage
+    const floor = new THREE.Mesh(
+        track(new THREE.CircleGeometry(70, 64)),
+        track(new THREE.MeshStandardMaterial({ color: 0x0d0a18, roughness: 0.4, metalness: 0.5 }))
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const stage = new THREE.Mesh(
+        track(new THREE.CylinderGeometry(6, 6.3, 0.5, 48)),
+        track(new THREE.MeshStandardMaterial({ color: 0x140f22, roughness: 0.3, metalness: 0.6, emissive: MAGENTA, emissiveIntensity: 0.12 }))
+    );
+    stage.position.y = 0.25;
+    scene.add(stage);
+    const rim = new THREE.Mesh(
+        track(new THREE.TorusGeometry(6.1, 0.08, 12, 64)),
+        track(new THREE.MeshBasicMaterial({ color: MAGENTA }))
+    );
+    rim.rotation.x = -Math.PI / 2;
+    rim.position.y = 0.52;
+    scene.add(rim);
+
+    // audio-reactive visualizer: ring of vertical bars around the stage
+    const visualizer = new THREE.Group();
+    visualizer.name = "visualizer";
+    const barGeo = track(new THREE.BoxGeometry(0.32, 1, 0.32));
+    barGeo.translate(0, 0.5, 0); // pivot at the base so bars grow up
+    const barCount = 48;
+    for (let i = 0; i < barCount; i++) {
+        const ang = (i / barCount) * Math.PI * 2;
+        const bar = new THREE.Mesh(
+            barGeo,
+            track(new THREE.MeshStandardMaterial({ color: 0x2a1240, emissive: MAGENTA, emissiveIntensity: 0.4, roughness: 0.4 }))
+        );
+        bar.position.set(Math.cos(ang) * 5.5, 0.5, Math.sin(ang) * 5.5);
+        bar.scale.y = 0.4;
+        visualizer.add(bar);
+    }
+    scene.add(visualizer);
+
+    // centre console — the "Play demo" trigger
+    const console3d = new THREE.Group();
+    const pedestal = new THREE.Mesh(
+        track(new THREE.CylinderGeometry(0.6, 0.8, 1.1, 20)),
+        track(new THREE.MeshStandardMaterial({ color: 0x1a1330, roughness: 0.4, metalness: 0.5 }))
+    );
+    pedestal.position.y = 0.8;
+    console3d.add(pedestal);
+    const emblem = new THREE.Mesh(
+        track(new THREE.IcosahedronGeometry(0.55, 1)),
+        track(new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: MAGENTA, emissiveIntensity: 1.4, roughness: 0.2 }))
+    );
+    emblem.position.y = 1.9;
+    console3d.add(emblem);
+    console3d.position.set(0, 0.5, 0);
+    scene.add(console3d);
+    const audioHalo = new THREE.Mesh(
+        track(new THREE.PlaneGeometry(3, 3)),
+        track(new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0 }))
+    );
+    audioHalo.position.set(0, 2, 0);
+    scene.add(audioHalo);
+
+    const interactables: Interactable[] = [
+        { x: 0, z: 0, kind: "audio", halo: audioHalo, audio: true, promptTitle: "Live demo", promptSub: "Generated tone" },
+    ];
+
+    // album-art pillars ringing the stage, each an InfoPanel
+    musicPillars.forEach((pillar, i) => {
+        const ang = (i / musicPillars.length) * Math.PI * 2 + Math.PI / 4;
+        const x = Math.cos(ang) * 13;
+        const z = Math.sin(ang) * 13;
+        const group = new THREE.Group();
+
+        const col = [MAGENTA, CYAN, AMBER, 0x8b5cf6][i % 4];
+        const disc = new THREE.Mesh(
+            track(new THREE.CylinderGeometry(1.5, 1.5, 0.25, 32)),
+            track(new THREE.MeshStandardMaterial({ color: 0x14101f, emissive: col, emissiveIntensity: 0.5, roughness: 0.4, metalness: 0.4 }))
+        );
+        disc.rotation.x = Math.PI / 2;
+        disc.position.y = 3;
+        group.add(disc);
+        const stand = new THREE.Mesh(
+            track(new THREE.CylinderGeometry(0.12, 0.12, 3, 12)),
+            track(new THREE.MeshStandardMaterial({ color: 0x2a2440, roughness: 0.5, metalness: 0.4 }))
+        );
+        stand.position.y = 1.5;
+        stand.castShadow = true;
+        group.add(stand);
+
+        const label = makeLabel(track, pillar.title, "Track / feature", 4.4, 0xe879f9);
+        label.position.y = 4.6;
+        group.add(label);
+
+        const halo = new THREE.Mesh(
+            track(new THREE.PlaneGeometry(3.4, 3.4)),
+            track(new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0 }))
+        );
+        halo.position.set(0, 3, -0.2);
+        group.add(halo);
+
+        group.position.set(x, 0, z);
+        group.lookAt(0, group.position.y, 0);
+        scene.add(group);
+
+        interactables.push({
+            x,
+            z,
+            kind: "marker",
+            halo,
+            promptTitle: pillar.title,
+            promptSub: "Track / feature",
+            info: {
+                title: pillar.title,
+                body: pillar.body,
+                links: pillar.url ? [{ label: "Visit platform", url: pillar.url }] : undefined,
+            },
+        });
+    });
+
+    // ambient particles (named "glyphs" for the shared loop animation)
+    const pcount = 200;
+    const ppos = new Float32Array(pcount * 3);
+    for (let i = 0; i < pcount; i++) {
+        ppos[i * 3] = (Math.random() - 0.5) * 60;
+        ppos[i * 3 + 1] = Math.random() * 16;
+        ppos[i * 3 + 2] = (Math.random() - 0.5) * 60;
+    }
+    const pgeo = track(new THREE.BufferGeometry());
+    pgeo.setAttribute("position", new THREE.BufferAttribute(ppos, 3));
+    const particles = new THREE.Points(
+        pgeo,
+        track(new THREE.PointsMaterial({ color: 0xe879f9, size: 0.07, transparent: true, opacity: 0.6 }))
+    );
+    particles.name = "glyphs";
+    scene.add(particles);
+
+    return {
+        scene,
+        interactables,
+        spawn: { x: 0, z: 14, yaw: 0 },
+        dispose: () => disposables.forEach((d) => d.dispose()),
     };
 }

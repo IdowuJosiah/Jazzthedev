@@ -27,7 +27,7 @@ export interface Terminal {
 export const sectors: SectorMeta[] = [
     { id: "frontend", name: "Frontend Projects", blurb: "Shipped frontend work", color: 0x1d4ed8, active: true },
     { id: "eko", name: "Eko", blurb: "Product case study", color: 0xd97706, active: true },
-    { id: "music", name: "Music Platform", blurb: "Spotify-powered", color: 0x9333ea, active: false },
+    { id: "music", name: "Music Platform", blurb: "Spotify-powered", color: 0x9333ea, active: true },
     { id: "journey", name: "Journey & Skills", blurb: "Background & skills", color: 0x0d9488, active: true },
 ];
 
@@ -175,4 +175,32 @@ export const yorubaWords: { word: string; meaning: string }[] = [
     { word: "Ọ̀rẹ́", meaning: "Friend" },
     { word: "Ìfẹ́", meaning: "Love" },
     { word: "Ẹ ṣé", meaning: "Thank you" },
+];
+
+// ── Sector C — Music Platform (Spotify API) ──
+// TODO(jazz): confirm the real Spotify features/data used + the live URL.
+export interface MusicPillar {
+    title: string;
+    body: string;
+    url?: string;
+}
+
+export const musicPillars: MusicPillar[] = [
+    {
+        title: "The platform",
+        body: "A music product built on the Spotify Web API — search Spotify's catalogue, browse playlists, and surface rich track detail with 30-second previews. Frontend in Next.js / TypeScript.",
+        url: "https://www.caferiddim.com",
+    },
+    {
+        title: "Spotify Search",
+        body: "Debounced search across artists, albums, and tracks, returning artwork, metadata, and preview URLs from the Spotify Web API.",
+    },
+    {
+        title: "Playlists & Previews",
+        body: "Browse curated playlists and audition tracks with in-app 30-second previews — no Premium account required.",
+    },
+    {
+        title: "Tech stack",
+        body: "Next.js, TypeScript, the Spotify Web API for data, and the Web Audio API powering the live visualizer you're standing in.",
+    },
 ];
