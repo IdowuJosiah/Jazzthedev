@@ -28,11 +28,11 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
     const [isTouch, setIsTouch] = useState(false);
     const [active, setActive] = useState<number | null>(null);
 
-    // Shared handles the R3-less scene exposes to React overlay buttons.
+    // Shared handles the scene exposes to React overlay buttons.
     const apiRef = useRef<{
         start: () => void;
         openActive: () => void;
-        setForward: (on: boolean) => void;
+        setDrive: (dir: "forward" | "back" | "left" | "right", on: boolean) => void;
     } | null>(null);
 
     useEffect(() => {
@@ -315,7 +315,7 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         // ---- build project stations ----
         const loader = new THREE.TextureLoader();
         const interactables: THREE.Mesh[] = [];
-        const stations: Array<{ group: THREE.Group; baseY: number; phase: number }> = [];
+        const stations: Array<{ group: THREE.Group; baseY: number; phase: number; x: number; z: number; index: number }> = [];
 
         const count = projects.length;
         const radius = 13;
@@ -391,7 +391,7 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             group.add(panelGroup);
             scene.add(group);
 
-            stations.push({ group: panelGroup, baseY: panelGroup.position.y, phase: i * 1.7 });
+            stations.push({ group: panelGroup, baseY: panelGroup.position.y, phase: i * 1.7, x, z, index: i });
         });
 
         // ambient floating orbs for depth
@@ -411,29 +411,55 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             scene.add(orbs);
         }
 
+        // ---- drivable car (third-person, Bruno-Simon style) ----
+        const car = new THREE.Group();
+        const body = new THREE.Mesh(
+            track(new THREE.BoxGeometry(1.7, 0.5, 3.1)),
+            mat({ color: ACCENT, roughness: 0.35, metalness: 0.35 })
+        );
+        body.position.y = 0.55;
+        body.castShadow = true;
+        car.add(body);
+        const cabin = new THREE.Mesh(
+            track(new THREE.BoxGeometry(1.35, 0.55, 1.5)),
+            mat({ color: 0x121a30, roughness: 0.15, metalness: 0.5 })
+        );
+        cabin.position.set(0, 1.0, -0.1);
+        cabin.castShadow = true;
+        car.add(cabin);
+        const wheelGeo = track(new THREE.CylinderGeometry(0.36, 0.36, 0.32, 16));
+        const wheelMat = mat({ color: 0x0e0f14, roughness: 0.85 });
+        for (const [wx, wz] of [[-0.9, 1], [0.9, 1], [-0.9, -1], [0.9, -1]] as const) {
+            const w = new THREE.Mesh(wheelGeo, wheelMat);
+            w.rotation.z = Math.PI / 2;
+            w.position.set(wx, 0.36, wz);
+            w.castShadow = true;
+            car.add(w);
+        }
+        const hlMat = mat({ color: 0xfff6d0, emissive: 0xfff0b0, emissiveIntensity: 1.3 });
+        for (const hx of [-0.5, 0.5]) {
+            const hl = new THREE.Mesh(track(new THREE.SphereGeometry(0.14, 10, 10)), hlMat);
+            hl.position.set(hx, 0.6, -1.6);
+            car.add(hl);
+        }
+        const carPos = new THREE.Vector3(0, 0, 14);
+        let carYaw = 0; // forward is local -Z
+        let speed = 0;
+        car.position.copy(carPos);
+        scene.add(car);
+
         // ---- controls state ----
         const keys = new Set<string>();
-        const move = { forward: false }; // touch forward button
-        let yaw = 0;
-        let pitch = 0;
-        const euler = new THREE.Euler(0, 0, 0, "YXZ");
-        const velocity = new THREE.Vector3();
-        const BOUND = 34;
-        const SPEED = 9;
-
-        let locked = false;
-        let dragLook = false; // fallback when pointer lock is unavailable
-        let dragging = false;
-        let movedDist = 0;
-        let playing = false; // true while the player is actively in the scene
+        const drive = { forward: false, back: false, left: false, right: false };
+        let playing = false;
         let activeIndex: number | null = null;
 
-        const applyLook = () => {
-            pitch = Math.max(-1.2, Math.min(1.2, pitch));
-            euler.set(pitch, yaw, 0);
-            camera.quaternion.setFromEuler(euler);
-        };
-        applyLook();
+        const MAX_SPEED = 24;
+        const REVERSE_SPEED = 11;
+        const ACCEL = 30;
+        const FRICTION = 14;
+        const TURN = 2.0;
+        const BOUND = 44;
 
         const openActive = () => {
             if (activeIndex === null) return;
@@ -441,118 +467,32 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             if (url) window.open(url, "_blank", "noopener,noreferrer");
         };
 
-        const enterDragMode = () => {
-            dragLook = true;
-            playing = true;
-            setStarted(true);
-            setPaused(false);
-        };
-
-        // ---- desktop pointer lock (with drag fallback) ----
-        const onPointerMove = (e: MouseEvent) => {
-            if (locked) {
-                yaw -= e.movementX * 0.0022;
-                pitch -= e.movementY * 0.0022;
-                applyLook();
-            } else if (dragLook && dragging) {
-                yaw -= e.movementX * 0.0026;
-                pitch -= e.movementY * 0.0026;
-                movedDist += Math.abs(e.movementX) + Math.abs(e.movementY);
-                applyLook();
-            }
-        };
-        const onMouseDown = (e: MouseEvent) => {
-            if (dragLook && e.button === 0) {
-                dragging = true;
-                movedDist = 0;
-            }
-        };
-        const onMouseUp = () => {
-            if (dragLook && dragging) {
-                dragging = false;
-                if (movedDist < 6) openActive(); // a click, not a drag
-            }
-        };
-        const onLockChange = () => {
-            locked = document.pointerLockElement === renderer.domElement;
-            if (locked) {
-                playing = true;
-                setStarted(true);
-                setPaused(false);
-            } else if (!touch && !dragLook) {
-                playing = false;
-                setPaused(true);
-            }
-        };
-        document.addEventListener("pointerlockchange", onLockChange);
-        document.addEventListener("mousemove", onPointerMove);
-        renderer.domElement.addEventListener("mousedown", onMouseDown);
-        window.addEventListener("mouseup", onMouseUp);
-
         const onClick = () => {
-            if (locked) openActive();
+            if (playing) openActive();
         };
         renderer.domElement.addEventListener("click", onClick);
 
         const onKeyDown = (e: KeyboardEvent) => {
             keys.add(e.code);
             if (e.code === "KeyE") openActive();
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
+                e.preventDefault();
+            }
         };
         const onKeyUp = (e: KeyboardEvent) => keys.delete(e.code);
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
 
-        // ---- touch controls (look by dragging, walk via button) ----
-        let lastTouch: { x: number; y: number } | null = null;
-        const onTouchStart = (e: TouchEvent) => {
-            const t = e.touches[0];
-            lastTouch = { x: t.clientX, y: t.clientY };
-        };
-        const onTouchMove = (e: TouchEvent) => {
-            if (!lastTouch) return;
-            const t = e.touches[0];
-            yaw -= (t.clientX - lastTouch.x) * 0.005;
-            pitch -= (t.clientY - lastTouch.y) * 0.005;
-            applyLook();
-            lastTouch = { x: t.clientX, y: t.clientY };
-        };
-        const onTouchEnd = () => {
-            lastTouch = null;
-        };
-        if (touch) {
-            renderer.domElement.addEventListener("touchstart", onTouchStart, { passive: true });
-            renderer.domElement.addEventListener("touchmove", onTouchMove, { passive: true });
-            renderer.domElement.addEventListener("touchend", onTouchEnd);
-        }
-
         // ---- expose API to React overlay ----
         apiRef.current = {
             start: () => {
-                if (touch) {
-                    playing = true;
-                    setStarted(true);
-                    setPaused(false);
-                    return;
-                }
-                // Try pointer lock; fall back to drag-look if it's blocked
-                // (embedded frames, some browsers).
-                try {
-                    const result = renderer.domElement.requestPointerLock() as unknown as
-                        | Promise<void>
-                        | undefined;
-                    if (result && typeof result.then === "function") {
-                        result.then(undefined, () => enterDragMode());
-                    }
-                } catch {
-                    enterDragMode();
-                }
-                window.setTimeout(() => {
-                    if (!locked && !dragLook) enterDragMode();
-                }, 400);
+                playing = true;
+                setStarted(true);
+                setPaused(false);
             },
             openActive,
-            setForward: (on: boolean) => {
-                move.forward = on;
+            setDrive: (dir, on) => {
+                drive[dir] = on;
             },
         };
 
@@ -564,60 +504,93 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         };
         window.addEventListener("resize", onResize);
 
-        // ---- interaction raycaster ----
-        const raycaster = new THREE.Raycaster();
-        const forwardVec = new THREE.Vector3();
-
         // ---- main loop ----
         let raf = 0;
         const clock = new THREE.Clock();
         let reportedActive: number | null = null;
+        const CAM_DIST = 9;
+        const CAM_HEIGHT = 5;
 
         const loop = () => {
             const dt = Math.min(clock.getDelta(), 0.05);
             const t = clock.elapsedTime;
-            const canMove = playing;
 
-            // movement
-            const dir = new THREE.Vector3();
-            if (canMove) {
-                if (keys.has("KeyW") || keys.has("ArrowUp") || move.forward) dir.z -= 1;
-                if (keys.has("KeyS") || keys.has("ArrowDown")) dir.z += 1;
-                if (keys.has("KeyA") || keys.has("ArrowLeft")) dir.x -= 1;
-                if (keys.has("KeyD") || keys.has("ArrowRight")) dir.x += 1;
+            const accelInput =
+                (keys.has("KeyW") || keys.has("ArrowUp") || drive.forward ? 1 : 0) -
+                (keys.has("KeyS") || keys.has("ArrowDown") || drive.back ? 1 : 0);
+            const steerInput =
+                (keys.has("KeyD") || keys.has("ArrowRight") || drive.right ? 1 : 0) -
+                (keys.has("KeyA") || keys.has("ArrowLeft") || drive.left ? 1 : 0);
+
+            if (playing) {
+                if (accelInput > 0) speed += ACCEL * dt;
+                else if (accelInput < 0) speed -= ACCEL * dt;
+                else {
+                    const drop = FRICTION * dt;
+                    speed = Math.abs(speed) <= drop ? 0 : speed - Math.sign(speed) * drop;
+                }
+            } else {
+                speed *= 0.9;
             }
-            const damp = 1 - Math.min(1, dt * 10);
-            velocity.x *= damp;
-            velocity.z *= damp;
-            if (dir.lengthSq() > 0) {
-                dir.normalize();
-                // rotate by yaw into world space
-                const sin = Math.sin(yaw);
-                const cos = Math.cos(yaw);
-                const wx = dir.x * cos - dir.z * sin;
-                const wz = dir.x * sin + dir.z * cos;
-                velocity.x += wx * SPEED * dt;
-                velocity.z += wz * SPEED * dt;
+            speed = Math.max(-REVERSE_SPEED, Math.min(MAX_SPEED, speed));
+
+            // steering scales with speed and inverts in reverse (like a real car)
+            const speedFactor = Math.min(1, Math.abs(speed) / 4);
+            if (Math.abs(speed) > 0.01) {
+                carYaw -= steerInput * TURN * dt * speedFactor * Math.sign(speed);
             }
-            camera.position.x += velocity.x * dt * 6;
-            camera.position.z += velocity.z * dt * 6;
-            camera.position.x = Math.max(-BOUND, Math.min(BOUND, camera.position.x));
-            camera.position.z = Math.max(-BOUND, Math.min(BOUND, camera.position.z));
-            camera.position.y = EYE;
+
+            const fx = -Math.sin(carYaw);
+            const fz = -Math.cos(carYaw);
+            carPos.x += fx * speed * dt;
+            carPos.z += fz * speed * dt;
+
+            // keep the car inside the park
+            const r = Math.hypot(carPos.x, carPos.z);
+            if (r > BOUND) {
+                carPos.x = (carPos.x / r) * BOUND;
+                carPos.z = (carPos.z / r) * BOUND;
+                speed *= 0.4;
+            }
+            car.position.set(carPos.x, 0, carPos.z);
+            car.rotation.y = carYaw;
+
+            // third-person follow camera (trails behind the car)
+            const desiredX = carPos.x - fx * CAM_DIST;
+            const desiredZ = carPos.z - fz * CAM_DIST;
+            const lerp = 1 - Math.pow(0.0015, dt);
+            camera.position.x += (desiredX - camera.position.x) * lerp;
+            camera.position.z += (desiredZ - camera.position.z) * lerp;
+            camera.position.y += (CAM_HEIGHT - camera.position.y) * lerp;
+            camera.lookAt(carPos.x, 1.3, carPos.z);
+
+            // nearest station within range becomes active
+            let nearestDist = Infinity;
+            let nearest: number | null = null;
+            for (const s of stations) {
+                const d = Math.hypot(carPos.x - s.x, carPos.z - s.z);
+                if (d < nearestDist) {
+                    nearestDist = d;
+                    nearest = s.index;
+                }
+            }
+            activeIndex = nearest !== null && nearestDist < 9 ? nearest : null;
+            if (activeIndex !== reportedActive) {
+                reportedActive = activeIndex;
+                setActive(activeIndex);
+            }
 
             // idle float on stations + halo fade
             stations.forEach((s, i) => {
                 if (!reduceMotion) s.group.position.y = s.baseY + Math.sin(t * 0.9 + s.phase) * 0.12;
                 const halo = s.group.children.find((c) => (c as THREE.Mesh).userData.isHalo) as THREE.Mesh | undefined;
                 if (halo) {
-                    const targetOpacity = activeIndex === i ? 0.55 + Math.sin(t * 4) * 0.12 : 0;
-                    const mat = halo.material as THREE.MeshBasicMaterial;
-                    mat.opacity += (targetOpacity - mat.opacity) * 0.2;
+                    const targetOpacity = activeIndex === i ? 0.6 + Math.sin(t * 4) * 0.12 : 0;
+                    const hmat = halo.material as THREE.MeshBasicMaterial;
+                    hmat.opacity += (targetOpacity - hmat.opacity) * 0.2;
                 }
             });
             if (orbs && !reduceMotion) orbs.rotation.y = t * 0.02;
-
-            // drift clouds slowly and wrap them around the park
             if (!reduceMotion) {
                 for (const cloud of clouds) {
                     cloud.position.x += dt * 0.6;
@@ -625,38 +598,21 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
                 }
             }
 
-            // focus raycast from screen center
-            camera.getWorldDirection(forwardVec);
-            raycaster.set(camera.position, forwardVec);
-            raycaster.far = 20;
-            const hits = raycaster.intersectObjects(interactables, false);
-            activeIndex = hits.length > 0 ? (hits[0].object.userData.index as number) : null;
-
-            if (activeIndex !== reportedActive) {
-                reportedActive = activeIndex;
-                setActive(activeIndex);
-            }
-
             renderer.render(scene, camera);
             raf = requestAnimationFrame(loop);
         };
+        // start the camera behind the car
+        camera.position.set(carPos.x, CAM_HEIGHT, carPos.z + CAM_DIST);
+        camera.lookAt(carPos.x, 1.3, carPos.z);
         loop();
 
         // ---- cleanup ----
         return () => {
             cancelAnimationFrame(raf);
-            document.removeEventListener("pointerlockchange", onLockChange);
-            document.removeEventListener("mousemove", onPointerMove);
-            renderer.domElement.removeEventListener("mousedown", onMouseDown);
-            window.removeEventListener("mouseup", onMouseUp);
             renderer.domElement.removeEventListener("click", onClick);
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
             window.removeEventListener("resize", onResize);
-            renderer.domElement.removeEventListener("touchstart", onTouchStart);
-            renderer.domElement.removeEventListener("touchmove", onTouchMove);
-            renderer.domElement.removeEventListener("touchend", onTouchEnd);
-            if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
             disposables.forEach((d) => d.dispose());
             renderer.dispose();
             apiRef.current = null;
@@ -672,10 +628,7 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         <div className="field-root">
             <div ref={containerRef} className="field-canvas" />
 
-            {/* crosshair (desktop, while playing) */}
-            {started && !paused && !isTouch && <div className="field-reticle" aria-hidden="true" />}
-
-            {/* focused-project prompt */}
+            {/* nearby-project prompt */}
             {started && activeProject && (
                 <div className="field-prompt">
                     <div className="field-prompt-title">{activeProject.title}</div>
@@ -694,17 +647,48 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
                 </div>
             )}
 
-            {/* touch move button */}
+            {/* touch driving controls */}
             {started && isTouch && (
-                <button
-                    type="button"
-                    className="field-walk-btn"
-                    aria-label="Walk forward"
-                    onTouchStart={() => apiRef.current?.setForward(true)}
-                    onTouchEnd={() => apiRef.current?.setForward(false)}
-                >
-                    ▲ Walk
-                </button>
+                <div className="field-drive-pad">
+                    <button
+                        type="button"
+                        className="field-drive-btn steer"
+                        aria-label="Steer left"
+                        onTouchStart={() => apiRef.current?.setDrive("left", true)}
+                        onTouchEnd={() => apiRef.current?.setDrive("left", false)}
+                    >
+                        ◄
+                    </button>
+                    <div className="field-drive-col">
+                        <button
+                            type="button"
+                            className="field-drive-btn"
+                            aria-label="Accelerate"
+                            onTouchStart={() => apiRef.current?.setDrive("forward", true)}
+                            onTouchEnd={() => apiRef.current?.setDrive("forward", false)}
+                        >
+                            ▲
+                        </button>
+                        <button
+                            type="button"
+                            className="field-drive-btn"
+                            aria-label="Reverse"
+                            onTouchStart={() => apiRef.current?.setDrive("back", true)}
+                            onTouchEnd={() => apiRef.current?.setDrive("back", false)}
+                        >
+                            ▼
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        className="field-drive-btn steer"
+                        aria-label="Steer right"
+                        onTouchStart={() => apiRef.current?.setDrive("right", true)}
+                        onTouchEnd={() => apiRef.current?.setDrive("right", false)}
+                    >
+                        ►
+                    </button>
+                </div>
             )}
 
             {/* exit link */}
@@ -714,33 +698,33 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
                 </Link>
             )}
 
-            {/* start / paused overlay */}
+            {/* start overlay */}
             {(!started || paused) && (
                 <div className="field-overlay">
                     <div className="field-overlay-card">
                         <p className="field-kicker">Interactive Gallery</p>
-                        <h1 className="field-overlay-title">Walk through my work</h1>
+                        <h1 className="field-overlay-title">Drive through my work</h1>
                         <p className="field-overlay-desc">
-                            Stroll around the field and walk up to any project. Look at it and
-                            {isTouch ? " tap Open" : " click (or press E)"} to visit the live site.
+                            Cruise around the park and pull up to any project.
+                            {isTouch ? " Tap Open" : " Click or press E"} to visit the live site.
                         </p>
                         <ul className="field-controls">
                             {isTouch ? (
                                 <>
-                                    <li>Drag anywhere to look around</li>
-                                    <li>Hold <b>▲ Walk</b> to move</li>
-                                    <li>Tap <b>Open</b> when a project is centered</li>
+                                    <li><b>▲ / ▼</b> accelerate &amp; reverse</li>
+                                    <li><b>◄ / ►</b> to steer</li>
+                                    <li>Tap <b>Open</b> when you reach a project</li>
                                 </>
                             ) : (
                                 <>
-                                    <li><b>W A S D</b> / arrows to move</li>
-                                    <li><b>Mouse</b> to look around</li>
-                                    <li><b>Click</b> / <b>E</b> to open · <b>Esc</b> to pause</li>
+                                    <li><b>W / ↑</b> drive · <b>S / ↓</b> reverse</li>
+                                    <li><b>A D</b> or <b>← →</b> to steer</li>
+                                    <li><b>Click</b> or <b>E</b> to open a project</li>
                                 </>
                             )}
                         </ul>
                         <button type="button" className="field-enter-btn" onClick={() => apiRef.current?.start()}>
-                            {paused ? "Resume" : isTouch ? "Tap to start" : "Click to enter"}
+                            {isTouch ? "Tap to drive" : "Start driving"}
                         </button>
                         <Link href="/projects" className="field-overlay-back">
                             or view the classic list →
