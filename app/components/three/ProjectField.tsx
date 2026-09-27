@@ -626,6 +626,18 @@ export default function ProjectField() {
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
 
+        // If focus is lost (alt-tab, clicking away), a key-up can be missed and
+        // the car would keep driving — so drop all held inputs on blur/hide.
+        const clearInputs = () => {
+            keys.clear();
+            drive.forward = drive.back = drive.left = drive.right = false;
+        };
+        const onVisibility = () => {
+            if (document.hidden) clearInputs();
+        };
+        window.addEventListener("blur", clearInputs);
+        document.addEventListener("visibilitychange", onVisibility);
+
         // ---- expose API to React overlay ----
         apiRef.current = {
             start: () => {
@@ -838,6 +850,8 @@ export default function ProjectField() {
             renderer.domElement.removeEventListener("click", onClick);
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
+            window.removeEventListener("blur", clearInputs);
+            document.removeEventListener("visibilitychange", onVisibility);
             window.removeEventListener("resize", onResize);
             sectorCache.forEach((s) => s.dispose());
             disposables.forEach((d) => d.dispose());
