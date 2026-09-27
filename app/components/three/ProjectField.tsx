@@ -44,8 +44,11 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-        const skyColor = dark ? 0x0a0a14 : 0xeef2ff;
-        const groundColor = dark ? 0x11131f : 0xdfe4f4;
+        // Bright daytime park palette — kept vivid regardless of theme.
+        const SKY_TOP = 0x7ab8ff;
+        const SKY_HORIZON = 0xd9ecff;
+        const GRASS = 0x5fb04a;
+        const PATH = 0xe3d3a4;
 
         // ---- renderer / scene / camera ----
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -57,41 +60,11 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(skyColor);
-        scene.fog = new THREE.Fog(skyColor, 22, 58);
+        scene.fog = new THREE.Fog(SKY_HORIZON, 55, 150);
 
-        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 400);
         const EYE = 1.7;
         camera.position.set(0, EYE, 0);
-
-        // ---- lighting ----
-        scene.add(new THREE.HemisphereLight(0xffffff, groundColor, dark ? 0.6 : 1.0));
-        const sun = new THREE.DirectionalLight(0xffffff, dark ? 1.0 : 1.4);
-        sun.position.set(12, 20, 8);
-        sun.castShadow = true;
-        sun.shadow.mapSize.set(1024, 1024);
-        sun.shadow.camera.near = 1;
-        sun.shadow.camera.far = 60;
-        sun.shadow.camera.left = -30;
-        sun.shadow.camera.right = 30;
-        sun.shadow.camera.top = 30;
-        sun.shadow.camera.bottom = -30;
-        scene.add(sun);
-
-        // ---- ground + grid ----
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(120, 120),
-            new THREE.MeshStandardMaterial({ color: groundColor, roughness: 1, metalness: 0 })
-        );
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
-
-        const grid = new THREE.GridHelper(120, 60, ACCENT, dark ? 0x2a3358 : 0xc2cbec);
-        (grid.material as THREE.Material).transparent = true;
-        (grid.material as THREE.Material).opacity = dark ? 0.35 : 0.55;
-        grid.position.y = 0.01;
-        scene.add(grid);
 
         // ---- disposable registry ----
         const disposables: Array<{ dispose: () => void }> = [];
@@ -99,6 +72,214 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             disposables.push(o);
             return o;
         };
+
+        // ---- gradient sky ----
+        {
+            const c = document.createElement("canvas");
+            c.width = 2;
+            c.height = 256;
+            const g = c.getContext("2d")!;
+            const grad = g.createLinearGradient(0, 0, 0, 256);
+            grad.addColorStop(0, "#" + SKY_TOP.toString(16).padStart(6, "0"));
+            grad.addColorStop(1, "#" + SKY_HORIZON.toString(16).padStart(6, "0"));
+            g.fillStyle = grad;
+            g.fillRect(0, 0, 2, 256);
+            const skyTex = track(new THREE.CanvasTexture(c));
+            skyTex.colorSpace = THREE.SRGBColorSpace;
+            scene.background = skyTex;
+        }
+
+        // ---- lighting ----
+        scene.add(new THREE.HemisphereLight(0xcfe6ff, GRASS, 1.15));
+        const sun = new THREE.DirectionalLight(0xfff4e0, 1.5);
+        sun.position.set(24, 34, 14);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.camera.near = 1;
+        sun.shadow.camera.far = 90;
+        sun.shadow.camera.left = -45;
+        sun.shadow.camera.right = 45;
+        sun.shadow.camera.top = 45;
+        sun.shadow.camera.bottom = -45;
+        sun.shadow.bias = -0.0004;
+        scene.add(sun);
+
+        // ---- grass ground ----
+        const ground = new THREE.Mesh(
+            track(new THREE.CircleGeometry(160, 64)),
+            track(new THREE.MeshStandardMaterial({ color: GRASS, roughness: 1, metalness: 0 }))
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // ---- helpers to keep material/geo tracked ----
+        const mat = (opts: THREE.MeshStandardMaterialParameters) =>
+            track(new THREE.MeshStandardMaterial(opts));
+
+        // ---- paths: central plaza + a spoke to each project ----
+        const pathMat = mat({ color: PATH, roughness: 1 });
+        const plaza = new THREE.Mesh(track(new THREE.CircleGeometry(6, 48)), pathMat);
+        plaza.rotation.x = -Math.PI / 2;
+        plaza.position.y = 0.02;
+        plaza.receiveShadow = true;
+        scene.add(plaza);
+
+        // ---- trees (trunk + layered foliage), scattered on the grass ----
+        const trunkGeo = track(new THREE.CylinderGeometry(0.16, 0.22, 1.6, 8));
+        const trunkMat = mat({ color: 0x7a5230, roughness: 0.9 });
+        const foliageGeo = track(new THREE.IcosahedronGeometry(1, 0));
+        const foliageMats = [0x3aa64a, 0x2f8f43, 0x57c65b, 0x6fce74].map((c) =>
+            mat({ color: c, roughness: 0.85, flatShading: true })
+        );
+        const rand = (a: number, b: number) => a + Math.random() * (b - a);
+        const treeSpots: Array<[number, number]> = [];
+        for (let i = 0; i < 46; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const dist = rand(9, 40);
+            const x = Math.cos(ang) * dist;
+            const z = Math.sin(ang) * dist;
+            treeSpots.push([x, z]);
+            const tree = new THREE.Group();
+            tree.position.set(x, 0, z);
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 0.8;
+            trunk.castShadow = true;
+            tree.add(trunk);
+            const clusters = 3;
+            for (let k = 0; k < clusters; k++) {
+                const f = new THREE.Mesh(foliageGeo, foliageMats[(i + k) % foliageMats.length]);
+                const s = rand(1.1, 1.7) - k * 0.25;
+                f.scale.setScalar(s);
+                f.position.set(rand(-0.4, 0.4), 1.7 + k * 0.7, rand(-0.4, 0.4));
+                f.castShadow = true;
+                tree.add(f);
+            }
+            const scale = rand(0.8, 1.5);
+            tree.scale.setScalar(scale);
+            scene.add(tree);
+        }
+
+        // ---- colorful city skyline ringing the park ----
+        const windowTex = (() => {
+            const c = document.createElement("canvas");
+            c.width = 64;
+            c.height = 128;
+            const g = c.getContext("2d")!;
+            g.fillStyle = "#ffffff";
+            g.fillRect(0, 0, 64, 128);
+            g.fillStyle = "rgba(20,26,45,0.82)";
+            for (let y = 6; y < 128; y += 12) {
+                for (let x = 6; x < 64; x += 12) {
+                    if (Math.random() > 0.28) g.fillRect(x, y, 7, 7);
+                }
+            }
+            const t = track(new THREE.CanvasTexture(c));
+            t.colorSpace = THREE.SRGBColorSpace;
+            return t;
+        })();
+        const buildingColors = [
+            0x4f7cff, 0xff6b6b, 0xffd166, 0x06d6a0, 0xb892ff, 0xf4a261, 0x2ec4b6, 0xff8fab,
+        ];
+        const buildingGeo = track(new THREE.BoxGeometry(1, 1, 1));
+        const ringCount = 30;
+        for (let i = 0; i < ringCount; i++) {
+            const ang = (i / ringCount) * Math.PI * 2 + rand(-0.05, 0.05);
+            const dist = rand(50, 66);
+            const h = rand(10, 34);
+            const w = rand(5, 9);
+            const b = new THREE.Mesh(
+                buildingGeo,
+                mat({
+                    color: buildingColors[i % buildingColors.length],
+                    roughness: 0.6,
+                    metalness: 0.1,
+                    map: windowTex,
+                })
+            );
+            b.position.set(Math.cos(ang) * dist, h / 2, Math.sin(ang) * dist);
+            b.scale.set(w, h, w);
+            b.lookAt(0, h / 2, 0);
+            scene.add(b);
+        }
+
+        // ---- lampposts around the plaza ----
+        const lampPostGeo = track(new THREE.CylinderGeometry(0.08, 0.1, 3.4, 8));
+        const lampPostMat = mat({ color: 0x2b2f3a, roughness: 0.5, metalness: 0.4 });
+        const bulbGeo = track(new THREE.SphereGeometry(0.22, 12, 12));
+        const bulbMat = mat({ color: 0xfff2c4, emissive: 0xffe08a, emissiveIntensity: 1.4 });
+        for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2;
+            const lamp = new THREE.Group();
+            lamp.position.set(Math.cos(ang) * 7.5, 0, Math.sin(ang) * 7.5);
+            const post = new THREE.Mesh(lampPostGeo, lampPostMat);
+            post.position.y = 1.7;
+            post.castShadow = true;
+            lamp.add(post);
+            const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+            bulb.position.y = 3.5;
+            lamp.add(bulb);
+            scene.add(lamp);
+        }
+
+        // ---- benches near the plaza ----
+        const benchSeatGeo = track(new THREE.BoxGeometry(2, 0.15, 0.7));
+        const benchMat = mat({ color: 0x8a5a2b, roughness: 0.8 });
+        const benchLegGeo = track(new THREE.BoxGeometry(0.15, 0.5, 0.6));
+        for (let i = 0; i < 5; i++) {
+            const ang = (i / 5) * Math.PI * 2 + 0.3;
+            const bench = new THREE.Group();
+            const r = 9.5;
+            bench.position.set(Math.cos(ang) * r, 0, Math.sin(ang) * r);
+            bench.lookAt(0, 0, 0);
+            const seat = new THREE.Mesh(benchSeatGeo, benchMat);
+            seat.position.y = 0.55;
+            seat.castShadow = true;
+            bench.add(seat);
+            for (const lx of [-0.8, 0.8]) {
+                const leg = new THREE.Mesh(benchLegGeo, benchMat);
+                leg.position.set(lx, 0.28, 0);
+                bench.add(leg);
+            }
+            scene.add(bench);
+        }
+
+        // ---- flowers: instanced colorful dots on the grass ----
+        const flowerColors = [0xff5d8f, 0xffd23f, 0xff8c42, 0xa66bff, 0xffffff, 0xff4d6d];
+        const flowerGeo = track(new THREE.SphereGeometry(0.16, 6, 6));
+        flowerColors.forEach((col) => {
+            const inst = new THREE.InstancedMesh(flowerGeo, mat({ color: col, roughness: 0.9 }), 60);
+            const dummy = new THREE.Object3D();
+            for (let i = 0; i < 60; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const dist = rand(8, 42);
+                dummy.position.set(Math.cos(ang) * dist, 0.16, Math.sin(ang) * dist);
+                dummy.scale.setScalar(rand(0.6, 1.3));
+                dummy.updateMatrix();
+                inst.setMatrixAt(i, dummy.matrix);
+            }
+            inst.instanceMatrix.needsUpdate = true;
+            scene.add(inst);
+            disposables.push(inst);
+        });
+
+        // ---- clouds drifting overhead ----
+        const cloudMat = track(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x223344, emissiveIntensity: 0.05 }));
+        const cloudGeo = track(new THREE.SphereGeometry(2.4, 10, 10));
+        const clouds: THREE.Group[] = [];
+        for (let i = 0; i < 9; i++) {
+            const cloud = new THREE.Group();
+            cloud.position.set(rand(-60, 60), rand(26, 40), rand(-60, 60));
+            const puffs = 4;
+            for (let k = 0; k < puffs; k++) {
+                const p = new THREE.Mesh(cloudGeo, cloudMat);
+                p.position.set(rand(-3, 3), rand(-0.6, 0.6), rand(-2, 2));
+                p.scale.setScalar(rand(0.7, 1.4));
+                cloud.add(p);
+            }
+            clouds.push(cloud);
+            scene.add(cloud);
+        }
 
         // ---- label helper (title drawn to a canvas texture) ----
         const makeLabel = (title: string, subtitle: string) => {
@@ -110,11 +291,18 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             const ctx = canvas.getContext("2d")!;
             ctx.clearRect(0, 0, w, h);
             ctx.textAlign = "center";
-            ctx.fillStyle = dark ? "#ededed" : "#1a1d29";
+            ctx.lineJoin = "round";
+            // white outline keeps the title legible against sky or buildings
+            ctx.strokeStyle = "rgba(255,255,255,0.92)";
+            ctx.fillStyle = "#141826";
             ctx.font = "700 92px Poppins, system-ui, sans-serif";
+            ctx.lineWidth = 12;
+            ctx.strokeText(title, w / 2, 104);
             ctx.fillText(title, w / 2, 104);
-            ctx.fillStyle = "#3b82f6";
             ctx.font = "500 44px Poppins, system-ui, sans-serif";
+            ctx.lineWidth = 8;
+            ctx.strokeText(subtitle, w / 2, 180);
+            ctx.fillStyle = "#1d4ed8";
             ctx.fillText(subtitle, w / 2, 180);
             const tex = new THREE.CanvasTexture(canvas);
             tex.colorSpace = THREE.SRGBColorSpace;
@@ -348,11 +536,15 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
                 }
                 // Try pointer lock; fall back to drag-look if it's blocked
                 // (embedded frames, some browsers).
-                const result = renderer.domElement.requestPointerLock() as unknown as
-                    | Promise<void>
-                    | undefined;
-                if (result && typeof result.then === "function") {
-                    result.catch(() => enterDragMode());
+                try {
+                    const result = renderer.domElement.requestPointerLock() as unknown as
+                        | Promise<void>
+                        | undefined;
+                    if (result && typeof result.then === "function") {
+                        result.then(undefined, () => enterDragMode());
+                    }
+                } catch {
+                    enterDragMode();
                 }
                 window.setTimeout(() => {
                     if (!locked && !dragLook) enterDragMode();
@@ -424,6 +616,14 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
                 }
             });
             if (orbs && !reduceMotion) orbs.rotation.y = t * 0.02;
+
+            // drift clouds slowly and wrap them around the park
+            if (!reduceMotion) {
+                for (const cloud of clouds) {
+                    cloud.position.x += dt * 0.6;
+                    if (cloud.position.x > 70) cloud.position.x = -70;
+                }
+            }
 
             // focus raycast from screen center
             camera.getWorldDirection(forwardVec);
