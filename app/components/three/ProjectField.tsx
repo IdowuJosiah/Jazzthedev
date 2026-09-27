@@ -340,39 +340,74 @@ export default function ProjectField() {
         // chassis leans/pitches for juice; wheels stay on the ground
         const chassis = new THREE.Group();
         car.add(chassis);
-        const body = new THREE.Mesh(
-            track(new THREE.BoxGeometry(1.7, 0.5, 3.1)),
-            mat({ color: ACCENT, roughness: 0.35, metalness: 0.35 })
+        // Cybertruck: faceted stainless wedge from an extruded side profile.
+        // Forward is -Z; the profile is built along X (front→rear) then rotated.
+        const CT_LEN = 3.4;
+        const CT_BOTTOM = 0.34;
+        const bodyMat = mat({ color: 0xd2d6de, metalness: 0.25, roughness: 0.5, flatShading: true });
+        const glassMat = mat({ color: 0x0b0e16, metalness: 0.3, roughness: 0.12 });
+        const extrudeBody = (pts: Array<[number, number]>, depth: number, material: THREE.Material) => {
+            const shape = new THREE.Shape();
+            shape.moveTo(pts[0][0], pts[0][1]);
+            for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i][0], pts[i][1]);
+            shape.closePath();
+            const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+            geo.translate(-CT_LEN / 2, 0, -depth / 2);
+            track(geo);
+            const mesh = new THREE.Mesh(geo, material);
+            mesh.rotation.y = -Math.PI / 2; // profile X (length) → world Z
+            mesh.castShadow = true;
+            return mesh;
+        };
+        // lower stainless body
+        chassis.add(
+            extrudeBody(
+                [[0.1, CT_BOTTOM], [0.0, 0.62], [0.66, 0.85], [3.02, 0.85], [3.4, 0.66], [3.4, CT_BOTTOM]],
+                1.8,
+                bodyMat
+            )
         );
-        body.position.y = 0.55;
-        body.castShadow = true;
-        chassis.add(body);
-        const cabin = new THREE.Mesh(
-            track(new THREE.BoxGeometry(1.35, 0.55, 1.5)),
-            mat({ color: 0x121a30, roughness: 0.15, metalness: 0.5 })
+        // dark angular greenhouse (glass), inset so silver pillars show
+        chassis.add(extrudeBody([[0.66, 0.85], [2.05, 1.34], [3.02, 0.85]], 1.6, glassMat));
+        // signature full-width light bars
+        const frontBar = new THREE.Mesh(
+            track(new THREE.BoxGeometry(1.74, 0.09, 0.06)),
+            mat({ color: 0xffffff, emissive: 0xe6f3ff, emissiveIntensity: 1.7 })
         );
-        cabin.position.set(0, 1.0, -0.1);
-        cabin.castShadow = true;
-        chassis.add(cabin);
-        const hlMat = mat({ color: 0xfff6d0, emissive: 0xfff0b0, emissiveIntensity: 1.3 });
-        for (const hx of [-0.5, 0.5]) {
-            const hl = new THREE.Mesh(track(new THREE.SphereGeometry(0.14, 10, 10)), hlMat);
-            hl.position.set(hx, 0.6, -1.6);
-            chassis.add(hl);
-        }
-        const wheelGeo = track(new THREE.CylinderGeometry(0.36, 0.36, 0.32, 16));
-        const wheelMat = mat({ color: 0x0e0f14, roughness: 0.85 });
-        // each wheel sits in a steer pivot so front wheels can turn cleanly
+        frontBar.position.set(0, 0.62, -CT_LEN / 2 + 0.02);
+        chassis.add(frontBar);
+        const rearBar = new THREE.Mesh(
+            track(new THREE.BoxGeometry(1.74, 0.09, 0.06)),
+            mat({ color: 0x5c0000, emissive: 0xff2b2b, emissiveIntensity: 1.3 })
+        );
+        rearBar.position.set(0, 0.6, CT_LEN / 2 - 0.02);
+        chassis.add(rearBar);
+        // subtle brand-blue underglow
+        const underglow = new THREE.Mesh(
+            track(new THREE.BoxGeometry(1.5, 0.04, 2.9)),
+            mat({ color: ACCENT, emissive: ACCENT, emissiveIntensity: 0.9 })
+        );
+        underglow.position.y = 0.16;
+        chassis.add(underglow);
+
+        // chunky wheels in steer pivots (front axle steers)
+        const wheelGeo = track(new THREE.CylinderGeometry(0.46, 0.46, 0.42, 20));
+        const wheelMat = mat({ color: 0x0c0d11, roughness: 0.8 });
+        const hubGeo = track(new THREE.CylinderGeometry(0.2, 0.2, 0.44, 12));
+        const hubMat = mat({ color: 0x9096a1, metalness: 0.4, roughness: 0.4 });
         const frontPivots: THREE.Group[] = [];
-        for (const [wx, wz] of [[-0.9, 1], [0.9, 1], [-0.9, -1], [0.9, -1]] as const) {
+        for (const [wx, wz] of [[-0.92, 1.15], [0.92, 1.15], [-0.92, -1.15], [0.92, -1.15]] as const) {
             const pivot = new THREE.Group();
-            pivot.position.set(wx, 0.36, wz);
+            pivot.position.set(wx, 0.46, wz);
             const w = new THREE.Mesh(wheelGeo, wheelMat);
             w.rotation.z = Math.PI / 2;
             w.castShadow = true;
             pivot.add(w);
+            const hub = new THREE.Mesh(hubGeo, hubMat);
+            hub.rotation.z = Math.PI / 2;
+            pivot.add(hub);
             car.add(pivot);
-            if (wz < 0) frontPivots.push(pivot); // front axle steers
+            if (wz < 0) frontPivots.push(pivot);
         }
         const carPos = new THREE.Vector3(0, 0, 14);
         let carYaw = 0; // forward is local -Z
