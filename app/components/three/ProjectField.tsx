@@ -7,8 +7,10 @@ import { sectors, frontendProjects, type SectorMeta, type Terminal } from "@/app
 import {
     buildGateway,
     buildFrontendSector,
+    buildJourneySector,
     type Interactable,
     type SectorScene,
+    type InfoContent,
 } from "@/app/components/three/worldKit";
 
 const ACCENT = 0x1d4ed8;
@@ -16,7 +18,11 @@ const ACCENT_LIGHT = 0x3b82f6;
 
 type AreaId = "hub" | SectorMeta["id"];
 type PromptInfo = { title: string; sub: string; action: string } | null;
-type PanelInfo = { kind: "terminal"; project: Terminal } | { kind: "soon"; name: string } | null;
+type PanelInfo =
+    | { kind: "terminal"; project: Terminal }
+    | { kind: "info"; content: InfoContent }
+    | { kind: "soon"; name: string }
+    | null;
 
 /**
  * The field world. A drivable car (third-person follow-cam) explores a
@@ -393,6 +399,10 @@ export default function ProjectField() {
         let panelOpen = false;
         let uiLocked = false; // panel open or mid-transition → freeze driving
         const sectorCache = new Map<string, SectorScene>();
+        const sectorBuilders: Partial<Record<SectorMeta["id"], (l: THREE.TextureLoader) => SectorScene>> = {
+            frontend: buildFrontendSector,
+            journey: buildJourneySector,
+        };
 
         const hubSpawn = { x: 0, z: 22, yaw: 0 };
 
@@ -413,7 +423,7 @@ export default function ProjectField() {
             window.setTimeout(() => {
                 let s = sectorCache.get(id);
                 if (!s) {
-                    s = buildFrontendSector(loader); // only Sector A implemented so far
+                    s = sectorBuilders[id]!(loader);
                     sectorCache.set(id, s);
                 }
                 activeScene = s.scene;
@@ -461,10 +471,12 @@ export default function ProjectField() {
             const it = activeIt;
             if (!it) return;
             if (it.kind === "gateway") {
-                if (it.active && it.sectorId === "frontend") enterSector("frontend");
+                if (it.active && it.sectorId && sectorBuilders[it.sectorId]) enterSector(it.sectorId);
                 else openPanel({ kind: "soon", name: it.sectorName ?? "This area" });
             } else if (it.kind === "terminal" && it.contentIndex != null) {
                 openPanel({ kind: "terminal", project: frontendProjects[it.contentIndex] });
+            } else if (it.kind === "marker" && it.info) {
+                openPanel({ kind: "info", content: it.info });
             }
         };
 
@@ -590,7 +602,9 @@ export default function ProjectField() {
             }
 
             // report prompt to React only when it changes
-            const key = activeIt ? `${activeIt.kind}:${activeIt.sectorId ?? activeIt.contentIndex}` : null;
+            const key = activeIt
+                ? `${activeIt.kind}:${activeIt.sectorId ?? activeIt.contentIndex ?? activeIt.promptTitle}`
+                : null;
             if (key !== reportedKey) {
                 reportedKey = key;
                 if (!activeIt) setPrompt(null);
@@ -600,9 +614,15 @@ export default function ProjectField() {
                         sub: activeIt.active ? activeIt.blurb ?? "" : "Coming soon",
                         action: activeIt.active ? "Enter" : "Preview",
                     });
-                } else {
+                } else if (activeIt.kind === "terminal") {
                     const p = frontendProjects[activeIt.contentIndex ?? 0];
                     setPrompt({ title: p.title, sub: p.pitch, action: "View" });
+                } else {
+                    setPrompt({
+                        title: activeIt.promptTitle ?? "",
+                        sub: activeIt.promptSub ?? "",
+                        action: "View",
+                    });
                 }
             }
 
@@ -708,6 +728,28 @@ export default function ProjectField() {
                                         </a>
                                     )}
                                 </div>
+                            </>
+                        ) : panel.kind === "info" ? (
+                            <>
+                                <h2 className="field-panel-title">{panel.content.title}</h2>
+                                {panel.content.sub && <p className="field-panel-pitch">{panel.content.sub}</p>}
+                                {panel.content.body && <p className="field-panel-desc">{panel.content.body}</p>}
+                                {panel.content.tags && panel.content.tags.length > 0 && (
+                                    <div className="field-panel-tags">
+                                        {panel.content.tags.map((tag) => (
+                                            <span key={tag} className="field-panel-tag">{tag}</span>
+                                        ))}
+                                    </div>
+                                )}
+                                {panel.content.links && panel.content.links.length > 0 && (
+                                    <div className="field-panel-actions">
+                                        {panel.content.links.map((l) => (
+                                            <a key={l.url} className="field-panel-link" href={l.url} target="_blank" rel="noopener noreferrer">
+                                                {l.label} ↗
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <>

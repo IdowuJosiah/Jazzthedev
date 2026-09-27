@@ -1,5 +1,11 @@
 import * as THREE from "three";
-import { type SectorMeta, type Terminal, frontendProjects } from "@/app/field/content/world";
+import {
+    type SectorMeta,
+    type Terminal,
+    frontendProjects,
+    journeyStops,
+    skillTotems,
+} from "@/app/field/content/world";
 
 // ─────────────────────────────────────────────────────────────
 // Shared 3D kit for the field world: labels, sector gateways
@@ -9,10 +15,19 @@ import { type SectorMeta, type Terminal, frontendProjects } from "@/app/field/co
 
 export type Track = <T extends { dispose: () => void }>(o: T) => T;
 
+/** Generic content for an InfoPanel — used by markers/totems. */
+export interface InfoContent {
+    title: string;
+    sub?: string;
+    body?: string;
+    tags?: string[];
+    links?: { label: string; url: string }[];
+}
+
 export interface Interactable {
     x: number;
     z: number;
-    kind: "gateway" | "terminal";
+    kind: "gateway" | "terminal" | "marker";
     halo: THREE.Mesh;
     // gateway
     sectorId?: SectorMeta["id"];
@@ -23,6 +38,10 @@ export interface Interactable {
     contentIndex?: number;
     screen?: THREE.Mesh;
     booted?: boolean;
+    // marker (waypoint / totem)
+    info?: InfoContent;
+    promptTitle?: string;
+    promptSub?: string;
 }
 
 export interface SectorScene {
@@ -284,5 +303,225 @@ export function buildFrontendSector(loader: THREE.TextureLoader): SectorScene {
         dispose: () => {
             disposables.forEach((d) => d.dispose());
         },
+    };
+}
+
+// ── Sector D — Background, Skills & Journey Timeline ──
+
+const TEAL = 0x0d9488;
+const TEAL_LIGHT = 0x2dd4bf;
+
+/** A timeline waypoint: node on a post with a floating year + title. */
+function buildWaypoint(track: Track, index: number): { group: THREE.Group; interactable: Interactable } {
+    const stop = journeyStops[index];
+    const group = new THREE.Group();
+
+    const plinth = new THREE.Mesh(
+        track(new THREE.CylinderGeometry(0.7, 0.85, 0.5, 24)),
+        track(new THREE.MeshStandardMaterial({ color: 0xcfc6b0, roughness: 0.9 }))
+    );
+    plinth.position.y = 0.25;
+    plinth.castShadow = true;
+    plinth.receiveShadow = true;
+    group.add(plinth);
+
+    const post = new THREE.Mesh(
+        track(new THREE.CylinderGeometry(0.09, 0.09, 1.6, 12)),
+        track(new THREE.MeshStandardMaterial({ color: 0x9aa08c, roughness: 0.7, metalness: 0.2 }))
+    );
+    post.position.y = 1.3;
+    group.add(post);
+
+    const node = new THREE.Mesh(
+        track(new THREE.SphereGeometry(0.4, 20, 20)),
+        track(new THREE.MeshStandardMaterial({ color: TEAL_LIGHT, emissive: TEAL, emissiveIntensity: 1.1, roughness: 0.3 }))
+    );
+    node.position.y = 2.3;
+    group.add(node);
+
+    const label = makeLabel(track, stop.title, stop.year, 5.2, TEAL);
+    label.position.y = 3.4;
+    group.add(label);
+
+    const halo = new THREE.Mesh(
+        track(new THREE.PlaneGeometry(2, 2)),
+        track(new THREE.MeshBasicMaterial({ color: TEAL_LIGHT, transparent: true, opacity: 0 }))
+    );
+    halo.position.y = 2.3;
+    halo.position.z = -0.05;
+    group.add(halo);
+
+    return {
+        group,
+        interactable: {
+            x: 0,
+            z: 0,
+            kind: "marker",
+            halo,
+            promptTitle: stop.title,
+            promptSub: stop.year,
+            info: { title: stop.title, sub: stop.year, body: stop.body },
+        },
+    };
+}
+
+/** A skill totem: an obelisk grouping one skill category. */
+function buildTotem(track: Track, index: number): { group: THREE.Group; interactable: Interactable } {
+    const totem = skillTotems[index];
+    const group = new THREE.Group();
+
+    const base = new THREE.Mesh(
+        track(new THREE.CylinderGeometry(0.9, 1, 0.4, 6)),
+        track(new THREE.MeshStandardMaterial({ color: 0xbfc4b0, roughness: 0.9 }))
+    );
+    base.position.y = 0.2;
+    base.receiveShadow = true;
+    group.add(base);
+
+    const shaft = new THREE.Mesh(
+        track(new THREE.BoxGeometry(0.8, 3, 0.8)),
+        track(new THREE.MeshStandardMaterial({ color: 0x8b9285, roughness: 0.6, metalness: 0.2 }))
+    );
+    shaft.position.y = 1.9;
+    shaft.castShadow = true;
+    group.add(shaft);
+
+    const tip = new THREE.Mesh(
+        track(new THREE.ConeGeometry(0.6, 0.8, 4)),
+        track(new THREE.MeshStandardMaterial({ color: TEAL_LIGHT, emissive: TEAL, emissiveIntensity: 0.9, roughness: 0.35 }))
+    );
+    tip.position.y = 3.8;
+    tip.rotation.y = Math.PI / 4;
+    group.add(tip);
+
+    const label = makeLabel(track, totem.category, "Skills", 5, TEAL);
+    label.position.y = 4.7;
+    group.add(label);
+
+    const halo = new THREE.Mesh(
+        track(new THREE.PlaneGeometry(1.6, 4)),
+        track(new THREE.MeshBasicMaterial({ color: TEAL_LIGHT, transparent: true, opacity: 0 }))
+    );
+    halo.position.y = 2;
+    halo.position.z = -0.5;
+    group.add(halo);
+
+    return {
+        group,
+        interactable: {
+            x: 0,
+            z: 0,
+            kind: "marker",
+            halo,
+            promptTitle: totem.category,
+            promptSub: totem.proof,
+            info: { title: totem.category, sub: totem.proof, tags: totem.skills },
+        },
+    };
+}
+
+/**
+ * Sector D — a calm, open "anchor" space: a timeline trail with
+ * chronological waypoints joined by a glowing line, plus a cluster of
+ * skill totems just off the path. Neutral palette, distinct from the hub
+ * and the other sectors.
+ */
+export function buildJourneySector(loader: THREE.TextureLoader): SectorScene {
+    void loader;
+    const disposables: Array<{ dispose: () => void }> = [];
+    const track: Track = (o) => {
+        disposables.push(o);
+        return o;
+    };
+
+    const scene = new THREE.Scene();
+    const bg = 0xc4d0de;
+    scene.background = new THREE.Color(bg);
+    scene.fog = new THREE.Fog(bg, 22, 85);
+
+    scene.add(new THREE.HemisphereLight(0xe4ecf5, 0x8a9678, 1.05));
+    const sun = new THREE.DirectionalLight(0xfff1dd, 0.95);
+    sun.position.set(-14, 22, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.far = 80;
+    sun.shadow.camera.left = -35;
+    sun.shadow.camera.right = 35;
+    sun.shadow.camera.top = 35;
+    sun.shadow.camera.bottom = -35;
+    scene.add(sun);
+
+    const ground = new THREE.Mesh(
+        track(new THREE.CircleGeometry(90, 64)),
+        track(new THREE.MeshStandardMaterial({ color: 0x91a583, roughness: 1 }))
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // straight timeline path + glowing line down the middle
+    const path = new THREE.Mesh(
+        track(new THREE.BoxGeometry(3, 0.06, 46)),
+        track(new THREE.MeshStandardMaterial({ color: 0xcfc6b0, roughness: 0.95 }))
+    );
+    path.position.set(0, 0.03, -6);
+    path.receiveShadow = true;
+    scene.add(path);
+    const line = new THREE.Mesh(
+        track(new THREE.BoxGeometry(0.16, 0.06, 46)),
+        track(new THREE.MeshBasicMaterial({ color: TEAL_LIGHT, transparent: true, opacity: 0.85 }))
+    );
+    line.position.set(0, 0.08, -6);
+    scene.add(line);
+
+    const interactables: Interactable[] = [];
+
+    // waypoints down the timeline, alternating sides
+    journeyStops.forEach((_, i) => {
+        const z = 10 - i * 6;
+        const x = i % 2 === 0 ? -3.4 : 3.4;
+        const { group, interactable } = buildWaypoint(track, i);
+        group.position.set(x, 0, z);
+        interactable.x = x;
+        interactable.z = z;
+        scene.add(group);
+        interactables.push(interactable);
+    });
+
+    // skill totems clustered off to the side, facing the path
+    const totemSpots: Array<[number, number]> = [[12, 6], [14, 0], [12, -6]];
+    skillTotems.forEach((_, i) => {
+        const [x, z] = totemSpots[i];
+        const { group, interactable } = buildTotem(track, i);
+        group.position.set(x, 0, z);
+        group.lookAt(0, group.position.y, z);
+        interactable.x = x;
+        interactable.z = z;
+        scene.add(group);
+        interactables.push(interactable);
+    });
+
+    // soft drifting motes (named "glyphs" so the loop animates them)
+    const moteCount = 160;
+    const mpos = new Float32Array(moteCount * 3);
+    for (let i = 0; i < moteCount; i++) {
+        mpos[i * 3] = (Math.random() - 0.5) * 70;
+        mpos[i * 3 + 1] = Math.random() * 12 + 1;
+        mpos[i * 3 + 2] = (Math.random() - 0.5) * 70;
+    }
+    const mgeo = track(new THREE.BufferGeometry());
+    mgeo.setAttribute("position", new THREE.BufferAttribute(mpos, 3));
+    const motes = new THREE.Points(
+        mgeo,
+        track(new THREE.PointsMaterial({ color: 0xeaf2ea, size: 0.09, transparent: true, opacity: 0.7 }))
+    );
+    motes.name = "glyphs";
+    scene.add(motes);
+
+    return {
+        scene,
+        interactables,
+        spawn: { x: 0, z: 17, yaw: 0 },
+        dispose: () => disposables.forEach((d) => d.dispose()),
     };
 }
