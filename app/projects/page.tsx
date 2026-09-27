@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import "../index.css";
 import { MdArrowOutward } from "react-icons/md";
+import ProjectsAccent from "@/app/components/three/ProjectsAccent";
 
 const projects = [
     {
@@ -87,7 +88,7 @@ export default function ProjectsPage() {
                         A curated look at the interfaces and visual experiences I&apos;ve been shaping. I wanted this page to feel more immersive, so each project reveals itself gradually as you scroll.
                     </p>
                 </div>
-
+                <ProjectsAccent />
             </section>
 
             <section className="projects-showcase-section">

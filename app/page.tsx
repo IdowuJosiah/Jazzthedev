@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import "./index.css";
 import { MdArrowOutward } from "react-icons/md";
+import HeroProfile3D from "@/app/components/three/HeroProfile3D";
 
 const experiences = [
     {
@@ -185,11 +186,7 @@ export default function Home() {
                   </div>
               </section>
               <section className="hero-profile">
-                <div className="hero-profile-circle">
-                    <div className="hero-img">
-                        <Image className="my-image" src="/images/profile.png" alt="profile" width={200} height={200} />
-                    </div>
-                </div>
+                <HeroProfile3D />
               </section>
           </div>
           <section className="landing-page-projects" id="projects">
@@ -322,7 +319,7 @@ export default function Home() {
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.2s' }}>
-                      I've worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
+                      I&apos;ve worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.25s' }}>
