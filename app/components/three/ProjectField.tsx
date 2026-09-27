@@ -413,34 +413,42 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
 
         // ---- drivable car (third-person, Bruno-Simon style) ----
         const car = new THREE.Group();
+        // chassis leans/pitches for juice; wheels stay on the ground
+        const chassis = new THREE.Group();
+        car.add(chassis);
         const body = new THREE.Mesh(
             track(new THREE.BoxGeometry(1.7, 0.5, 3.1)),
             mat({ color: ACCENT, roughness: 0.35, metalness: 0.35 })
         );
         body.position.y = 0.55;
         body.castShadow = true;
-        car.add(body);
+        chassis.add(body);
         const cabin = new THREE.Mesh(
             track(new THREE.BoxGeometry(1.35, 0.55, 1.5)),
             mat({ color: 0x121a30, roughness: 0.15, metalness: 0.5 })
         );
         cabin.position.set(0, 1.0, -0.1);
         cabin.castShadow = true;
-        car.add(cabin);
-        const wheelGeo = track(new THREE.CylinderGeometry(0.36, 0.36, 0.32, 16));
-        const wheelMat = mat({ color: 0x0e0f14, roughness: 0.85 });
-        for (const [wx, wz] of [[-0.9, 1], [0.9, 1], [-0.9, -1], [0.9, -1]] as const) {
-            const w = new THREE.Mesh(wheelGeo, wheelMat);
-            w.rotation.z = Math.PI / 2;
-            w.position.set(wx, 0.36, wz);
-            w.castShadow = true;
-            car.add(w);
-        }
+        chassis.add(cabin);
         const hlMat = mat({ color: 0xfff6d0, emissive: 0xfff0b0, emissiveIntensity: 1.3 });
         for (const hx of [-0.5, 0.5]) {
             const hl = new THREE.Mesh(track(new THREE.SphereGeometry(0.14, 10, 10)), hlMat);
             hl.position.set(hx, 0.6, -1.6);
-            car.add(hl);
+            chassis.add(hl);
+        }
+        const wheelGeo = track(new THREE.CylinderGeometry(0.36, 0.36, 0.32, 16));
+        const wheelMat = mat({ color: 0x0e0f14, roughness: 0.85 });
+        // each wheel sits in a steer pivot so front wheels can turn cleanly
+        const frontPivots: THREE.Group[] = [];
+        for (const [wx, wz] of [[-0.9, 1], [0.9, 1], [-0.9, -1], [0.9, -1]] as const) {
+            const pivot = new THREE.Group();
+            pivot.position.set(wx, 0.36, wz);
+            const w = new THREE.Mesh(wheelGeo, wheelMat);
+            w.rotation.z = Math.PI / 2;
+            w.castShadow = true;
+            pivot.add(w);
+            car.add(pivot);
+            if (wz < 0) frontPivots.push(pivot); // front axle steers
         }
         const carPos = new THREE.Vector3(0, 0, 14);
         let carYaw = 0; // forward is local -Z
@@ -454,11 +462,11 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         let playing = false;
         let activeIndex: number | null = null;
 
-        const MAX_SPEED = 24;
-        const REVERSE_SPEED = 11;
-        const ACCEL = 30;
-        const FRICTION = 14;
-        const TURN = 2.0;
+        const MAX_SPEED = 27;
+        const REVERSE_SPEED = 12;
+        const ACCEL = 36;
+        const FRICTION = 18;
+        const TURN = 2.3;
         const BOUND = 44;
 
         const openActive = () => {
@@ -555,14 +563,37 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             car.position.set(carPos.x, 0, carPos.z);
             car.rotation.y = carYaw;
 
-            // third-person follow camera (trails behind the car)
-            const desiredX = carPos.x - fx * CAM_DIST;
-            const desiredZ = carPos.z - fz * CAM_DIST;
-            const lerp = 1 - Math.pow(0.0015, dt);
+            // juice: bank the chassis into turns, pitch on accel / brake
+            const turning = steerInput * speedFactor * Math.sign(speed || 1);
+            const targetRoll = -turning * 0.13;
+            const targetPitch = -accelInput * 0.05;
+            chassis.rotation.z += (targetRoll - chassis.rotation.z) * 0.12;
+            chassis.rotation.x += (targetPitch - chassis.rotation.x) * 0.1;
+
+            // front wheels visibly steer
+            const steerAngle = steerInput * 0.5;
+            for (const p of frontPivots) p.rotation.y += (steerAngle - p.rotation.y) * 0.25;
+
+            // third-person follow camera: trails behind, and pulls back +
+            // looks further ahead the faster you go
+            const absSpeed = Math.abs(speed);
+            const dynDist = CAM_DIST + absSpeed * 0.14;
+            const dynHeight = CAM_HEIGHT + absSpeed * 0.035;
+            const desiredX = carPos.x - fx * dynDist;
+            const desiredZ = carPos.z - fz * dynDist;
+            const lerp = 1 - Math.pow(0.0016, dt);
             camera.position.x += (desiredX - camera.position.x) * lerp;
             camera.position.z += (desiredZ - camera.position.z) * lerp;
-            camera.position.y += (CAM_HEIGHT - camera.position.y) * lerp;
-            camera.lookAt(carPos.x, 1.3, carPos.z);
+            camera.position.y += (dynHeight - camera.position.y) * lerp;
+            const lookAhead = Math.max(0, speed) * 0.22;
+            camera.lookAt(carPos.x + fx * lookAhead, 1.5, carPos.z + fz * lookAhead);
+
+            // subtle FOV kick for a sense of speed
+            const targetFov = 68 + Math.min(1, absSpeed / MAX_SPEED) * 14;
+            if (Math.abs(camera.fov - targetFov) > 0.01) {
+                camera.fov += (targetFov - camera.fov) * 0.08;
+                camera.updateProjectionMatrix();
+            }
 
             // nearest station within range becomes active
             let nearestDist = Infinity;
