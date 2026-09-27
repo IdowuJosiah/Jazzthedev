@@ -3,36 +3,43 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import * as THREE from "three";
-
-export interface FieldProject {
-    title: string;
-    subtitle: string;
-    image: string;
-    url: string | null;
-}
+import { sectors, frontendProjects, type SectorMeta, type Terminal } from "@/app/field/content/world";
+import {
+    buildGateway,
+    buildFrontendSector,
+    type Interactable,
+    type SectorScene,
+} from "@/app/components/three/worldKit";
 
 const ACCENT = 0x1d4ed8;
 const ACCENT_LIGHT = 0x3b82f6;
 
+type AreaId = "hub" | SectorMeta["id"];
+type PromptInfo = { title: string; sub: string; action: string } | null;
+type PanelInfo = { kind: "terminal"; project: Terminal } | { kind: "soon"; name: string } | null;
+
 /**
- * A small walkable 3D field. Each project is a framed panel on a pedestal
- * arranged in an arc; walk up, look at one, and click / press E to open it.
- *
- * Raw three.js with hand-rolled pointer-lock FPS controls (desktop) and a
- * touch look + walk fallback (mobile). Everything is disposed on unmount.
+ * The field world. A drivable car (third-person follow-cam) explores a
+ * hub park whose gateways lead into themed sector scenes. Sector A (a
+ * dark "dev workshop") is built; approach a terminal and press E / click
+ * to open its InfoPanel. Raw three.js; everything disposed on unmount.
  */
-export default function ProjectField({ projects }: { projects: FieldProject[] }) {
+export default function ProjectField() {
     const containerRef = useRef<HTMLDivElement>(null);
     const [started, setStarted] = useState(false);
-    const [paused, setPaused] = useState(false);
     const [isTouch, setIsTouch] = useState(false);
-    const [active, setActive] = useState<number | null>(null);
+    const [prompt, setPrompt] = useState<PromptInfo>(null);
+    const [panel, setPanel] = useState<PanelInfo>(null);
+    const [area, setArea] = useState<AreaId>("hub");
+    const [transitioning, setTransitioning] = useState(false);
 
     // Shared handles the scene exposes to React overlay buttons.
     const apiRef = useRef<{
         start: () => void;
-        openActive: () => void;
+        interact: () => void;
         setDrive: (dir: "forward" | "back" | "left" | "right", on: boolean) => void;
+        closePanel: () => void;
+        exitSector: () => void;
     } | null>(null);
 
     useEffect(() => {
@@ -42,7 +49,6 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         const touch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
         setIsTouch(touch);
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
         // Bright daytime park palette — kept vivid regardless of theme.
         const SKY_TOP = 0x7ab8ff;
@@ -281,118 +287,27 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             scene.add(cloud);
         }
 
-        // ---- label helper (title drawn to a canvas texture) ----
-        const makeLabel = (title: string, subtitle: string) => {
-            const w = 1024;
-            const h = 256;
-            const canvas = document.createElement("canvas");
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext("2d")!;
-            ctx.clearRect(0, 0, w, h);
-            ctx.textAlign = "center";
-            ctx.lineJoin = "round";
-            // white outline keeps the title legible against sky or buildings
-            ctx.strokeStyle = "rgba(255,255,255,0.92)";
-            ctx.fillStyle = "#141826";
-            ctx.font = "700 92px Poppins, system-ui, sans-serif";
-            ctx.lineWidth = 12;
-            ctx.strokeText(title, w / 2, 104);
-            ctx.fillText(title, w / 2, 104);
-            ctx.font = "500 44px Poppins, system-ui, sans-serif";
-            ctx.lineWidth = 8;
-            ctx.strokeText(subtitle, w / 2, 180);
-            ctx.fillStyle = "#1d4ed8";
-            ctx.fillText(subtitle, w / 2, 180);
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.colorSpace = THREE.SRGBColorSpace;
-            track(tex);
-            const mat = track(new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
-            const geo = track(new THREE.PlaneGeometry(4.2, 1.05));
-            return new THREE.Mesh(geo, mat);
-        };
-
-        // ---- build project stations ----
+        // ---- hub sector gateways (arc of portals leading into sectors) ----
         const loader = new THREE.TextureLoader();
-        const interactables: THREE.Mesh[] = [];
-        const stations: Array<{ group: THREE.Group; baseY: number; phase: number; x: number; z: number; index: number }> = [];
-
-        const count = projects.length;
-        const radius = 13;
-        const spread = Math.PI * 1.15; // arc in front of the spawn
-        const start = -spread / 2 - Math.PI / 2;
-
-        const panelW = 4.4;
-        const panelH = 2.9;
-
-        projects.forEach((project, i) => {
-            const angle = count > 1 ? start + (spread * i) / (count - 1) : -Math.PI / 2;
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-
-            const group = new THREE.Group();
-            group.position.set(x, 0, z);
-            // face the center (spawn point)
-            group.lookAt(0, 0, 0);
-
-            // pedestal
-            const pedestal = new THREE.Mesh(
-                track(new THREE.BoxGeometry(1.1, 1.2, 1.1)),
-                track(new THREE.MeshStandardMaterial({ color: dark ? 0x1b2136 : 0x2a2f45, roughness: 0.7 }))
-            );
-            pedestal.position.y = 0.6;
-            pedestal.castShadow = true;
-            group.add(pedestal);
-
-            // post
-            const post = new THREE.Mesh(
-                track(new THREE.CylinderGeometry(0.06, 0.06, 1.4, 12)),
-                track(new THREE.MeshStandardMaterial({ color: 0x3a3f57 }))
-            );
-            post.position.y = 1.9;
-            group.add(post);
-
-            const panelGroup = new THREE.Group();
-            panelGroup.position.y = 3.0;
-
-            // blue backing frame
-            const frame = new THREE.Mesh(
-                track(new THREE.BoxGeometry(panelW + 0.28, panelH + 0.28, 0.12)),
-                track(new THREE.MeshStandardMaterial({ color: ACCENT, roughness: 0.35, metalness: 0.1 }))
-            );
-            panelGroup.add(frame);
-
-            // image panel
-            const tex = track(loader.load(project.image));
-            tex.colorSpace = THREE.SRGBColorSpace;
-            const panel = new THREE.Mesh(
-                track(new THREE.PlaneGeometry(panelW, panelH)),
-                track(new THREE.MeshBasicMaterial({ map: tex }))
-            );
-            panel.position.z = 0.08;
-            panel.userData.index = i;
-            panelGroup.add(panel);
-            interactables.push(panel);
-
-            // glow ring shown when focused
-            const halo = new THREE.Mesh(
-                track(new THREE.PlaneGeometry(panelW + 0.9, panelH + 0.9)),
-                track(new THREE.MeshBasicMaterial({ color: ACCENT_LIGHT, transparent: true, opacity: 0 }))
-            );
-            halo.position.z = -0.12;
-            halo.userData.isHalo = true;
-            panelGroup.add(halo);
-
-            // label above
-            const label = makeLabel(project.title, project.subtitle);
-            label.position.y = panelH / 2 + 0.85;
-            panelGroup.add(label);
-
-            group.add(panelGroup);
-            scene.add(group);
-
-            stations.push({ group: panelGroup, baseY: panelGroup.position.y, phase: i * 1.7, x, z, index: i });
-        });
+        const hubInteractables: Interactable[] = [];
+        {
+            const gCount = sectors.length;
+            const gRadius = 16;
+            const gSpread = Math.PI * 1.3;
+            const gStart = -gSpread / 2 - Math.PI / 2;
+            sectors.forEach((sector, i) => {
+                const angle = gCount > 1 ? gStart + (gSpread * i) / (gCount - 1) : -Math.PI / 2;
+                const x = Math.cos(angle) * gRadius;
+                const z = Math.sin(angle) * gRadius;
+                const { group, interactable } = buildGateway(track, sector);
+                group.position.set(x, 0, z);
+                group.lookAt(0, 0, 0);
+                interactable.x = x;
+                interactable.z = z;
+                scene.add(group);
+                hubInteractables.push(interactable);
+            });
+        }
 
         // ambient floating orbs for depth
         const orbCount = reduceMotion ? 0 : 60;
@@ -456,33 +371,110 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         car.position.copy(carPos);
         scene.add(car);
 
-        // ---- controls state ----
+        // ---- controls + interaction + area management ----
         const keys = new Set<string>();
         const drive = { forward: false, back: false, left: false, right: false };
         let playing = false;
-        let activeIndex: number | null = null;
 
         const MAX_SPEED = 27;
         const REVERSE_SPEED = 12;
         const ACCEL = 36;
         const FRICTION = 18;
         const TURN = 2.3;
-        const BOUND = 44;
+        const HUB_BOUND = 44;
+        const SECTOR_BOUND = 26;
+        const CAM_DIST = 9;
+        const CAM_HEIGHT = 5;
 
-        const openActive = () => {
-            if (activeIndex === null) return;
-            const url = projects[activeIndex]?.url;
-            if (url) window.open(url, "_blank", "noopener,noreferrer");
+        let activeScene: THREE.Scene = scene;
+        let activeList: Interactable[] = hubInteractables;
+        let currentArea: AreaId = "hub";
+        let activeIt: Interactable | null = null;
+        let panelOpen = false;
+        let uiLocked = false; // panel open or mid-transition → freeze driving
+        const sectorCache = new Map<string, SectorScene>();
+
+        const hubSpawn = { x: 0, z: 22, yaw: 0 };
+
+        const placeCar = (into: THREE.Scene, sx: number, sz: number, yaw: number) => {
+            car.parent?.remove(car);
+            into.add(car);
+            carPos.set(sx, 0, sz);
+            carYaw = yaw;
+            speed = 0;
+            camera.position.set(sx, CAM_HEIGHT, sz + CAM_DIST);
+            camera.lookAt(sx, 1.3, sz);
         };
 
-        const onClick = () => {
-            if (playing) openActive();
+        const enterSector = (id: SectorMeta["id"]) => {
+            if (uiLocked) return;
+            uiLocked = true;
+            setTransitioning(true);
+            window.setTimeout(() => {
+                let s = sectorCache.get(id);
+                if (!s) {
+                    s = buildFrontendSector(loader); // only Sector A implemented so far
+                    sectorCache.set(id, s);
+                }
+                activeScene = s.scene;
+                activeList = s.interactables;
+                currentArea = id;
+                placeCar(s.scene, s.spawn.x, s.spawn.z, s.spawn.yaw);
+                setArea(id);
+                setPrompt(null);
+                setTransitioning(false);
+                uiLocked = false;
+            }, 340);
         };
+
+        const exitSector = () => {
+            if (currentArea === "hub" || uiLocked) return;
+            uiLocked = true;
+            panelOpen = false;
+            setPanel(null);
+            setTransitioning(true);
+            window.setTimeout(() => {
+                activeScene = scene;
+                activeList = hubInteractables;
+                currentArea = "hub";
+                placeCar(scene, hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
+                setArea("hub");
+                setPrompt(null);
+                setTransitioning(false);
+                uiLocked = false;
+            }, 340);
+        };
+
+        const openPanel = (info: PanelInfo) => {
+            panelOpen = true;
+            uiLocked = true;
+            setPanel(info);
+        };
+        const closePanel = () => {
+            panelOpen = false;
+            uiLocked = false;
+            setPanel(null);
+        };
+
+        const handleInteract = () => {
+            if (!playing || uiLocked) return;
+            const it = activeIt;
+            if (!it) return;
+            if (it.kind === "gateway") {
+                if (it.active && it.sectorId === "frontend") enterSector("frontend");
+                else openPanel({ kind: "soon", name: it.sectorName ?? "This area" });
+            } else if (it.kind === "terminal" && it.contentIndex != null) {
+                openPanel({ kind: "terminal", project: frontendProjects[it.contentIndex] });
+            }
+        };
+
+        const onClick = () => handleInteract();
         renderer.domElement.addEventListener("click", onClick);
 
         const onKeyDown = (e: KeyboardEvent) => {
             keys.add(e.code);
-            if (e.code === "KeyE") openActive();
+            if (e.code === "KeyE") handleInteract();
+            if (e.code === "Escape" && panelOpen) closePanel();
             if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
                 e.preventDefault();
             }
@@ -496,12 +488,13 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             start: () => {
                 playing = true;
                 setStarted(true);
-                setPaused(false);
             },
-            openActive,
+            interact: handleInteract,
             setDrive: (dir, on) => {
                 drive[dir] = on;
             },
+            closePanel,
+            exitSector,
         };
 
         // ---- resize ----
@@ -515,34 +508,31 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
         // ---- main loop ----
         let raf = 0;
         const clock = new THREE.Clock();
-        let reportedActive: number | null = null;
-        const CAM_DIST = 9;
-        const CAM_HEIGHT = 5;
+        let reportedKey: string | null = null;
 
         const loop = () => {
             const dt = Math.min(clock.getDelta(), 0.05);
             const t = clock.elapsedTime;
 
-            const accelInput =
-                (keys.has("KeyW") || keys.has("ArrowUp") || drive.forward ? 1 : 0) -
-                (keys.has("KeyS") || keys.has("ArrowDown") || drive.back ? 1 : 0);
-            const steerInput =
-                (keys.has("KeyD") || keys.has("ArrowRight") || drive.right ? 1 : 0) -
-                (keys.has("KeyA") || keys.has("ArrowLeft") || drive.left ? 1 : 0);
+            // freeze driving while a panel is open or during a transition
+            const controls = playing && !uiLocked;
+            const accelInput = controls
+                ? (keys.has("KeyW") || keys.has("ArrowUp") || drive.forward ? 1 : 0) -
+                  (keys.has("KeyS") || keys.has("ArrowDown") || drive.back ? 1 : 0)
+                : 0;
+            const steerInput = controls
+                ? (keys.has("KeyD") || keys.has("ArrowRight") || drive.right ? 1 : 0) -
+                  (keys.has("KeyA") || keys.has("ArrowLeft") || drive.left ? 1 : 0)
+                : 0;
 
-            if (playing) {
-                if (accelInput > 0) speed += ACCEL * dt;
-                else if (accelInput < 0) speed -= ACCEL * dt;
-                else {
-                    const drop = FRICTION * dt;
-                    speed = Math.abs(speed) <= drop ? 0 : speed - Math.sign(speed) * drop;
-                }
-            } else {
-                speed *= 0.9;
+            if (accelInput > 0) speed += ACCEL * dt;
+            else if (accelInput < 0) speed -= ACCEL * dt;
+            else {
+                const drop = FRICTION * dt;
+                speed = Math.abs(speed) <= drop ? 0 : speed - Math.sign(speed) * drop;
             }
             speed = Math.max(-REVERSE_SPEED, Math.min(MAX_SPEED, speed));
 
-            // steering scales with speed and inverts in reverse (like a real car)
             const speedFactor = Math.min(1, Math.abs(speed) / 4);
             if (Math.abs(speed) > 0.01) {
                 carYaw -= steerInput * TURN * dt * speedFactor * Math.sign(speed);
@@ -553,88 +543,99 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             carPos.x += fx * speed * dt;
             carPos.z += fz * speed * dt;
 
-            // keep the car inside the park
+            // keep the car inside the current area
+            const bound = currentArea === "hub" ? HUB_BOUND : SECTOR_BOUND;
             const r = Math.hypot(carPos.x, carPos.z);
-            if (r > BOUND) {
-                carPos.x = (carPos.x / r) * BOUND;
-                carPos.z = (carPos.z / r) * BOUND;
+            if (r > bound) {
+                carPos.x = (carPos.x / r) * bound;
+                carPos.z = (carPos.z / r) * bound;
                 speed *= 0.4;
             }
             car.position.set(carPos.x, 0, carPos.z);
             car.rotation.y = carYaw;
 
-            // juice: bank the chassis into turns, pitch on accel / brake
+            // juice: bank into turns, pitch on accel, steer front wheels
             const turning = steerInput * speedFactor * Math.sign(speed || 1);
-            const targetRoll = -turning * 0.13;
-            const targetPitch = -accelInput * 0.05;
-            chassis.rotation.z += (targetRoll - chassis.rotation.z) * 0.12;
-            chassis.rotation.x += (targetPitch - chassis.rotation.x) * 0.1;
-
-            // front wheels visibly steer
+            chassis.rotation.z += (-turning * 0.13 - chassis.rotation.z) * 0.12;
+            chassis.rotation.x += (-accelInput * 0.05 - chassis.rotation.x) * 0.1;
             const steerAngle = steerInput * 0.5;
             for (const p of frontPivots) p.rotation.y += (steerAngle - p.rotation.y) * 0.25;
 
-            // third-person follow camera: trails behind, and pulls back +
-            // looks further ahead the faster you go
+            // follow camera: trails, pulls back + looks ahead with speed
             const absSpeed = Math.abs(speed);
             const dynDist = CAM_DIST + absSpeed * 0.14;
             const dynHeight = CAM_HEIGHT + absSpeed * 0.035;
-            const desiredX = carPos.x - fx * dynDist;
-            const desiredZ = carPos.z - fz * dynDist;
             const lerp = 1 - Math.pow(0.0016, dt);
-            camera.position.x += (desiredX - camera.position.x) * lerp;
-            camera.position.z += (desiredZ - camera.position.z) * lerp;
+            camera.position.x += (carPos.x - fx * dynDist - camera.position.x) * lerp;
+            camera.position.z += (carPos.z - fz * dynDist - camera.position.z) * lerp;
             camera.position.y += (dynHeight - camera.position.y) * lerp;
             const lookAhead = Math.max(0, speed) * 0.22;
             camera.lookAt(carPos.x + fx * lookAhead, 1.5, carPos.z + fz * lookAhead);
 
-            // subtle FOV kick for a sense of speed
             const targetFov = 68 + Math.min(1, absSpeed / MAX_SPEED) * 14;
             if (Math.abs(camera.fov - targetFov) > 0.01) {
                 camera.fov += (targetFov - camera.fov) * 0.08;
                 camera.updateProjectionMatrix();
             }
 
-            // nearest station within range becomes active
+            // nearest interactable in the current area → focus
             let nearestDist = Infinity;
-            let nearest: number | null = null;
-            for (const s of stations) {
-                const d = Math.hypot(carPos.x - s.x, carPos.z - s.z);
+            activeIt = null;
+            for (const it of activeList) {
+                const d = Math.hypot(carPos.x - it.x, carPos.z - it.z);
                 if (d < nearestDist) {
                     nearestDist = d;
-                    nearest = s.index;
+                    activeIt = d < (it.kind === "gateway" ? 9 : 8) ? it : null;
                 }
-            }
-            activeIndex = nearest !== null && nearestDist < 9 ? nearest : null;
-            if (activeIndex !== reportedActive) {
-                reportedActive = activeIndex;
-                setActive(activeIndex);
             }
 
-            // idle float on stations + halo fade
-            stations.forEach((s, i) => {
-                if (!reduceMotion) s.group.position.y = s.baseY + Math.sin(t * 0.9 + s.phase) * 0.12;
-                const halo = s.group.children.find((c) => (c as THREE.Mesh).userData.isHalo) as THREE.Mesh | undefined;
-                if (halo) {
-                    const targetOpacity = activeIndex === i ? 0.6 + Math.sin(t * 4) * 0.12 : 0;
-                    const hmat = halo.material as THREE.MeshBasicMaterial;
-                    hmat.opacity += (targetOpacity - hmat.opacity) * 0.2;
+            // report prompt to React only when it changes
+            const key = activeIt ? `${activeIt.kind}:${activeIt.sectorId ?? activeIt.contentIndex}` : null;
+            if (key !== reportedKey) {
+                reportedKey = key;
+                if (!activeIt) setPrompt(null);
+                else if (activeIt.kind === "gateway") {
+                    setPrompt({
+                        title: activeIt.sectorName ?? "",
+                        sub: activeIt.active ? activeIt.blurb ?? "" : "Coming soon",
+                        action: activeIt.active ? "Enter" : "Preview",
+                    });
+                } else {
+                    const p = frontendProjects[activeIt.contentIndex ?? 0];
+                    setPrompt({ title: p.title, sub: p.pitch, action: "View" });
                 }
-            });
-            if (orbs && !reduceMotion) orbs.rotation.y = t * 0.02;
+            }
+
+            // halo highlight + terminal screen boot-up
+            for (const it of activeList) {
+                const isActive = it === activeIt;
+                const hmat = it.halo.material as THREE.MeshBasicMaterial;
+                hmat.opacity += ((isActive ? 0.6 + Math.sin(t * 4) * 0.12 : 0) - hmat.opacity) * 0.2;
+                if (it.kind === "terminal" && it.screen) {
+                    if (isActive) it.booted = true;
+                    const smat = it.screen.material as THREE.MeshBasicMaterial;
+                    smat.opacity += ((it.booted ? 1 : 0.12) - smat.opacity) * 0.12;
+                }
+            }
+
+            // ambient motion (hub vs sector)
             if (!reduceMotion) {
-                for (const cloud of clouds) {
-                    cloud.position.x += dt * 0.6;
-                    if (cloud.position.x > 70) cloud.position.x = -70;
+                if (currentArea === "hub") {
+                    if (orbs) orbs.rotation.y = t * 0.02;
+                    for (const cloud of clouds) {
+                        cloud.position.x += dt * 0.6;
+                        if (cloud.position.x > 70) cloud.position.x = -70;
+                    }
+                } else {
+                    const glyphs = activeScene.getObjectByName("glyphs");
+                    if (glyphs) glyphs.rotation.y = t * 0.03;
                 }
             }
 
-            renderer.render(scene, camera);
+            renderer.render(activeScene, camera);
             raf = requestAnimationFrame(loop);
         };
-        // start the camera behind the car
-        camera.position.set(carPos.x, CAM_HEIGHT, carPos.z + CAM_DIST);
-        camera.lookAt(carPos.x, 1.3, carPos.z);
+        placeCar(scene, hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
         loop();
 
         // ---- cleanup ----
@@ -644,38 +645,91 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
             window.removeEventListener("resize", onResize);
+            sectorCache.forEach((s) => s.dispose());
             disposables.forEach((d) => d.dispose());
             renderer.dispose();
             apiRef.current = null;
             if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
         };
-        // projects is stable for the lifetime of the page
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    const activeProject = active !== null ? projects[active] : null;
 
     return (
         <div className="field-root">
             <div ref={containerRef} className="field-canvas" />
 
-            {/* nearby-project prompt */}
-            {started && activeProject && (
+            {/* proximity prompt */}
+            {started && prompt && !panel && (
                 <div className="field-prompt">
-                    <div className="field-prompt-title">{activeProject.title}</div>
-                    <div className="field-prompt-sub">{activeProject.subtitle}</div>
-                    {activeProject.url ? (
-                        isTouch ? (
-                            <button type="button" className="field-open-btn" onClick={() => apiRef.current?.openActive()}>
-                                Open project ↗
-                            </button>
-                        ) : (
-                            <div className="field-prompt-hint">Click or press E to open ↗</div>
-                        )
+                    <div className="field-prompt-title">{prompt.title}</div>
+                    <div className="field-prompt-sub">{prompt.sub}</div>
+                    {isTouch ? (
+                        <button type="button" className="field-open-btn" onClick={() => apiRef.current?.interact()}>
+                            {prompt.action}
+                        </button>
                     ) : (
-                        <div className="field-prompt-hint muted">Coming soon</div>
+                        <div className="field-prompt-hint">
+                            Click or press E to {prompt.action.toLowerCase()}
+                        </div>
                     )}
                 </div>
+            )}
+
+            {/* docked InfoPanel */}
+            {panel && (
+                <div className="field-panel-backdrop" onClick={() => apiRef.current?.closePanel()}>
+                    <div className="field-panel" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            type="button"
+                            className="field-panel-close"
+                            aria-label="Close"
+                            onClick={() => apiRef.current?.closePanel()}
+                        >
+                            ✕
+                        </button>
+                        {panel.kind === "terminal" ? (
+                            <>
+                                <h2 className="field-panel-title">{panel.project.title}</h2>
+                                <p className="field-panel-pitch">{panel.project.pitch}</p>
+                                <p className="field-panel-desc">{panel.project.description}</p>
+                                <div className="field-panel-tags">
+                                    {panel.project.tags.map((tag) => (
+                                        <span key={tag} className="field-panel-tag">{tag}</span>
+                                    ))}
+                                </div>
+                                <div className="field-panel-actions">
+                                    {panel.project.liveUrl && (
+                                        <a className="field-panel-link" href={panel.project.liveUrl} target="_blank" rel="noopener noreferrer">
+                                            Live site ↗
+                                        </a>
+                                    )}
+                                    {panel.project.repoUrl && (
+                                        <a className="field-panel-link ghost" href={panel.project.repoUrl} target="_blank" rel="noopener noreferrer">
+                                            GitHub ↗
+                                        </a>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="field-panel-title">{panel.name}</h2>
+                                <p className="field-panel-desc">This sector is coming soon.</p>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* sector transition fade */}
+            <div className={`field-transition ${transitioning ? "on" : ""}`} aria-hidden="true" />
+
+            {/* sector banner + back-to-hub */}
+            {started && area !== "hub" && (
+                <>
+                    <div className="field-sector-banner">{sectors.find((s) => s.id === area)?.name}</div>
+                    <button type="button" className="field-back-btn" onClick={() => apiRef.current?.exitSector()}>
+                        ← Hub
+                    </button>
+                </>
             )}
 
             {/* touch driving controls */}
@@ -730,27 +784,27 @@ export default function ProjectField({ projects }: { projects: FieldProject[] })
             )}
 
             {/* start overlay */}
-            {(!started || paused) && (
+            {!started && (
                 <div className="field-overlay">
                     <div className="field-overlay-card">
-                        <p className="field-kicker">Interactive Gallery</p>
-                        <h1 className="field-overlay-title">Drive through my work</h1>
+                        <p className="field-kicker">Interactive World</p>
+                        <h1 className="field-overlay-title">Explore my world</h1>
                         <p className="field-overlay-desc">
-                            Cruise around the park and pull up to any project.
-                            {isTouch ? " Tap Open" : " Click or press E"} to visit the live site.
+                            Drive up to a glowing <b>gateway</b> to enter a sector, then roll up to a
+                            terminal and {isTouch ? "tap the button" : "press E"} to read more.
                         </p>
                         <ul className="field-controls">
                             {isTouch ? (
                                 <>
                                     <li><b>▲ / ▼</b> accelerate &amp; reverse</li>
                                     <li><b>◄ / ►</b> to steer</li>
-                                    <li>Tap <b>Open</b> when you reach a project</li>
+                                    <li>Tap the prompt to <b>enter / view</b></li>
                                 </>
                             ) : (
                                 <>
                                     <li><b>W / ↑</b> drive · <b>S / ↓</b> reverse</li>
                                     <li><b>A D</b> or <b>← →</b> to steer</li>
-                                    <li><b>Click</b> or <b>E</b> to open a project</li>
+                                    <li><b>Click</b> or <b>E</b> to enter / view</li>
                                 </>
                             )}
                         </ul>
