@@ -15,6 +15,9 @@ export default function SiteFooter() {
     const pathname = usePathname();
     const currentYear = new Date().getFullYear();
 
+    // Hidden in the full-screen 3D field experience.
+    if (pathname === "/field") return null;
+
     return (
         <footer className="page-width">
             <section className="cta-footer-section">

@@ -8,11 +8,15 @@ import { BsChatText } from "react-icons/bs";
 const navLinks = [
     { href: "/", label: "Home" },
     { href: "/projects", label: "Projects" },
+    { href: "/field", label: "Explore" },
     { href: "/about", label: "About" },
 ];
 
 export default function Navbar() {
     const pathname = usePathname();
+
+    // The 3D field is a full-screen experience — hide the site chrome there.
+    if (pathname === "/field") return null;
 
     return (
         <nav className="navbar">
