@@ -471,3 +471,84 @@
     border-radius: 999px;
     transition: width 0.4s ease;
 }
+
+/* ── hub HUD: minimap + explored count ── */
+.field-hud {
+    position: absolute;
+    top: 1.2rem;
+    left: 1.2rem;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+.field-minimap {
+    display: block;
+    border-radius: 50%;
+    box-shadow: 0 10px 30px rgba(21, 24, 34, 0.25);
+}
+.field-hud-chip,
+.field-hud-keys,
+.field-hud-btn {
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(23, 23, 23, 0.08);
+    font-size: 0.8rem;
+    color: #3c3f4c;
+}
+.field-hud-chip b {
+    color: #1d4ed8;
+}
+.field-hud-row {
+    display: flex;
+    gap: 0.4rem;
+}
+.field-hud-btn {
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+.field-hud-btn:hover {
+    color: #1d4ed8;
+}
+
+/* ── toast ── */
+.field-toast {
+    position: absolute;
+    top: 1.4rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 7;
+    padding: 0.6rem 1.3rem;
+    border-radius: 999px;
+    background: #141826;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow: 0 16px 40px rgba(21, 24, 34, 0.3);
+    animation: field-toast-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes field-toast-in {
+    from { opacity: 0; transform: translate(-50%, -10px) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@media (prefers-color-scheme: dark) {
+    .field-hud-chip, .field-hud-keys, .field-hud-btn {
+        background: rgba(20, 22, 34, 0.82);
+        color: #cbd5e1;
+        border-color: rgba(237, 237, 237, 0.1);
+    }
+    .field-hud-chip b { color: #93b4ff; }
+}
+
+@media (max-width: 640px) {
+    .field-hud { top: 0.8rem; left: 0.8rem; }
+    .field-minimap { width: 112px !important; height: 112px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .field-toast { animation: none; }
+}

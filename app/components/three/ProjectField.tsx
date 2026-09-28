@@ -5,7 +5,6 @@ import Link from "next/link";
 import * as THREE from "three";
 import { sectors, frontendProjects, type SectorMeta, type Terminal } from "@/app/field/content/world";
 import {
-    buildGateway,
     buildFrontendSector,
     buildJourneySector,
     buildEkoSector,
@@ -14,11 +13,12 @@ import {
     type SectorScene,
     type InfoContent,
 } from "@/app/components/three/worldKit";
+import { buildHub, type HubMap } from "@/app/components/three/hubKit";
 
 const ACCENT = 0x1d4ed8;
-const ACCENT_LIGHT = 0x3b82f6;
 
 type AreaId = "hub" | SectorMeta["id"];
+type Toast = { id: number; text: string } | null;
 type PromptInfo = { title: string; sub: string; action: string } | null;
 type PanelInfo =
     | { kind: "terminal"; project: Terminal }
@@ -26,11 +26,116 @@ type PanelInfo =
     | { kind: "soon"; name: string }
     | null;
 
+const MINIMAP_SIZE = 148;
+const hexColor = (c: number, alpha = "") => "#" + c.toString(16).padStart(6, "0") + alpha;
+
+/** North-up hub minimap: roads, districts (✓ once explored), and the car. */
+function drawMinimap(
+    canvas: HTMLCanvasElement,
+    map: HubMap,
+    x: number,
+    z: number,
+    yaw: number,
+    visited: Set<string>
+) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const px = Math.round(MINIMAP_SIZE * dpr);
+    if (canvas.width !== px) {
+        canvas.width = canvas.height = px;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const half = MINIMAP_SIZE / 2;
+    const k = (half - 4) / (map.bound + 2);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE);
+    ctx.save();
+    ctx.translate(half, half);
+    ctx.beginPath();
+    ctx.arc(0, 0, half - 1, 0, Math.PI * 2);
+    ctx.fillStyle = "#5fb04a";
+    ctx.fill();
+    ctx.clip();
+
+    for (const d of map.districts) {
+        ctx.beginPath();
+        ctx.arc(d.x * k, d.z * k, d.r * k, 0, Math.PI * 2);
+        ctx.fillStyle = hexColor(d.color, "99");
+        ctx.fill();
+    }
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#4a5160";
+    ctx.lineWidth = (map.ring[1] - map.ring[0]) * k;
+    ctx.beginPath();
+    ctx.arc(0, 0, ((map.ring[0] + map.ring[1]) / 2) * k, 0, Math.PI * 2);
+    ctx.stroke();
+    for (const [x1, z1, x2, z2, w] of map.roads) {
+        ctx.lineWidth = w * k;
+        ctx.beginPath();
+        ctx.moveTo(x1 * k, z1 * k);
+        ctx.lineTo(x2 * k, z2 * k);
+        ctx.stroke();
+    }
+    {
+        const [x1, z1, x2, z2, w] = map.lane;
+        ctx.strokeStyle = "#e9cf9a";
+        ctx.lineCap = "butt";
+        ctx.lineWidth = w * k;
+        ctx.beginPath();
+        ctx.moveTo(x1 * k, z1 * k);
+        ctx.lineTo(x2 * k, z2 * k);
+        ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, map.plaza * k, 0, Math.PI * 2);
+    ctx.fillStyle = "#e3d3a4";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 0, 3.5 * k, 0, Math.PI * 2);
+    ctx.fillStyle = "#5ec8ff";
+    ctx.fill();
+
+    ctx.font = "700 10px Poppins, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const d of map.districts) {
+        ctx.beginPath();
+        ctx.arc(d.x * k, d.z * k, 7.5, 0, Math.PI * 2);
+        ctx.fillStyle = hexColor(d.color);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.fillText(visited.has(d.id) ? "✓" : d.name[0], d.x * k, d.z * k + 0.5);
+    }
+
+    // car arrow
+    ctx.translate(x * k, z * k);
+    ctx.rotate(-yaw);
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(5, 5);
+    ctx.lineTo(0, 2.5);
+    ctx.lineTo(-5, 5);
+    ctx.closePath();
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#141826";
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(half, half, half - 1, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
 /**
  * The field world. A drivable car (third-person follow-cam) explores a
- * hub park whose gateways lead into themed sector scenes. Sector A (a
- * dark "dev workshop") is built; approach a terminal and press E / click
- * to open its InfoPanel. Raw three.js; everything disposed on unmount.
+ * planned hub park (see hubKit) whose avenues lead to gateways into
+ * themed sector scenes; approach a terminal and press E / click to open
+ * its InfoPanel. Raw three.js; everything disposed on unmount.
  */
 export default function ProjectField() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -41,6 +146,9 @@ export default function ProjectField() {
     const [area, setArea] = useState<AreaId>("hub");
     const [transitioning, setTransitioning] = useState(false);
     const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+    const [explored, setExplored] = useState(0);
+    const [toast, setToast] = useState<Toast>(null);
+    const minimapRef = useRef<HTMLCanvasElement>(null);
 
     // Shared handles the scene exposes to React overlay buttons.
     const apiRef = useRef<{
@@ -49,6 +157,7 @@ export default function ProjectField() {
         setDrive: (dir: "forward" | "back" | "left" | "right", on: boolean) => void;
         closePanel: () => void;
         exitSector: () => void;
+        reset: () => void;
     } | null>(null);
 
     useEffect(() => {
@@ -59,12 +168,6 @@ export default function ProjectField() {
         setIsTouch(touch);
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-        // Bright daytime park palette — kept vivid regardless of theme.
-        const SKY_TOP = 0x7ab8ff;
-        const SKY_HORIZON = 0xd9ecff;
-        const GRASS = 0x5fb04a;
-        const PATH = 0xe3d3a4;
-
         // ---- renderer / scene / camera ----
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -74,266 +177,22 @@ export default function ProjectField() {
         renderer.domElement.style.display = "block";
         container.appendChild(renderer.domElement);
 
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(SKY_HORIZON, 55, 150);
+        const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.1, 400);
 
-        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 400);
-        const EYE = 1.7;
-        camera.position.set(0, EYE, 0);
-
-        // ---- disposable registry ----
+        // ---- disposable registry (car + effects; the hub disposes its own) ----
         const disposables: Array<{ dispose: () => void }> = [];
         const track = <T extends { dispose: () => void }>(o: T) => {
             disposables.push(o);
             return o;
         };
-
-        // ---- gradient sky ----
-        {
-            const c = document.createElement("canvas");
-            c.width = 2;
-            c.height = 256;
-            const g = c.getContext("2d")!;
-            const grad = g.createLinearGradient(0, 0, 0, 256);
-            grad.addColorStop(0, "#" + SKY_TOP.toString(16).padStart(6, "0"));
-            grad.addColorStop(1, "#" + SKY_HORIZON.toString(16).padStart(6, "0"));
-            g.fillStyle = grad;
-            g.fillRect(0, 0, 2, 256);
-            const skyTex = track(new THREE.CanvasTexture(c));
-            skyTex.colorSpace = THREE.SRGBColorSpace;
-            scene.background = skyTex;
-        }
-
-        // ---- lighting ----
-        scene.add(new THREE.HemisphereLight(0xcfe6ff, GRASS, 1.15));
-        const sun = new THREE.DirectionalLight(0xfff4e0, 1.5);
-        sun.position.set(24, 34, 14);
-        sun.castShadow = true;
-        sun.shadow.mapSize.set(2048, 2048);
-        sun.shadow.camera.near = 1;
-        sun.shadow.camera.far = 90;
-        sun.shadow.camera.left = -45;
-        sun.shadow.camera.right = 45;
-        sun.shadow.camera.top = 45;
-        sun.shadow.camera.bottom = -45;
-        sun.shadow.bias = -0.0004;
-        scene.add(sun);
-
-        // ---- grass ground ----
-        const ground = new THREE.Mesh(
-            track(new THREE.CircleGeometry(160, 64)),
-            track(new THREE.MeshStandardMaterial({ color: GRASS, roughness: 1, metalness: 0 }))
-        );
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
-
-        // ---- helpers to keep material/geo tracked ----
         const mat = (opts: THREE.MeshStandardMaterialParameters) =>
             track(new THREE.MeshStandardMaterial(opts));
 
-        // ---- paths: central plaza + a spoke to each project ----
-        const pathMat = mat({ color: PATH, roughness: 1 });
-        const plaza = new THREE.Mesh(track(new THREE.CircleGeometry(6, 48)), pathMat);
-        plaza.rotation.x = -Math.PI / 2;
-        plaza.position.y = 0.02;
-        plaza.receiveShadow = true;
-        scene.add(plaza);
-
-        // ---- trees (trunk + layered foliage), scattered on the grass ----
-        const trunkGeo = track(new THREE.CylinderGeometry(0.16, 0.22, 1.6, 8));
-        const trunkMat = mat({ color: 0x7a5230, roughness: 0.9 });
-        const foliageGeo = track(new THREE.IcosahedronGeometry(1, 0));
-        const foliageMats = [0x3aa64a, 0x2f8f43, 0x57c65b, 0x6fce74].map((c) =>
-            mat({ color: c, roughness: 0.85, flatShading: true })
-        );
-        const rand = (a: number, b: number) => a + Math.random() * (b - a);
-        const treeSpots: Array<[number, number]> = [];
-        for (let i = 0; i < 46; i++) {
-            const ang = Math.random() * Math.PI * 2;
-            const dist = rand(9, 40);
-            const x = Math.cos(ang) * dist;
-            const z = Math.sin(ang) * dist;
-            treeSpots.push([x, z]);
-            const tree = new THREE.Group();
-            tree.position.set(x, 0, z);
-            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-            trunk.position.y = 0.8;
-            trunk.castShadow = true;
-            tree.add(trunk);
-            const clusters = 3;
-            for (let k = 0; k < clusters; k++) {
-                const f = new THREE.Mesh(foliageGeo, foliageMats[(i + k) % foliageMats.length]);
-                const s = rand(1.1, 1.7) - k * 0.25;
-                f.scale.setScalar(s);
-                f.position.set(rand(-0.4, 0.4), 1.7 + k * 0.7, rand(-0.4, 0.4));
-                f.castShadow = true;
-                tree.add(f);
-            }
-            const scale = rand(0.8, 1.5);
-            tree.scale.setScalar(scale);
-            scene.add(tree);
-        }
-
-        // ---- colorful city skyline ringing the park ----
-        const windowTex = (() => {
-            const c = document.createElement("canvas");
-            c.width = 64;
-            c.height = 128;
-            const g = c.getContext("2d")!;
-            g.fillStyle = "#ffffff";
-            g.fillRect(0, 0, 64, 128);
-            g.fillStyle = "rgba(20,26,45,0.82)";
-            for (let y = 6; y < 128; y += 12) {
-                for (let x = 6; x < 64; x += 12) {
-                    if (Math.random() > 0.28) g.fillRect(x, y, 7, 7);
-                }
-            }
-            const t = track(new THREE.CanvasTexture(c));
-            t.colorSpace = THREE.SRGBColorSpace;
-            return t;
-        })();
-        const buildingColors = [
-            0x4f7cff, 0xff6b6b, 0xffd166, 0x06d6a0, 0xb892ff, 0xf4a261, 0x2ec4b6, 0xff8fab,
-        ];
-        const buildingGeo = track(new THREE.BoxGeometry(1, 1, 1));
-        const ringCount = 30;
-        for (let i = 0; i < ringCount; i++) {
-            const ang = (i / ringCount) * Math.PI * 2 + rand(-0.05, 0.05);
-            const dist = rand(50, 66);
-            const h = rand(10, 34);
-            const w = rand(5, 9);
-            const b = new THREE.Mesh(
-                buildingGeo,
-                mat({
-                    color: buildingColors[i % buildingColors.length],
-                    roughness: 0.6,
-                    metalness: 0.1,
-                    map: windowTex,
-                })
-            );
-            b.position.set(Math.cos(ang) * dist, h / 2, Math.sin(ang) * dist);
-            b.scale.set(w, h, w);
-            b.lookAt(0, h / 2, 0);
-            scene.add(b);
-        }
-
-        // ---- lampposts around the plaza ----
-        const lampPostGeo = track(new THREE.CylinderGeometry(0.08, 0.1, 3.4, 8));
-        const lampPostMat = mat({ color: 0x2b2f3a, roughness: 0.5, metalness: 0.4 });
-        const bulbGeo = track(new THREE.SphereGeometry(0.22, 12, 12));
-        const bulbMat = mat({ color: 0xfff2c4, emissive: 0xffe08a, emissiveIntensity: 1.4 });
-        for (let i = 0; i < 8; i++) {
-            const ang = (i / 8) * Math.PI * 2;
-            const lamp = new THREE.Group();
-            lamp.position.set(Math.cos(ang) * 7.5, 0, Math.sin(ang) * 7.5);
-            const post = new THREE.Mesh(lampPostGeo, lampPostMat);
-            post.position.y = 1.7;
-            post.castShadow = true;
-            lamp.add(post);
-            const bulb = new THREE.Mesh(bulbGeo, bulbMat);
-            bulb.position.y = 3.5;
-            lamp.add(bulb);
-            scene.add(lamp);
-        }
-
-        // ---- benches near the plaza ----
-        const benchSeatGeo = track(new THREE.BoxGeometry(2, 0.15, 0.7));
-        const benchMat = mat({ color: 0x8a5a2b, roughness: 0.8 });
-        const benchLegGeo = track(new THREE.BoxGeometry(0.15, 0.5, 0.6));
-        for (let i = 0; i < 5; i++) {
-            const ang = (i / 5) * Math.PI * 2 + 0.3;
-            const bench = new THREE.Group();
-            const r = 9.5;
-            bench.position.set(Math.cos(ang) * r, 0, Math.sin(ang) * r);
-            bench.lookAt(0, 0, 0);
-            const seat = new THREE.Mesh(benchSeatGeo, benchMat);
-            seat.position.y = 0.55;
-            seat.castShadow = true;
-            bench.add(seat);
-            for (const lx of [-0.8, 0.8]) {
-                const leg = new THREE.Mesh(benchLegGeo, benchMat);
-                leg.position.set(lx, 0.28, 0);
-                bench.add(leg);
-            }
-            scene.add(bench);
-        }
-
-        // ---- flowers: instanced colorful dots on the grass ----
-        const flowerColors = [0xff5d8f, 0xffd23f, 0xff8c42, 0xa66bff, 0xffffff, 0xff4d6d];
-        const flowerGeo = track(new THREE.SphereGeometry(0.16, 6, 6));
-        flowerColors.forEach((col) => {
-            const inst = new THREE.InstancedMesh(flowerGeo, mat({ color: col, roughness: 0.9 }), 60);
-            const dummy = new THREE.Object3D();
-            for (let i = 0; i < 60; i++) {
-                const ang = Math.random() * Math.PI * 2;
-                const dist = rand(8, 42);
-                dummy.position.set(Math.cos(ang) * dist, 0.16, Math.sin(ang) * dist);
-                dummy.scale.setScalar(rand(0.6, 1.3));
-                dummy.updateMatrix();
-                inst.setMatrixAt(i, dummy.matrix);
-            }
-            inst.instanceMatrix.needsUpdate = true;
-            scene.add(inst);
-            disposables.push(inst);
-        });
-
-        // ---- clouds drifting overhead ----
-        const cloudMat = track(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x223344, emissiveIntensity: 0.05 }));
-        const cloudGeo = track(new THREE.SphereGeometry(2.4, 10, 10));
-        const clouds: THREE.Group[] = [];
-        for (let i = 0; i < 9; i++) {
-            const cloud = new THREE.Group();
-            cloud.position.set(rand(-60, 60), rand(26, 40), rand(-60, 60));
-            const puffs = 4;
-            for (let k = 0; k < puffs; k++) {
-                const p = new THREE.Mesh(cloudGeo, cloudMat);
-                p.position.set(rand(-3, 3), rand(-0.6, 0.6), rand(-2, 2));
-                p.scale.setScalar(rand(0.7, 1.4));
-                cloud.add(p);
-            }
-            clouds.push(cloud);
-            scene.add(cloud);
-        }
-
-        // ---- hub sector gateways (arc of portals leading into sectors) ----
+        // ---- hub park: layout, gateways, colliders, knockable props ----
+        const hub = buildHub();
+        const scene = hub.scene;
+        const hubInteractables = hub.interactables;
         const loader = new THREE.TextureLoader();
-        const hubInteractables: Interactable[] = [];
-        {
-            const gCount = sectors.length;
-            const gRadius = 16;
-            const gSpread = Math.PI * 1.3;
-            const gStart = -gSpread / 2 - Math.PI / 2;
-            sectors.forEach((sector, i) => {
-                const angle = gCount > 1 ? gStart + (gSpread * i) / (gCount - 1) : -Math.PI / 2;
-                const x = Math.cos(angle) * gRadius;
-                const z = Math.sin(angle) * gRadius;
-                const { group, interactable } = buildGateway(track, sector);
-                group.position.set(x, 0, z);
-                group.lookAt(0, 0, 0);
-                interactable.x = x;
-                interactable.z = z;
-                scene.add(group);
-                hubInteractables.push(interactable);
-            });
-        }
-
-        // ambient floating orbs for depth
-        const orbCount = reduceMotion ? 0 : 60;
-        let orbs: THREE.Points | null = null;
-        if (orbCount > 0) {
-            const pos = new Float32Array(orbCount * 3);
-            for (let i = 0; i < orbCount; i++) {
-                pos[i * 3] = (Math.random() - 0.5) * 70;
-                pos[i * 3 + 1] = Math.random() * 12 + 1;
-                pos[i * 3 + 2] = (Math.random() - 0.5) * 70;
-            }
-            const g = track(new THREE.BufferGeometry());
-            g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-            const m = track(new THREE.PointsMaterial({ color: ACCENT_LIGHT, size: 0.12, transparent: true, opacity: 0.5 }));
-            orbs = new THREE.Points(g, m);
-            scene.add(orbs);
-        }
 
         // ---- drivable car (third-person, Bruno-Simon style) ----
         const car = new THREE.Group();
@@ -421,11 +280,12 @@ export default function ProjectField() {
         let playing = false;
 
         const MAX_SPEED = 27;
+        const BOOST_SPEED = 40;
         const REVERSE_SPEED = 12;
         const ACCEL = 36;
+        const BOOST_ACCEL = 54;
         const FRICTION = 18;
         const TURN = 2.3;
-        const HUB_BOUND = 44;
         const SECTOR_BOUND = 26;
         const CAM_DIST = 9;
         const CAM_HEIGHT = 5;
@@ -444,8 +304,51 @@ export default function ProjectField() {
             music: buildMusicSector,
         };
 
-        const hubSpawn = { x: 0, z: 22, yaw: 0 };
+        const hubSpawn = hub.spawn;
         const visited = new Set<string>();
+        const visitedSectors = new Set<string>();
+        const body = { pos: carPos, yaw: 0, speed: 0 };
+        let shake = 0;
+        let lastPins = 0;
+        let toastId = 0;
+        let toastTimer = 0;
+        const showToast = (text: string) => {
+            setToast({ id: ++toastId, text });
+            clearTimeout(toastTimer);
+            toastTimer = window.setTimeout(() => setToast(null), 1900);
+        };
+
+        // ---- dust puffs kicked up by the tyres (hub only) ----
+        const dustTex = (() => {
+            const c = document.createElement("canvas");
+            c.width = c.height = 64;
+            const g = c.getContext("2d")!;
+            const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+            grad.addColorStop(0, "rgba(255,255,255,1)");
+            grad.addColorStop(1, "rgba(255,255,255,0)");
+            g.fillStyle = grad;
+            g.fillRect(0, 0, 64, 64);
+            return track(new THREE.CanvasTexture(c));
+        })();
+        const dust: Array<{ s: THREE.Sprite; life: number; vx: number; vz: number }> = [];
+        for (let i = 0; i < 48; i++) {
+            const s = new THREE.Sprite(
+                track(new THREE.SpriteMaterial({ map: dustTex, color: 0xe6dfcc, transparent: true, opacity: 0, depthWrite: false }))
+            );
+            s.visible = false;
+            scene.add(s);
+            dust.push({ s, life: 0, vx: 0, vz: 0 });
+        }
+        let dustIdx = 0;
+        let dustTimer = 0;
+        const emitDust = (x: number, z: number, vx: number, vz: number) => {
+            const p = dust[dustIdx++ % dust.length];
+            p.life = 1;
+            p.vx = vx + (Math.random() - 0.5) * 1.5;
+            p.vz = vz + (Math.random() - 0.5) * 1.5;
+            p.s.position.set(x, 0.3, z);
+            p.s.visible = true;
+        };
 
         // ---- Web Audio demo (Sector C) — generated tone, never autoplays ----
         let audioCtx: AudioContext | null = null;
@@ -532,7 +435,7 @@ export default function ProjectField() {
             carPos.set(sx, 0, sz);
             carYaw = yaw;
             speed = 0;
-            camera.position.set(sx, CAM_HEIGHT, sz + CAM_DIST);
+            camera.position.set(sx + Math.sin(yaw) * CAM_DIST, CAM_HEIGHT, sz + Math.cos(yaw) * CAM_DIST);
             camera.lookAt(sx, 1.3, sz);
         };
 
@@ -549,6 +452,9 @@ export default function ProjectField() {
                 activeScene = s.scene;
                 activeList = s.interactables;
                 currentArea = id;
+                visitedSectors.add(id);
+                hub.markVisited(id);
+                setExplored(visitedSectors.size);
                 placeCar(s.scene, s.spawn.x, s.spawn.z, s.spawn.yaw);
                 visited.clear();
                 setProgress(s.progressTotal ? { done: 0, total: s.progressTotal } : null);
@@ -566,11 +472,13 @@ export default function ProjectField() {
             panelOpen = false;
             setPanel(null);
             setTransitioning(true);
+            const from = currentArea;
             window.setTimeout(() => {
                 activeScene = scene;
                 activeList = hubInteractables;
                 currentArea = "hub";
-                placeCar(scene, hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
+                const back = hub.exitSpawn(from);
+                placeCar(scene, back.x, back.z, back.yaw);
                 setProgress(null);
                 setArea("hub");
                 setPrompt(null);
@@ -588,6 +496,18 @@ export default function ProjectField() {
             panelOpen = false;
             uiLocked = false;
             setPanel(null);
+        };
+
+        const resetCar = () => {
+            if (!playing || uiLocked) return;
+            if (currentArea === "hub") {
+                placeCar(scene, hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
+                hub.resetProps();
+                lastPins = 0;
+            } else {
+                const s = sectorCache.get(currentArea);
+                if (s) placeCar(s.scene, s.spawn.x, s.spawn.z, s.spawn.yaw);
+            }
         };
 
         const handleInteract = () => {
@@ -617,6 +537,7 @@ export default function ProjectField() {
         const onKeyDown = (e: KeyboardEvent) => {
             keys.add(e.code);
             if (e.code === "KeyE") handleInteract();
+            if (e.code === "KeyR" && !e.metaKey && !e.ctrlKey) resetCar();
             if (e.code === "Escape" && panelOpen) closePanel();
             if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
                 e.preventDefault();
@@ -650,6 +571,7 @@ export default function ProjectField() {
             },
             closePanel,
             exitSector,
+            reset: resetCar,
         };
 
         // ---- resize ----
@@ -680,13 +602,17 @@ export default function ProjectField() {
                   (keys.has("KeyA") || keys.has("ArrowLeft") || drive.left ? 1 : 0)
                 : 0;
 
-            if (accelInput > 0) speed += ACCEL * dt;
+            const boosting = controls && accelInput > 0 && (keys.has("ShiftLeft") || keys.has("ShiftRight"));
+            const topSpeed = boosting ? BOOST_SPEED : MAX_SPEED;
+            if (accelInput > 0) speed += (boosting ? BOOST_ACCEL : ACCEL) * dt;
             else if (accelInput < 0) speed -= ACCEL * dt;
             else {
                 const drop = FRICTION * dt;
                 speed = Math.abs(speed) <= drop ? 0 : speed - Math.sign(speed) * drop;
             }
-            speed = Math.max(-REVERSE_SPEED, Math.min(MAX_SPEED, speed));
+            // over the normal top speed (boost released): bleed off gently
+            if (speed > topSpeed) speed = Math.max(topSpeed, speed - FRICTION * 1.5 * dt);
+            speed = Math.max(-REVERSE_SPEED, speed);
 
             const speedFactor = Math.min(1, Math.abs(speed) / 4);
             if (Math.abs(speed) > 0.01) {
@@ -698,12 +624,21 @@ export default function ProjectField() {
             carPos.x += fx * speed * dt;
             carPos.z += fz * speed * dt;
 
+            // bump into the hub's trees, lamps, fountain… and shove its props
+            if (currentArea === "hub") {
+                body.yaw = carYaw;
+                body.speed = speed;
+                shake = Math.max(shake, hub.collide(body));
+                speed = body.speed;
+            }
+
             // keep the car inside the current area
-            const bound = currentArea === "hub" ? HUB_BOUND : SECTOR_BOUND;
+            const bound = currentArea === "hub" ? hub.map.bound : SECTOR_BOUND;
             const r = Math.hypot(carPos.x, carPos.z);
             if (r > bound) {
                 carPos.x = (carPos.x / r) * bound;
                 carPos.z = (carPos.z / r) * bound;
+                if (Math.abs(speed) > 8) shake = Math.max(shake, 0.25);
                 speed *= 0.4;
             }
             car.position.set(carPos.x, 0, carPos.z);
@@ -726,8 +661,14 @@ export default function ProjectField() {
             camera.position.y += (dynHeight - camera.position.y) * lerp;
             const lookAhead = Math.max(0, speed) * 0.22;
             camera.lookAt(carPos.x + fx * lookAhead, 1.5, carPos.z + fz * lookAhead);
+            if (shake > 0.01) {
+                const k = reduceMotion ? 0.15 : 0.5;
+                camera.position.x += (Math.random() - 0.5) * shake * k;
+                camera.position.y += (Math.random() - 0.5) * shake * k;
+                shake *= Math.exp(-7 * dt);
+            }
 
-            const targetFov = 68 + Math.min(1, absSpeed / MAX_SPEED) * 14;
+            const targetFov = 64 + Math.min(1, absSpeed / MAX_SPEED) * 10 + (boosting ? 6 : 0);
             if (Math.abs(camera.fov - targetFov) > 0.01) {
                 camera.fov += (targetFov - camera.fov) * 0.08;
                 camera.updateProjectionMatrix();
@@ -789,15 +730,56 @@ export default function ProjectField() {
                 }
             }
 
-            // ambient motion (hub vs sector)
-            if (!reduceMotion) {
-                if (currentArea === "hub") {
-                    if (orbs) orbs.rotation.y = t * 0.02;
-                    for (const cloud of clouds) {
-                        cloud.position.x += dt * 0.6;
-                        if (cloud.position.x > 70) cloud.position.x = -70;
+            if (currentArea === "hub") {
+                hub.update(t, dt, reduceMotion);
+
+                // tyre dust on hard launches, drifts and boosts
+                const launching = accelInput > 0 && speed > 0.5 && speed < 12;
+                const drifting = Math.abs(steerInput) > 0 && absSpeed > 14;
+                dustTimer -= dt;
+                if ((launching || drifting || boosting || shake > 0.3) && dustTimer <= 0) {
+                    dustTimer = 0.035;
+                    const rx = Math.cos(carYaw);
+                    const rz = -Math.sin(carYaw);
+                    for (const side of [-1, 1]) {
+                        emitDust(
+                            carPos.x - fx * 1.25 + rx * 0.92 * side,
+                            carPos.z - fz * 1.25 + rz * 0.92 * side,
+                            -fx * 2,
+                            -fz * 2
+                        );
                     }
-                } else {
+                }
+                for (const p of dust) {
+                    if (p.life <= 0) continue;
+                    p.life -= dt * 1.5;
+                    if (p.life <= 0) {
+                        p.s.visible = false;
+                        continue;
+                    }
+                    p.s.position.x += p.vx * dt;
+                    p.s.position.z += p.vz * dt;
+                    p.s.position.y += dt * 0.6;
+                    p.s.scale.setScalar(0.6 + (1 - p.life) * 1.8);
+                    (p.s.material as THREE.SpriteMaterial).opacity = p.life * 0.5;
+                }
+
+                // bowling score
+                const down = hub.pinsDown();
+                if (down !== lastPins) {
+                    if (down > lastPins) {
+                        showToast(down === hub.pinCount ? "STRIKE! All pins down" : `${down} / ${hub.pinCount} pins down`);
+                    }
+                    lastPins = down;
+                }
+
+                const mm = minimapRef.current;
+                if (mm) drawMinimap(mm, hub.map, carPos.x, carPos.z, carYaw, visitedSectors);
+            }
+
+            // ambient motion (sectors)
+            if (!reduceMotion) {
+                if (currentArea !== "hub") {
                     const glyphs = activeScene.getObjectByName("glyphs");
                     if (glyphs) glyphs.rotation.y = t * 0.03;
                     const orbGroup = activeScene.getObjectByName("orbs");
@@ -846,6 +828,7 @@ export default function ProjectField() {
         // ---- cleanup ----
         return () => {
             cancelAnimationFrame(raf);
+            clearTimeout(toastTimer);
             stopDemo();
             renderer.domElement.removeEventListener("click", onClick);
             window.removeEventListener("keydown", onKeyDown);
@@ -854,6 +837,7 @@ export default function ProjectField() {
             document.removeEventListener("visibilitychange", onVisibility);
             window.removeEventListener("resize", onResize);
             sectorCache.forEach((s) => s.dispose());
+            hub.dispose();
             disposables.forEach((d) => d.dispose());
             renderer.dispose();
             apiRef.current = null;
@@ -962,6 +946,35 @@ export default function ProjectField() {
                 </>
             )}
 
+            {/* hub HUD: minimap, sectors explored, extra controls */}
+            {started && area === "hub" && (
+                <div className="field-hud">
+                    <canvas
+                        ref={minimapRef}
+                        className="field-minimap"
+                        style={{ width: MINIMAP_SIZE, height: MINIMAP_SIZE }}
+                        aria-label="Map of the park"
+                        role="img"
+                    />
+                    <div className="field-hud-chip">
+                        <b>{explored}</b> / {sectors.length} sectors explored
+                    </div>
+                    <div className="field-hud-row">
+                        {!isTouch && <span className="field-hud-keys">Shift boost · R reset</span>}
+                        <button type="button" className="field-hud-btn" onClick={() => apiRef.current?.reset()}>
+                            ↺ Reset
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* transient toast (bowling score) */}
+            {started && toast && (
+                <div key={toast.id} className="field-toast" role="status">
+                    {toast.text}
+                </div>
+            )}
+
             {/* milestone progress meter */}
             {started && area !== "hub" && progress && (
                 <div className="field-progress">
@@ -1036,8 +1049,9 @@ export default function ProjectField() {
                         <p className="field-kicker">Interactive World</p>
                         <h1 className="field-overlay-title">Explore my world</h1>
                         <p className="field-overlay-desc">
-                            Drive up to a glowing <b>gateway</b> to enter a sector, then roll up to a
-                            terminal and {isTouch ? "tap the button" : "press E"} to read more.
+                            Follow the avenues out of the plaza to a glowing <b>gateway</b> to enter a
+                            sector, then roll up to a terminal and {isTouch ? "tap the button" : "press E"} to
+                            read more. Watch the minimap — and try the bowling lane.
                         </p>
                         <ul className="field-controls">
                             {isTouch ? (
@@ -1048,8 +1062,8 @@ export default function ProjectField() {
                                 </>
                             ) : (
                                 <>
-                                    <li><b>W / ↑</b> drive · <b>S / ↓</b> reverse</li>
-                                    <li><b>A D</b> or <b>← →</b> to steer</li>
+                                    <li><b>W / ↑</b> drive · <b>S / ↓</b> reverse · <b>Shift</b> boost</li>
+                                    <li><b>A D</b> or <b>← →</b> to steer · <b>R</b> reset</li>
                                     <li><b>Click</b> or <b>E</b> to enter / view</li>
                                 </>
                             )}
