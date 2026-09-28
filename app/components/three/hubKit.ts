@@ -1,6 +1,15 @@
 import * as THREE from "three";
 import { sectors, type SectorMeta } from "@/app/field/content/world";
-import { buildGateway, makeLabel, type Interactable, type Track } from "@/app/components/three/worldKit";
+import {
+    makeLabel,
+    buildFrontendDistrict,
+    buildJourneyDistrict,
+    buildEkoDistrict,
+    buildMusicDistrict,
+    type Interactable,
+    type SectorDistrict,
+    type Track,
+} from "@/app/components/three/worldKit";
 
 // ─────────────────────────────────────────────────────────────
 // The hub park, laid out like a small town instead of random
@@ -84,7 +93,7 @@ const MARKING = 0xf4efe1;
 
 const PLAZA_R = 9;
 const ROAD_W = 5;
-const DISTRICT_R = 9.5;
+const DISTRICT_R = 16;
 const BOUND = 62;
 
 // the car is treated as two circles (front + rear axle)
@@ -380,67 +389,52 @@ export function buildHub(): HubWorld {
         }
     }
 
-    // ---- sector districts: pad, gateway, landmark, signpost ----
+    // ---- sector districts: the sector's own content, dropped into the
+    // open field (no portals) and oriented to face the incoming avenue ----
+    const loader = new THREE.TextureLoader();
+    const districtBuilders: Record<SectorMeta["id"], (l: THREE.TextureLoader) => SectorDistrict> = {
+        frontend: buildFrontendDistrict,
+        eko: buildEkoDistrict,
+        music: buildMusicDistrict,
+        journey: buildJourneyDistrict,
+    };
+    const districtDisposers: Array<() => void> = [];
     const badges = new Map<SectorMeta["id"], THREE.Object3D>();
     const worldPoint = (g: THREE.Object3D, lx: number, lz: number) => {
         g.updateMatrixWorld(true);
         return new THREE.Vector3(lx, 0, lz).applyMatrix4(g.matrixWorld);
     };
+
     sectors.forEach((sector, i) => {
         const [dx, dz] = DIRS[i % 4];
         const d = districts[i];
-        const tint = new THREE.Color(GRASS).lerp(new THREE.Color(sector.color), 0.35);
 
-        const pad = new THREE.Mesh(track(new THREE.CircleGeometry(DISTRICT_R, 48)), mat({ color: tint, roughness: 1 }));
-        pad.rotation.x = -Math.PI / 2;
-        pad.position.set(d.x, 0.02, d.z);
-        pad.receiveShadow = true;
-        scene.add(pad);
-        const border = new THREE.Mesh(
-            track(new THREE.RingGeometry(DISTRICT_R - 0.3, DISTRICT_R, 64)),
-            track(new THREE.MeshBasicMaterial({ color: sector.color, transparent: true, opacity: 0.85 }))
-        );
-        border.rotation.x = -Math.PI / 2;
-        border.position.set(d.x, 0.035, d.z);
-        scene.add(border);
-
-        // gateway where the avenue meets the district
-        const { group, interactable } = buildGateway(track, sector);
-        const gx = dx * GATE[i % 4];
-        const gz = dz * GATE[i % 4];
-        group.scale.setScalar(1.35);
-        group.position.set(gx, 0, gz);
-        group.lookAt(0, 0, 0);
-        interactable.x = gx;
-        interactable.z = gz;
-        scene.add(group);
-        interactables.push(interactable);
-        for (const px of [-1.5, 1.5]) {
-            const p = worldPoint(group, px, 0);
-            colliders.push({ x: p.x, z: p.z, r: 0.55 });
+        const built = districtBuilders[sector.id](loader);
+        built.group.position.set(d.x, 0, d.z);
+        built.group.lookAt(d.x * 2, 0, d.z * 2); // local +Z points back toward the plaza
+        scene.add(built.group);
+        districtDisposers.push(built.dispose);
+        for (const it of built.interactables) {
+            const p = worldPoint(built.group, it.x, it.z);
+            it.x = p.x;
+            it.z = p.z;
+            interactables.push(it);
         }
-        // "explored" badge, revealed once the sector's been entered
-        const badge = makeLabel(track, "Explored", "✓ visited", 3.2, 0x16a34a);
-        badge.position.set(0, 6.9, 0);
+
+        // tall name banner + explored badge, readable across the park
+        const banner = makeLabel(track, sector.name, sector.blurb, 9, sector.color);
+        banner.position.set(d.x, 9.5, d.z);
+        banner.lookAt(0, 9.5, 0);
+        scene.add(banner);
+        const badge = makeLabel(track, "Explored", "✓ visited", 4.4, 0x16a34a);
+        badge.position.set(d.x, 12, d.z);
+        badge.lookAt(0, 12, 0);
         badge.visible = false;
-        group.add(badge);
+        scene.add(badge);
         badges.set(sector.id, badge);
-        bobbers.push({ obj: badge, base: 6.9, phase: i });
+        bobbers.push({ obj: badge, base: 12, phase: i });
 
-        // landmark in the middle of the district
-        const lm = buildLandmark(sector.id, sector.color);
-        const lx = dx * (DIST[i % 4] + 1.5);
-        const lz = dz * (DIST[i % 4] + 1.5);
-        lm.group.position.set(lx, 0, lz);
-        lm.group.lookAt(0, 0, 0);
-        scene.add(lm.group);
-        for (const [cx, cz, cr] of lm.colliders) {
-            const p = worldPoint(lm.group, cx, cz);
-            colliders.push({ x: p.x, z: p.z, r: cr });
-        }
-
-        // signpost at the plaza pointing down this avenue, on the side
-        // facing the E/W wedges (the N/S wedges hold flower beds)
+        // signpost near the plaza pointing down this avenue
         const [sx, sz] = dx * dz > 0 ? [dz, -dx] : [-dz, dx];
         const px = dx * 12.5 + sx * 4.3;
         const pz = dz * 12.5 + sz * 4.3;
@@ -454,132 +448,6 @@ export function buildHub(): HubWorld {
         scene.add(signLabel);
         colliders.push({ x: px, z: pz, r: 0.3 });
     });
-
-    function buildLandmark(id: SectorMeta["id"], color: number) {
-        const group = new THREE.Group();
-        const cols: Array<[number, number, number]> = [];
-        if (id === "frontend") {
-            // stacked "server tower" with a spinning </> on top
-            const body = mat({ color: 0x16203a, emissive: color, emissiveIntensity: 0.22, roughness: 0.4, metalness: 0.4 });
-            let y = 0;
-            for (const [w, h] of [[3.2, 1.6], [2.5, 1.4], [1.8, 1.2]] as const) {
-                const tier = new THREE.Mesh(track(new THREE.BoxGeometry(w, h, w)), body);
-                tier.position.y = y + h / 2;
-                tier.castShadow = true;
-                group.add(tier);
-                const edges = new THREE.LineSegments(
-                    track(new THREE.EdgesGeometry(tier.geometry)),
-                    track(new THREE.LineBasicMaterial({ color: 0x7aa2ff }))
-                );
-                edges.position.copy(tier.position);
-                group.add(edges);
-                y += h;
-            }
-            const code = new THREE.Group();
-            const front = makeLabel(track, "</>", "frontend", 3, color);
-            const back = front.clone();
-            back.rotation.y = Math.PI;
-            code.add(front, back);
-            code.position.y = y + 1.4;
-            group.add(code);
-            spinners.push({ obj: code, speed: 0.6, axis: "y" });
-            cols.push([0, 0, 2.1]);
-        } else if (id === "eko") {
-            // a small compound of round huts around a glowing orb
-            const wall = mat({ color: 0xe7b772, roughness: 0.9 });
-            const roof = mat({ color: 0x9a6a35, roughness: 0.95, flatShading: true });
-            const door = mat({ color: 0x3a2618, roughness: 1 });
-            for (const [hx, hz] of [[-2.9, 0.8], [2.9, 0.8], [0, -2.6]] as const) {
-                const hut = new THREE.Group();
-                const w = new THREE.Mesh(track(new THREE.CylinderGeometry(1.3, 1.4, 1.6, 16)), wall);
-                w.position.y = 0.8;
-                w.castShadow = true;
-                hut.add(w);
-                const r = new THREE.Mesh(track(new THREE.ConeGeometry(1.9, 1.6, 12)), roof);
-                r.position.y = 2.4;
-                r.castShadow = true;
-                hut.add(r);
-                const dr = new THREE.Mesh(track(new THREE.BoxGeometry(0.6, 1, 0.1)), door);
-                dr.position.set(0, 0.5, 1.33);
-                hut.add(dr);
-                hut.position.set(hx, 0, hz);
-                hut.lookAt(0, 0, 3);
-                group.add(hut);
-                cols.push([hx, hz, 1.5]);
-            }
-            const orb = new THREE.Mesh(
-                track(new THREE.SphereGeometry(0.55, 20, 20)),
-                mat({ color: 0xf0b054, emissive: 0xd98a3d, emissiveIntensity: 1.2, roughness: 0.3 })
-            );
-            orb.position.y = 2.2;
-            group.add(orb);
-            bobbers.push({ obj: orb, base: 2.2, phase: 1.3 });
-        } else if (id === "music") {
-            // speaker stacks flanking a giant spinning record
-            const cab = mat({ color: 0x1c1826, roughness: 0.6 });
-            const cone = mat({ color: 0x2a2238, emissive: color, emissiveIntensity: 0.9, roughness: 0.4 });
-            for (const sx of [-2.8, 2.8]) {
-                const spk = new THREE.Group();
-                const box = new THREE.Mesh(track(new THREE.BoxGeometry(1.6, 3, 1.3)), cab);
-                box.position.y = 1.5;
-                box.castShadow = true;
-                spk.add(box);
-                for (const [cy, cr] of [[1.05, 0.55], [2.25, 0.3]] as const) {
-                    const c = new THREE.Mesh(track(new THREE.CircleGeometry(cr, 24)), cone);
-                    c.position.set(0, cy, 0.66);
-                    spk.add(c);
-                }
-                spk.position.x = sx;
-                group.add(spk);
-                pulsers.push(spk);
-                cols.push([sx, 0, 1.1]);
-            }
-            const stand = new THREE.Mesh(track(new THREE.CylinderGeometry(0.12, 0.16, 2.2, 10)), lampPostMat);
-            stand.position.y = 1.1;
-            group.add(stand);
-            const disc = new THREE.Group();
-            const vinyl = new THREE.Mesh(track(new THREE.CylinderGeometry(1.8, 1.8, 0.1, 48)), mat({ color: 0x111114, roughness: 0.35, metalness: 0.3 }));
-            vinyl.rotation.x = Math.PI / 2;
-            disc.add(vinyl);
-            const centre = new THREE.Mesh(track(new THREE.CylinderGeometry(0.6, 0.6, 0.12, 24)), mat({ color, emissive: color, emissiveIntensity: 0.7 }));
-            centre.rotation.x = Math.PI / 2;
-            disc.add(centre);
-            disc.position.y = 3.9;
-            group.add(disc);
-            spinners.push({ obj: disc, speed: 1.6, axis: "z" });
-            cols.push([0, 0, 0.5]);
-        } else {
-            // journey: stepping stones up to an obelisk ringed by a halo
-            const stoneMat = mat({ color: 0xd8d3c4, roughness: 0.9 });
-            const shaft = new THREE.Mesh(track(new THREE.BoxGeometry(1, 4.5, 1)), stoneMat);
-            shaft.position.y = 2.25;
-            shaft.castShadow = true;
-            group.add(shaft);
-            const tip = new THREE.Mesh(
-                track(new THREE.ConeGeometry(0.72, 0.9, 4)),
-                mat({ color: 0x2dd4bf, emissive: color, emissiveIntensity: 0.9, roughness: 0.35 })
-            );
-            tip.position.y = 4.95;
-            tip.rotation.y = Math.PI / 4;
-            group.add(tip);
-            const halo = new THREE.Mesh(
-                track(new THREE.TorusGeometry(1.6, 0.06, 8, 48)),
-                track(new THREE.MeshBasicMaterial({ color: 0x2dd4bf }))
-            );
-            halo.position.y = 3;
-            halo.rotation.x = Math.PI / 2.4;
-            group.add(halo);
-            spinners.push({ obj: halo, speed: 0.7, axis: "z" });
-            for (let s = 0; s < 4; s++) {
-                const st = new THREE.Mesh(track(new THREE.CylinderGeometry(0.55, 0.6, 0.12, 14)), stoneMat);
-                st.position.set(s % 2 ? 0.4 : -0.4, 0.06, 1.8 + s * 1.3);
-                st.receiveShadow = true;
-                group.add(st);
-            }
-            cols.push([0, 0, 0.9]);
-        }
-        return { group, colliders: cols };
-    }
 
     // ---- bowling lane (north of the ring) ----
     {
@@ -1033,6 +901,9 @@ export function buildHub(): HubWorld {
                 p.asleep = true;
             }
         },
-        dispose: () => disposables.forEach((d) => d.dispose()),
+        dispose: () => {
+            districtDisposers.forEach((d) => d());
+            disposables.forEach((d) => d.dispose());
+        },
     };
 }

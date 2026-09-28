@@ -3,21 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import * as THREE from "three";
-import { sectors, frontendProjects, type SectorMeta, type Terminal } from "@/app/field/content/world";
-import {
-    buildFrontendSector,
-    buildJourneySector,
-    buildEkoSector,
-    buildMusicSector,
-    type Interactable,
-    type SectorScene,
-    type InfoContent,
-} from "@/app/components/three/worldKit";
+import { sectors, frontendProjects, type Terminal } from "@/app/field/content/world";
+import { type Interactable, type InfoContent } from "@/app/components/three/worldKit";
 import { buildHub, type HubMap } from "@/app/components/three/hubKit";
 
 const ACCENT = 0x1d4ed8;
 
-type AreaId = "hub" | SectorMeta["id"];
 type Toast = { id: number; text: string } | null;
 type PromptInfo = { title: string; sub: string; action: string } | null;
 type PanelInfo =
@@ -133,9 +124,9 @@ function drawMinimap(
 
 /**
  * The field world. A drivable car (third-person follow-cam) explores a
- * planned hub park (see hubKit) whose avenues lead to gateways into
- * themed sector scenes; approach a terminal and press E / click to open
- * its InfoPanel. Raw three.js; everything disposed on unmount.
+ * single open park (see hubKit) where every sector lives out in the field
+ * as its own themed district; drive up to a terminal / milestone / stage
+ * and press E / click to open its InfoPanel. Raw three.js; disposed on unmount.
  */
 export default function ProjectField() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -143,9 +134,6 @@ export default function ProjectField() {
     const [isTouch, setIsTouch] = useState(false);
     const [prompt, setPrompt] = useState<PromptInfo>(null);
     const [panel, setPanel] = useState<PanelInfo>(null);
-    const [area, setArea] = useState<AreaId>("hub");
-    const [transitioning, setTransitioning] = useState(false);
-    const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
     const [explored, setExplored] = useState(0);
     const [toast, setToast] = useState<Toast>(null);
     const minimapRef = useRef<HTMLCanvasElement>(null);
@@ -156,7 +144,6 @@ export default function ProjectField() {
         interact: () => void;
         setDrive: (dir: "forward" | "back" | "left" | "right", on: boolean) => void;
         closePanel: () => void;
-        exitSector: () => void;
         reset: () => void;
     } | null>(null);
 
@@ -188,11 +175,10 @@ export default function ProjectField() {
         const mat = (opts: THREE.MeshStandardMaterialParameters) =>
             track(new THREE.MeshStandardMaterial(opts));
 
-        // ---- hub park: layout, gateways, colliders, knockable props ----
+        // ---- open-field world: hub layout + all sector districts, colliders, props ----
         const hub = buildHub();
         const scene = hub.scene;
         const hubInteractables = hub.interactables;
-        const loader = new THREE.TextureLoader();
 
         // ---- drivable car (third-person, Bruno-Simon style) ----
         const car = new THREE.Group();
@@ -286,27 +272,17 @@ export default function ProjectField() {
         const BOOST_ACCEL = 54;
         const FRICTION = 18;
         const TURN = 2.3;
-        const SECTOR_BOUND = 26;
         const CAM_DIST = 9;
         const CAM_HEIGHT = 5;
 
-        let activeScene: THREE.Scene = scene;
-        let activeList: Interactable[] = hubInteractables;
-        let currentArea: AreaId = "hub";
         let activeIt: Interactable | null = null;
         let panelOpen = false;
-        let uiLocked = false; // panel open or mid-transition → freeze driving
-        const sectorCache = new Map<string, SectorScene>();
-        const sectorBuilders: Partial<Record<SectorMeta["id"], (l: THREE.TextureLoader) => SectorScene>> = {
-            frontend: buildFrontendSector,
-            journey: buildJourneySector,
-            eko: buildEkoSector,
-            music: buildMusicSector,
-        };
+        let uiLocked = false; // panel open → freeze driving
 
         const hubSpawn = hub.spawn;
-        const visited = new Set<string>();
         const visitedSectors = new Set<string>();
+        // sector-district centres, for the "explored on approach" counter
+        const districtSpots = hub.map.districts.map((d) => ({ id: d.id, x: d.x, z: d.z, r: d.r }));
         const body = { pos: carPos, yaw: 0, speed: 0 };
         let shake = 0;
         let lastPins = 0;
@@ -429,62 +405,13 @@ export default function ProjectField() {
             if (ctx) ctx.close().catch(() => {});
         };
 
-        const placeCar = (into: THREE.Scene, sx: number, sz: number, yaw: number) => {
-            car.parent?.remove(car);
-            into.add(car);
+        const placeCar = (sx: number, sz: number, yaw: number) => {
+            if (car.parent !== scene) scene.add(car);
             carPos.set(sx, 0, sz);
             carYaw = yaw;
             speed = 0;
             camera.position.set(sx + Math.sin(yaw) * CAM_DIST, CAM_HEIGHT, sz + Math.cos(yaw) * CAM_DIST);
             camera.lookAt(sx, 1.3, sz);
-        };
-
-        const enterSector = (id: SectorMeta["id"]) => {
-            if (uiLocked) return;
-            uiLocked = true;
-            setTransitioning(true);
-            window.setTimeout(() => {
-                let s = sectorCache.get(id);
-                if (!s) {
-                    s = sectorBuilders[id]!(loader);
-                    sectorCache.set(id, s);
-                }
-                activeScene = s.scene;
-                activeList = s.interactables;
-                currentArea = id;
-                visitedSectors.add(id);
-                hub.markVisited(id);
-                setExplored(visitedSectors.size);
-                placeCar(s.scene, s.spawn.x, s.spawn.z, s.spawn.yaw);
-                visited.clear();
-                setProgress(s.progressTotal ? { done: 0, total: s.progressTotal } : null);
-                setArea(id);
-                setPrompt(null);
-                setTransitioning(false);
-                uiLocked = false;
-            }, 340);
-        };
-
-        const exitSector = () => {
-            if (currentArea === "hub" || uiLocked) return;
-            stopDemo();
-            uiLocked = true;
-            panelOpen = false;
-            setPanel(null);
-            setTransitioning(true);
-            const from = currentArea;
-            window.setTimeout(() => {
-                activeScene = scene;
-                activeList = hubInteractables;
-                currentArea = "hub";
-                const back = hub.exitSpawn(from);
-                placeCar(scene, back.x, back.z, back.yaw);
-                setProgress(null);
-                setArea("hub");
-                setPrompt(null);
-                setTransitioning(false);
-                uiLocked = false;
-            }, 340);
         };
 
         const openPanel = (info: PanelInfo) => {
@@ -500,30 +427,18 @@ export default function ProjectField() {
 
         const resetCar = () => {
             if (!playing || uiLocked) return;
-            if (currentArea === "hub") {
-                placeCar(scene, hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
-                hub.resetProps();
-                lastPins = 0;
-            } else {
-                const s = sectorCache.get(currentArea);
-                if (s) placeCar(s.scene, s.spawn.x, s.spawn.z, s.spawn.yaw);
-            }
+            placeCar(hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
+            hub.resetProps();
+            lastPins = 0;
         };
 
         const handleInteract = () => {
             if (!playing || uiLocked) return;
             const it = activeIt;
             if (!it) return;
-            if (it.kind === "gateway") {
-                if (it.active && it.sectorId && sectorBuilders[it.sectorId]) enterSector(it.sectorId);
-                else openPanel({ kind: "soon", name: it.sectorName ?? "This area" });
-            } else if (it.kind === "terminal" && it.contentIndex != null) {
+            if (it.kind === "terminal" && it.contentIndex != null) {
                 openPanel({ kind: "terminal", project: frontendProjects[it.contentIndex] });
             } else if (it.kind === "marker" && it.info) {
-                if (it.progressId && !visited.has(it.progressId)) {
-                    visited.add(it.progressId);
-                    setProgress((p) => (p ? { ...p, done: visited.size } : p));
-                }
                 openPanel({ kind: "info", content: it.info });
             } else if (it.kind === "audio") {
                 if (audioOn) stopDemo();
@@ -570,7 +485,6 @@ export default function ProjectField() {
                 drive[dir] = on;
             },
             closePanel,
-            exitSector,
             reset: resetCar,
         };
 
@@ -624,16 +538,14 @@ export default function ProjectField() {
             carPos.x += fx * speed * dt;
             carPos.z += fz * speed * dt;
 
-            // bump into the hub's trees, lamps, fountain… and shove its props
-            if (currentArea === "hub") {
-                body.yaw = carYaw;
-                body.speed = speed;
-                shake = Math.max(shake, hub.collide(body));
-                speed = body.speed;
-            }
+            // bump into trees, lamps, fountain… and shove props
+            body.yaw = carYaw;
+            body.speed = speed;
+            shake = Math.max(shake, hub.collide(body));
+            speed = body.speed;
 
-            // keep the car inside the current area
-            const bound = currentArea === "hub" ? hub.map.bound : SECTOR_BOUND;
+            // keep the car inside the park
+            const bound = hub.map.bound;
             const r = Math.hypot(carPos.x, carPos.z);
             if (r > bound) {
                 carPos.x = (carPos.x / r) * bound;
@@ -674,14 +586,14 @@ export default function ProjectField() {
                 camera.updateProjectionMatrix();
             }
 
-            // nearest interactable in the current area → focus
+            // nearest interactable across the whole world → focus
             let nearestDist = Infinity;
             activeIt = null;
-            for (const it of activeList) {
+            for (const it of hubInteractables) {
                 const d = Math.hypot(carPos.x - it.x, carPos.z - it.z);
                 if (d < nearestDist) {
                     nearestDist = d;
-                    activeIt = d < (it.kind === "audio" ? 12 : it.kind === "gateway" ? 9 : 8) ? it : null;
+                    activeIt = d < (it.kind === "audio" ? 12 : 8) ? it : null;
                 }
             }
 
@@ -700,12 +612,6 @@ export default function ProjectField() {
                         sub: audioOn ? "Playing — generated tone" : activeIt.promptSub ?? "",
                         action: audioOn ? "Stop demo" : "Play demo",
                     });
-                } else if (activeIt.kind === "gateway") {
-                    setPrompt({
-                        title: activeIt.sectorName ?? "",
-                        sub: activeIt.active ? activeIt.blurb ?? "" : "Coming soon",
-                        action: activeIt.active ? "Enter" : "Preview",
-                    });
                 } else if (activeIt.kind === "terminal") {
                     const p = frontendProjects[activeIt.contentIndex ?? 0];
                     setPrompt({ title: p.title, sub: p.pitch, action: "View" });
@@ -719,7 +625,7 @@ export default function ProjectField() {
             }
 
             // halo highlight + terminal screen boot-up
-            for (const it of activeList) {
+            for (const it of hubInteractables) {
                 const isActive = it === activeIt;
                 const hmat = it.halo.material as THREE.MeshBasicMaterial;
                 hmat.opacity += ((isActive ? 0.6 + Math.sin(t * 4) * 0.12 : 0) - hmat.opacity) * 0.2;
@@ -730,8 +636,17 @@ export default function ProjectField() {
                 }
             }
 
-            if (currentArea === "hub") {
+            {
                 hub.update(t, dt, reduceMotion);
+
+                // mark a sector "explored" when you drive into its area
+                for (const dsp of districtSpots) {
+                    if (!visitedSectors.has(dsp.id) && Math.hypot(carPos.x - dsp.x, carPos.z - dsp.z) < dsp.r) {
+                        visitedSectors.add(dsp.id);
+                        hub.markVisited(dsp.id);
+                        setExplored(visitedSectors.size);
+                    }
+                }
 
                 // tyre dust on hard launches, drifts and boosts
                 const launching = accelInput > 0 && speed > 0.5 && speed < 12;
@@ -777,30 +692,24 @@ export default function ProjectField() {
                 if (mm) drawMinimap(mm, hub.map, carPos.x, carPos.z, carYaw, visitedSectors);
             }
 
-            // ambient motion (sectors)
+            // ambient motion in the sector districts (orbs bob, stage lights sweep)
             if (!reduceMotion) {
-                if (currentArea !== "hub") {
-                    const glyphs = activeScene.getObjectByName("glyphs");
-                    if (glyphs) glyphs.rotation.y = t * 0.03;
-                    const orbGroup = activeScene.getObjectByName("orbs");
-                    if (orbGroup) {
-                        orbGroup.children.forEach((o, i) => {
-                            const baseY = (o.userData.baseY as number) ?? o.position.y;
-                            o.position.y = baseY + Math.sin(t * 0.9 + i) * 0.18;
-                        });
-                    }
-                    if (currentArea === "music") {
-                        const sl = activeScene.getObjectByName("stagelights");
-                        if (sl) sl.rotation.y = t * 0.25;
-                    }
+                const orbGroup = scene.getObjectByName("orbs");
+                if (orbGroup) {
+                    orbGroup.children.forEach((o, i) => {
+                        const baseY = (o.userData.baseY as number) ?? o.position.y;
+                        o.position.y = baseY + Math.sin(t * 0.9 + i) * 0.18;
+                    });
                 }
+                const sl = scene.getObjectByName("stagelights");
+                if (sl) sl.rotation.y = t * 0.25;
             }
 
-            // audio-reactive visualizer (runs even under reduced-motion, since
-            // it is explicitly user-triggered)
-            if (currentArea === "music") {
-                const vis = activeScene.getObjectByName("visualizer");
-                const pulseLight = activeScene.getObjectByName("pulse") as THREE.PointLight | null;
+            // audio-reactive visualizer at the music stage (reacts only while
+            // the user-triggered demo is playing)
+            {
+                const vis = scene.getObjectByName("visualizer");
+                const pulseLight = scene.getObjectByName("pulse") as THREE.PointLight | null;
                 if (vis) {
                     if (audioOn && analyser && freqData) {
                         analyser.getByteFrequencyData(freqData);
@@ -819,10 +728,10 @@ export default function ProjectField() {
                 }
             }
 
-            renderer.render(activeScene, camera);
+            renderer.render(scene, camera);
             raf = requestAnimationFrame(loop);
         };
-        placeCar(scene, hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
+        placeCar(hubSpawn.x, hubSpawn.z, hubSpawn.yaw);
         loop();
 
         // ---- cleanup ----
@@ -836,7 +745,7 @@ export default function ProjectField() {
             window.removeEventListener("blur", clearInputs);
             document.removeEventListener("visibilitychange", onVisibility);
             window.removeEventListener("resize", onResize);
-            sectorCache.forEach((s) => s.dispose());
+            stopDemo();
             hub.dispose();
             disposables.forEach((d) => d.dispose());
             renderer.dispose();
@@ -933,21 +842,8 @@ export default function ProjectField() {
                 </div>
             )}
 
-            {/* sector transition fade */}
-            <div className={`field-transition ${transitioning ? "on" : ""}`} aria-hidden="true" />
-
-            {/* sector banner + back-to-hub */}
-            {started && area !== "hub" && (
-                <>
-                    <div className="field-sector-banner">{sectors.find((s) => s.id === area)?.name}</div>
-                    <button type="button" className="field-back-btn" onClick={() => apiRef.current?.exitSector()}>
-                        ← Hub
-                    </button>
-                </>
-            )}
-
-            {/* hub HUD: minimap, sectors explored, extra controls */}
-            {started && area === "hub" && (
+            {/* HUD: minimap, sectors explored, extra controls */}
+            {started && (
                 <div className="field-hud">
                     <canvas
                         ref={minimapRef}
@@ -972,22 +868,6 @@ export default function ProjectField() {
             {started && toast && (
                 <div key={toast.id} className="field-toast" role="status">
                     {toast.text}
-                </div>
-            )}
-
-            {/* milestone progress meter */}
-            {started && area !== "hub" && progress && (
-                <div className="field-progress">
-                    <span className="field-progress-count">
-                        {progress.done} / {progress.total}
-                    </span>
-                    <span className="field-progress-label">milestones</span>
-                    <div className="field-progress-bar">
-                        <div
-                            className="field-progress-fill"
-                            style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                        />
-                    </div>
                 </div>
             )}
 
@@ -1049,22 +929,23 @@ export default function ProjectField() {
                         <p className="field-kicker">Interactive World</p>
                         <h1 className="field-overlay-title">Explore my world</h1>
                         <p className="field-overlay-desc">
-                            Follow the avenues out of the plaza to a glowing <b>gateway</b> to enter a
-                            sector, then roll up to a terminal and {isTouch ? "tap the button" : "press E"} to
-                            read more. Watch the minimap — and try the bowling lane.
+                            Drive the open park and roll up to any area — projects, my journey,
+                            Eko, and the music stage all live out here. Get close to something and
+                            {isTouch ? " tap the button" : " press E"} to read more, or hit
+                            <b> Play demo</b> at the stage. Watch the minimap — and try the bowling lane.
                         </p>
                         <ul className="field-controls">
                             {isTouch ? (
                                 <>
                                     <li><b>▲ / ▼</b> accelerate &amp; reverse</li>
                                     <li><b>◄ / ►</b> to steer</li>
-                                    <li>Tap the prompt to <b>enter / view</b></li>
+                                    <li>Tap the prompt to <b>view</b></li>
                                 </>
                             ) : (
                                 <>
                                     <li><b>W / ↑</b> drive · <b>S / ↓</b> reverse · <b>Shift</b> boost</li>
                                     <li><b>A D</b> or <b>← →</b> to steer · <b>R</b> reset</li>
-                                    <li><b>Click</b> or <b>E</b> to enter / view</li>
+                                    <li><b>Click</b> or <b>E</b> to view</li>
                                 </>
                             )}
                         </ul>

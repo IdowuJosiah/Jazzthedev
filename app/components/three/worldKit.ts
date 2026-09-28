@@ -60,6 +60,17 @@ export interface SectorScene {
     progressTotal?: number;
 }
 
+/**
+ * A sector rendered directly into the open world (no portal): a content
+ * Group placed at the district position, plus its interactables in local
+ * coordinates (the hub offsets them to world space).
+ */
+export interface SectorDistrict {
+    group: THREE.Group;
+    interactables: Interactable[];
+    dispose: () => void;
+}
+
 function hex(c: number) {
     return "#" + c.toString(16).padStart(6, "0");
 }
@@ -218,101 +229,62 @@ function buildTerminal(track: Track, loader: THREE.TextureLoader, terminal: Term
 }
 
 /**
- * Sector A — the "dev workshop / control room": a dark, digital space
- * with floating monitor terminals for each frontend project, warm
- * accent glow, and drifting code-glyph particles. Own THREE.Scene so
- * its palette/lighting are fully distinct from the hub.
+ * Sector A district — a "dev zone": a dark tech pad with glowing rings
+ * and monitor terminals for each frontend project, lit by local accent
+ * lights so it reads as digital even out on the bright open field.
  */
-export function buildFrontendSector(loader: THREE.TextureLoader): SectorScene {
+export function buildFrontendDistrict(loader: THREE.TextureLoader): SectorDistrict {
     const disposables: Array<{ dispose: () => void }> = [];
     const track: Track = (o) => {
         disposables.push(o);
         return o;
     };
+    const group = new THREE.Group();
 
-    const scene = new THREE.Scene();
-    const bg = 0x0a0e17;
-    scene.background = new THREE.Color(bg);
-    scene.fog = new THREE.Fog(bg, 16, 64);
-
-    scene.add(new THREE.HemisphereLight(0x2a3a66, 0x05070d, 0.55));
-    const key = new THREE.DirectionalLight(0x9ab4ff, 0.5);
-    key.position.set(8, 16, 6);
-    scene.add(key);
-    // warm accent fills
-    for (const [px, pz, col] of [[-9, -9, 0xffa64d], [9, -9, 0x4d7cff], [0, 10, 0x8a5cff]] as const) {
-        const pl = new THREE.PointLight(col, 40, 40, 2);
-        pl.position.set(px, 5, pz);
-        scene.add(pl);
-    }
-
-    // floor: dark disc + glowing concentric rings + faint grid
+    // dark tech pad + glowing concentric rings
     const floor = new THREE.Mesh(
-        track(new THREE.CircleGeometry(70, 64)),
+        track(new THREE.CircleGeometry(15, 56)),
         track(new THREE.MeshStandardMaterial({ color: 0x0c1120, roughness: 0.7, metalness: 0.2 }))
     );
     floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-    const grid = new THREE.GridHelper(80, 40, 0x1d4ed8, 0x141b30);
-    (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.35;
-    grid.position.y = 0.02;
-    scene.add(grid);
-    disposables.push(grid.geometry, grid.material as THREE.Material);
-    for (const rad of [7, 12, 18]) {
+    floor.position.y = 0.05;
+    floor.receiveShadow = true;
+    group.add(floor);
+    for (const rad of [6, 10, 14]) {
         const ring = new THREE.Mesh(
-            track(new THREE.RingGeometry(rad - 0.06, rad + 0.06, 80)),
-            track(new THREE.MeshBasicMaterial({ color: 0x1d4ed8, transparent: true, opacity: 0.4, side: THREE.DoubleSide }))
+            track(new THREE.RingGeometry(rad - 0.07, rad + 0.07, 80)),
+            track(new THREE.MeshBasicMaterial({ color: 0x1d4ed8, transparent: true, opacity: 0.55, side: THREE.DoubleSide }))
         );
         ring.rotation.x = -Math.PI / 2;
-        ring.position.y = 0.03;
-        scene.add(ring);
+        ring.position.y = 0.07;
+        group.add(ring);
+    }
+    for (const [px, pz, col] of [[-8, -8, 0xffa64d], [8, -8, 0x4d7cff], [0, 9, 0x8a5cff]] as const) {
+        const pl = new THREE.PointLight(col, 22, 26, 2);
+        pl.position.set(px, 4.5, pz);
+        group.add(pl);
     }
 
-    // terminals arranged in a shallow arc in front of the spawn
+    // terminals in a shallow arc
     const interactables: Interactable[] = [];
     const count = frontendProjects.length;
-    const radius = 11;
-    const spread = Math.PI * 0.95;
+    const radius = 9;
+    const spread = Math.PI * 1.1;
     const startA = -spread / 2 - Math.PI / 2;
     frontendProjects.forEach((project, i) => {
         const ang = count > 1 ? startA + (spread * i) / (count - 1) : -Math.PI / 2;
         const x = Math.cos(ang) * radius;
         const z = Math.sin(ang) * radius;
-        const { group, interactable } = buildTerminal(track, loader, project, i);
-        group.position.set(x, 0, z);
-        group.lookAt(0, group.position.y, 0);
+        const { group: g, interactable } = buildTerminal(track, loader, project, i);
+        g.position.set(x, 0, z);
+        g.lookAt(0, g.position.y, 0);
         interactable.x = x;
         interactable.z = z;
-        scene.add(group);
+        group.add(g);
         interactables.push(interactable);
     });
 
-    // drifting code-glyph particles
-    const glyphCount = 220;
-    const gpos = new Float32Array(glyphCount * 3);
-    for (let i = 0; i < glyphCount; i++) {
-        gpos[i * 3] = (Math.random() - 0.5) * 60;
-        gpos[i * 3 + 1] = Math.random() * 14 + 1;
-        gpos[i * 3 + 2] = (Math.random() - 0.5) * 60;
-    }
-    const ggeo = track(new THREE.BufferGeometry());
-    ggeo.setAttribute("position", new THREE.BufferAttribute(gpos, 3));
-    const glyphs = new THREE.Points(
-        ggeo,
-        track(new THREE.PointsMaterial({ color: 0x4d7cff, size: 0.08, transparent: true, opacity: 0.6 }))
-    );
-    glyphs.name = "glyphs";
-    scene.add(glyphs);
-
-    return {
-        scene,
-        interactables,
-        spawn: { x: 0, z: 16, yaw: 0 },
-        dispose: () => {
-            disposables.forEach((d) => d.dispose());
-        },
-    };
+    return { group, interactables, dispose: () => disposables.forEach((d) => d.dispose()) };
 }
 
 // ── Sector D — Background, Skills & Journey Timeline ──
@@ -435,104 +407,68 @@ function buildTotem(track: Track, index: number): { group: THREE.Group; interact
  * skill totems just off the path. Neutral palette, distinct from the hub
  * and the other sectors.
  */
-export function buildJourneySector(loader: THREE.TextureLoader): SectorScene {
+export function buildJourneyDistrict(loader: THREE.TextureLoader): SectorDistrict {
     void loader;
     const disposables: Array<{ dispose: () => void }> = [];
     const track: Track = (o) => {
         disposables.push(o);
         return o;
     };
+    const group = new THREE.Group();
 
-    const scene = new THREE.Scene();
-    const bg = 0xc4d0de;
-    scene.background = new THREE.Color(bg);
-    scene.fog = new THREE.Fog(bg, 22, 85);
-
-    scene.add(new THREE.HemisphereLight(0xe4ecf5, 0x8a9678, 1.05));
-    const sun = new THREE.DirectionalLight(0xfff1dd, 0.95);
-    sun.position.set(-14, 22, 10);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.far = 80;
-    sun.shadow.camera.left = -35;
-    sun.shadow.camera.right = 35;
-    sun.shadow.camera.top = 35;
-    sun.shadow.camera.bottom = -35;
-    scene.add(sun);
-
-    const ground = new THREE.Mesh(
-        track(new THREE.CircleGeometry(90, 64)),
-        track(new THREE.MeshStandardMaterial({ color: 0x91a583, roughness: 1 }))
+    // pale stone pad so the timeline reads as its own calm plaza
+    const pad = new THREE.Mesh(
+        track(new THREE.CircleGeometry(16, 56)),
+        track(new THREE.MeshStandardMaterial({ color: 0xb9c2a6, roughness: 1 }))
     );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.y = 0.04;
+    pad.receiveShadow = true;
+    group.add(pad);
 
     // straight timeline path + glowing line down the middle
     const path = new THREE.Mesh(
-        track(new THREE.BoxGeometry(3, 0.06, 46)),
+        track(new THREE.BoxGeometry(3, 0.06, 26)),
         track(new THREE.MeshStandardMaterial({ color: 0xcfc6b0, roughness: 0.95 }))
     );
-    path.position.set(0, 0.03, -6);
+    path.position.set(0, 0.07, -1);
     path.receiveShadow = true;
-    scene.add(path);
+    group.add(path);
     const line = new THREE.Mesh(
-        track(new THREE.BoxGeometry(0.16, 0.06, 46)),
+        track(new THREE.BoxGeometry(0.16, 0.06, 26)),
         track(new THREE.MeshBasicMaterial({ color: TEAL_LIGHT, transparent: true, opacity: 0.85 }))
     );
-    line.position.set(0, 0.08, -6);
-    scene.add(line);
+    line.position.set(0, 0.11, -1);
+    group.add(line);
 
     const interactables: Interactable[] = [];
 
     // waypoints down the timeline, alternating sides
     journeyStops.forEach((_, i) => {
-        const z = 10 - i * 6;
-        const x = i % 2 === 0 ? -3.4 : 3.4;
-        const { group, interactable } = buildWaypoint(track, i);
-        group.position.set(x, 0, z);
+        const z = 9 - i * 4;
+        const x = i % 2 === 0 ? -3.2 : 3.2;
+        const { group: g, interactable } = buildWaypoint(track, i);
+        g.position.set(x, 0, z);
         interactable.x = x;
         interactable.z = z;
-        scene.add(group);
+        group.add(g);
         interactables.push(interactable);
     });
 
     // skill totems clustered off to the side, facing the path
-    const totemSpots: Array<[number, number]> = [[12, 6], [14, 0], [12, -6]];
+    const totemSpots: Array<[number, number]> = [[11, 5], [13, 0], [11, -5]];
     skillTotems.forEach((_, i) => {
         const [x, z] = totemSpots[i];
-        const { group, interactable } = buildTotem(track, i);
-        group.position.set(x, 0, z);
-        group.lookAt(0, group.position.y, z);
+        const { group: g, interactable } = buildTotem(track, i);
+        g.position.set(x, 0, z);
+        g.lookAt(0, g.position.y, z);
         interactable.x = x;
         interactable.z = z;
-        scene.add(group);
+        group.add(g);
         interactables.push(interactable);
     });
 
-    // soft drifting motes (named "glyphs" so the loop animates them)
-    const moteCount = 160;
-    const mpos = new Float32Array(moteCount * 3);
-    for (let i = 0; i < moteCount; i++) {
-        mpos[i * 3] = (Math.random() - 0.5) * 70;
-        mpos[i * 3 + 1] = Math.random() * 12 + 1;
-        mpos[i * 3 + 2] = (Math.random() - 0.5) * 70;
-    }
-    const mgeo = track(new THREE.BufferGeometry());
-    mgeo.setAttribute("position", new THREE.BufferAttribute(mpos, 3));
-    const motes = new THREE.Points(
-        mgeo,
-        track(new THREE.PointsMaterial({ color: 0xeaf2ea, size: 0.09, transparent: true, opacity: 0.7 }))
-    );
-    motes.name = "glyphs";
-    scene.add(motes);
-
-    return {
-        scene,
-        interactables,
-        spawn: { x: 0, z: 17, yaw: 0 },
-        dispose: () => disposables.forEach((d) => d.dispose()),
-    };
+    return { group, interactables, dispose: () => disposables.forEach((d) => d.dispose()) };
 }
 
 // ── Sector B — Eko (Yoruba learning app) ──
@@ -661,49 +597,34 @@ function buildVocabOrb(track: Track, index: number): THREE.Group {
  * short winding path of milestone monuments (indigo + adire textile
  * patterns, ochre accents) with floating Yoruba vocabulary orbs nearby.
  */
-export function buildEkoSector(loader: THREE.TextureLoader): SectorScene {
+export function buildEkoDistrict(loader: THREE.TextureLoader): SectorDistrict {
     void loader;
     const disposables: Array<{ dispose: () => void }> = [];
     const track: Track = (o) => {
         disposables.push(o);
         return o;
     };
+    const group = new THREE.Group();
 
-    const scene = new THREE.Scene();
-    const bg = 0x2a2352;
-    scene.background = new THREE.Color(bg);
-    scene.fog = new THREE.Fog(bg, 20, 78);
-
-    scene.add(new THREE.HemisphereLight(0xf3c9a0, 0x1a1636, 0.9));
-    const sun = new THREE.DirectionalLight(0xffd9a0, 1.15);
-    sun.position.set(12, 20, -8);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.far = 70;
-    sun.shadow.camera.left = -32;
-    sun.shadow.camera.right = 32;
-    sun.shadow.camera.top = 32;
-    sun.shadow.camera.bottom = -32;
-    scene.add(sun);
-    const glow = new THREE.PointLight(OCHRE, 40, 45, 2);
-    glow.position.set(0, 8, -2);
-    scene.add(glow);
-
-    // adire-patterned ground
+    // adire-patterned indigo pad
     const adire = makeAdireTexture(track);
-    adire.repeat.set(18, 18);
-    const ground = new THREE.Mesh(
-        track(new THREE.CircleGeometry(80, 64)),
+    adire.repeat.set(6, 6);
+    const pad = new THREE.Mesh(
+        track(new THREE.CircleGeometry(16, 56)),
         track(new THREE.MeshStandardMaterial({ map: adire, color: 0x6a74c9, roughness: 0.95 }))
     );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.y = 0.05;
+    pad.receiveShadow = true;
+    group.add(pad);
+    const glow = new THREE.PointLight(OCHRE, 26, 32, 2);
+    glow.position.set(0, 7, 0);
+    group.add(glow);
 
     // winding path centreline through the milestones
-    const milestonePts: Array<[number, number]> = [[0, 12], [4.5, 6], [-3.5, 0], [3.5, -6], [-3, -12]];
-    const pathPts = [[0, 17] as [number, number], ...milestonePts];
-    const lineMat = track(new THREE.MeshBasicMaterial({ color: OCHRE_LIGHT, transparent: true, opacity: 0.85 }));
+    const milestonePts: Array<[number, number]> = [[0, 10], [4.5, 5], [-3.5, 0], [3.5, -5], [-3, -10]];
+    const pathPts = [[0, 14] as [number, number], ...milestonePts];
+    const lineMat = track(new THREE.MeshBasicMaterial({ color: OCHRE_LIGHT, transparent: true, opacity: 0.9 }));
     for (let i = 0; i < pathPts.length - 1; i++) {
         const [x1, z1] = pathPts[i];
         const [x2, z2] = pathPts[i + 1];
@@ -711,20 +632,20 @@ export function buildEkoSector(loader: THREE.TextureLoader): SectorScene {
         const dz = z2 - z1;
         const len = Math.hypot(dx, dz);
         const seg = new THREE.Mesh(track(new THREE.BoxGeometry(0.18, 0.06, len)), lineMat);
-        seg.position.set((x1 + x2) / 2, 0.08, (z1 + z2) / 2);
+        seg.position.set((x1 + x2) / 2, 0.09, (z1 + z2) / 2);
         seg.rotation.y = Math.atan2(dx, dz);
-        scene.add(seg);
+        group.add(seg);
     }
 
     const interactables: Interactable[] = [];
     ekoMilestones.forEach((_, i) => {
         const [x, z] = milestonePts[i];
-        const { group, interactable } = buildMilestone(track, adire, i);
-        group.position.set(x, 0, z);
-        group.lookAt(0, group.position.y, z + 4);
+        const { group: g, interactable } = buildMilestone(track, adire, i);
+        g.position.set(x, 0, z);
+        g.lookAt(0, g.position.y, z + 4);
         interactable.x = x;
         interactable.z = z;
-        scene.add(group);
+        group.add(g);
         interactables.push(interactable);
     });
 
@@ -734,20 +655,14 @@ export function buildEkoSector(loader: THREE.TextureLoader): SectorScene {
     for (let i = 0; i < yorubaWords.length; i++) {
         const orb = buildVocabOrb(track, i);
         const ang = (i / yorubaWords.length) * Math.PI * 2;
-        const rad = 7 + (i % 3) * 2.5;
-        orb.position.set(Math.cos(ang) * rad, 1.8 + (i % 3) * 0.5, Math.sin(ang) * rad - 3);
+        const rad = 7 + (i % 3) * 2;
+        orb.position.set(Math.cos(ang) * rad, 1.8 + (i % 3) * 0.5, Math.sin(ang) * rad - 2);
         orb.userData.baseY = orb.position.y;
         orbGroup.add(orb);
     }
-    scene.add(orbGroup);
+    group.add(orbGroup);
 
-    return {
-        scene,
-        interactables,
-        spawn: { x: 0, z: 17, yaw: 0 },
-        dispose: () => disposables.forEach((d) => d.dispose()),
-        progressTotal: ekoMilestones.length,
-    };
+    return { group, interactables, dispose: () => disposables.forEach((d) => d.dispose()) };
 }
 
 // ── Sector C — Music Platform (Spotify API), audio-reactive stage ──
@@ -763,20 +678,15 @@ const AMBER = 0xf59e0b;
  * bars/lights are driven by a Web Audio analyser in ProjectField once
  * the player triggers "Play demo" (never autoplays).
  */
-export function buildMusicSector(loader: THREE.TextureLoader): SectorScene {
+export function buildMusicDistrict(loader: THREE.TextureLoader): SectorDistrict {
     void loader;
     const disposables: Array<{ dispose: () => void }> = [];
     const track: Track = (o) => {
         disposables.push(o);
         return o;
     };
-
-    const scene = new THREE.Scene();
-    const bg = 0x090610;
-    scene.background = new THREE.Color(bg);
-    scene.fog = new THREE.Fog(bg, 18, 70);
-
-    scene.add(new THREE.HemisphereLight(0x2a1f44, 0x050308, 0.45));
+    const group = new THREE.Group();
+    const scene = group; // keep the body below identical: it just adds to `scene`
 
     // sweeping colored spotlights aimed at the stage centre
     const target = new THREE.Object3D();
@@ -785,7 +695,7 @@ export function buildMusicSector(loader: THREE.TextureLoader): SectorScene {
     const stagelights = new THREE.Group();
     stagelights.name = "stagelights";
     for (const [col, ang] of [[MAGENTA, 0], [CYAN, 2.1], [AMBER, 4.2]] as const) {
-        const sp = new THREE.SpotLight(col, 120, 60, Math.PI / 7, 0.4, 1.4);
+        const sp = new THREE.SpotLight(col, 90, 34, Math.PI / 7, 0.4, 1.4);
         sp.position.set(Math.cos(ang) * 14, 16, Math.sin(ang) * 14);
         sp.target = target;
         stagelights.add(sp);
@@ -793,17 +703,18 @@ export function buildMusicSector(loader: THREE.TextureLoader): SectorScene {
     scene.add(stagelights);
 
     // pulsing centre light (driven by bass)
-    const pulse = new THREE.PointLight(MAGENTA, 6, 40, 2);
+    const pulse = new THREE.PointLight(MAGENTA, 6, 34, 2);
     pulse.name = "pulse";
     pulse.position.set(0, 3, 0);
     scene.add(pulse);
 
-    // dark reflective floor + raised stage
+    // dark club pad + raised stage
     const floor = new THREE.Mesh(
-        track(new THREE.CircleGeometry(70, 64)),
+        track(new THREE.CircleGeometry(16, 56)),
         track(new THREE.MeshStandardMaterial({ color: 0x0d0a18, roughness: 0.4, metalness: 0.5 }))
     );
     floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0.05;
     floor.receiveShadow = true;
     scene.add(floor);
 
@@ -919,27 +830,5 @@ export function buildMusicSector(loader: THREE.TextureLoader): SectorScene {
         });
     });
 
-    // ambient particles (named "glyphs" for the shared loop animation)
-    const pcount = 200;
-    const ppos = new Float32Array(pcount * 3);
-    for (let i = 0; i < pcount; i++) {
-        ppos[i * 3] = (Math.random() - 0.5) * 60;
-        ppos[i * 3 + 1] = Math.random() * 16;
-        ppos[i * 3 + 2] = (Math.random() - 0.5) * 60;
-    }
-    const pgeo = track(new THREE.BufferGeometry());
-    pgeo.setAttribute("position", new THREE.BufferAttribute(ppos, 3));
-    const particles = new THREE.Points(
-        pgeo,
-        track(new THREE.PointsMaterial({ color: 0xe879f9, size: 0.07, transparent: true, opacity: 0.6 }))
-    );
-    particles.name = "glyphs";
-    scene.add(particles);
-
-    return {
-        scene,
-        interactables,
-        spawn: { x: 0, z: 14, yaw: 0 },
-        dispose: () => disposables.forEach((d) => d.dispose()),
-    };
+    return { group, interactables, dispose: () => disposables.forEach((d) => d.dispose()) };
 }
