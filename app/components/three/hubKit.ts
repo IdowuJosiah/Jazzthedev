@@ -83,13 +83,9 @@ const ASPHALT = 0x4a5160;
 const MARKING = 0xf4efe1;
 
 const PLAZA_R = 9;
-const RING_IN = 19;
-const RING_OUT = 24;
 const ROAD_W = 5;
-const GATE_D = 30;
-const DISTRICT_D = 38;
 const DISTRICT_R = 9.5;
-const BOUND = 54;
+const BOUND = 62;
 
 // the car is treated as two circles (front + rear axle)
 const CAR_R = 1.1;
@@ -167,34 +163,34 @@ export function buildHub(): HubWorld {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // ---- layout: district directions (NW, NE, SE, SW) ----
+    // ---- layout: four districts spread asymmetrically across the park,
+    // at their own directions and distances (no ring, no symmetry) ----
     const DIRS: Array<[number, number]> = [
-        [-Math.SQRT1_2, -Math.SQRT1_2],
-        [Math.SQRT1_2, -Math.SQRT1_2],
-        [Math.SQRT1_2, Math.SQRT1_2],
-        [-Math.SQRT1_2, Math.SQRT1_2],
+        [0.94, -0.34], // frontend — east-northeast
+        [-0.9, 0.44], // eko — west, set back
+        [-0.26, -0.97], // music — far north
+        [0.62, 0.78], // journey — southeast
     ];
+    const DIST = [36, 42, 50, 30];
+    const GATE = DIST.map((d) => d - 9);
     const districts: MapDistrict[] = sectors.map((s, i) => ({
         id: s.id,
         name: s.name,
-        x: DIRS[i % 4][0] * DISTRICT_D,
-        z: DIRS[i % 4][1] * DISTRICT_D,
+        x: DIRS[i % 4][0] * DIST[i % 4],
+        z: DIRS[i % 4][1] * DIST[i % 4],
         r: DISTRICT_R,
         color: s.color,
     }));
 
-    const roads: HubMap["roads"] = DIRS.slice(0, sectors.length).map(([dx, dz]) => [
-        dx * (PLAZA_R - 0.5),
-        dz * (PLAZA_R - 0.5),
-        dx * (GATE_D + 1),
-        dz * (GATE_D + 1),
-        ROAD_W,
-    ]);
-    // south avenue: the entrance you spawn on
-    roads.push([0, PLAZA_R - 0.5, 0, 52, ROAD_W]);
-    const lane: HubMap["lane"] = [0, -RING_OUT + 0.5, 0, -44, 4.4];
+    const roads: HubMap["roads"] = sectors.map((_, i) => {
+        const [dx, dz] = DIRS[i % 4];
+        return [dx * (PLAZA_R - 0.5), dz * (PLAZA_R - 0.5), dx * (GATE[i % 4] + 1), dz * (GATE[i % 4] + 1), ROAD_W];
+    });
+    // south promenade: the open entrance you spawn on (leads to no district)
+    roads.push([0, PLAZA_R - 0.5, 0, 56, ROAD_W]);
+    const lane: HubMap["lane"] = [0, -18.5, 0, -44, 4.4];
 
-    // ---- roads: spokes, ring, dashed centre lines ----
+    // ---- roads: open avenues from the plaza to each district ----
     const asphalt = mat({ color: ASPHALT, roughness: 0.92 });
     const dashGeo = track(new THREE.BoxGeometry(0.22, 0.02, 1.3));
     const dashMatrices: THREE.Matrix4[] = [];
@@ -217,41 +213,18 @@ export function buildHub(): HubWorld {
         for (let d = 2; d < len - 1; d += 3.2) {
             const px = x1 + ((x2 - x1) * d) / len;
             const pz = z1 + ((z2 - z1) * d) / len;
-            const pr = Math.hypot(px, pz);
-            if (pr > RING_IN - 0.5 && pr < RING_OUT + 0.5) continue; // no dashes across the ring
             dummy.position.set(px, 0.065, pz);
             dummy.rotation.set(0, angle, 0);
             dummy.updateMatrix();
             dashMatrices.push(dummy.matrix.clone());
         }
     }
-    const ring = new THREE.Mesh(track(new THREE.RingGeometry(RING_IN, RING_OUT, 120)), asphalt);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.025;
-    ring.receiveShadow = true;
-    scene.add(ring);
     {
-        const mid = (RING_IN + RING_OUT) / 2;
-        const n = Math.round((Math.PI * 2 * mid) / 3.4);
-        for (let i = 0; i < n; i++) {
-            const a = (i / n) * Math.PI * 2;
-            dummy.position.set(Math.cos(a) * mid, 0.06, Math.sin(a) * mid);
-            dummy.rotation.set(0, -a, 0);
-            dummy.updateMatrix();
-            dashMatrices.push(dummy.matrix.clone());
-        }
         const dashes = new THREE.InstancedMesh(dashGeo, mat({ color: MARKING, roughness: 0.8 }), dashMatrices.length);
         dashMatrices.forEach((m, i) => dashes.setMatrixAt(i, m));
         dashes.instanceMatrix.needsUpdate = true;
         scene.add(dashes);
         disposables.push(dashes);
-    }
-    // ring curbs
-    for (const [a, b] of [[RING_IN - 0.35, RING_IN], [RING_OUT, RING_OUT + 0.35]] as const) {
-        const curb = new THREE.Mesh(track(new THREE.RingGeometry(a, b, 120)), mat({ color: 0xd9dde4, roughness: 0.8 }));
-        curb.rotation.x = -Math.PI / 2;
-        curb.position.y = 0.045;
-        scene.add(curb);
     }
 
     // ---- plaza + fountain ----
@@ -348,10 +321,9 @@ export function buildHub(): HubWorld {
         const len = Math.hypot(x2 - x1, z2 - z1);
         const ux = (x2 - x1) / len;
         const uz = (z2 - z1) / len;
-        for (const r of [13, 16.5, 27.5, 36, 44]) {
+        for (const r of [13, 18, 24, 30, 37, 44]) {
             const along = r - Math.hypot(x1, z1);
             if (along > len - 1) continue;
-            if (r > RING_IN - 1 && r < RING_OUT + 1) continue;
             for (const side of [-1, 1]) {
                 addLamp(x1 + ux * along - uz * 3.3 * side, z1 + uz * along + ux * 3.3 * side);
             }
@@ -361,8 +333,8 @@ export function buildHub(): HubWorld {
     const benchSeatGeo = track(new THREE.BoxGeometry(2, 0.15, 0.7));
     const benchLegGeo = track(new THREE.BoxGeometry(0.15, 0.5, 0.6));
     const benchMat = mat({ color: 0x8a5a2b, roughness: 0.8 });
-    // plaza edge, in the grass wedges between avenues (E, W, N)
-    for (const a of [0, Math.PI, Math.PI * 1.5]) {
+    // plaza edge, in the open grass wedges between the avenues
+    for (const a of [2.13, 3.58, 5.24]) {
         const x = Math.cos(a) * 10.8;
         const z = Math.sin(a) * 10.8;
         const bench = new THREE.Group();
@@ -381,13 +353,14 @@ export function buildHub(): HubWorld {
         colliders.push({ x, z, r: 1.1 });
     }
 
-    // ---- flowers: beds inside the ring + a scatter out in the park ----
+    // ---- flowers: raised beds in the open wedges between avenues ----
     const flowerColors = [0xff5d8f, 0xffd23f, 0xff8c42, 0xa66bff, 0xffffff, 0xff4d6d];
     const flowerSpots: Array<Array<[number, number, number]>> = flowerColors.map(() => []);
     {
         const soilMat = mat({ color: 0x6b4a2f, roughness: 1 });
         const rimMat = mat({ color: 0x3f8f3a, roughness: 0.9 });
-        for (const a of [0, Math.PI * 0.375, Math.PI * 0.625, Math.PI, Math.PI * 1.5]) {
+        // angles chosen to fall between the (asymmetric) avenues
+        for (const a of [2.13, 3.58, 5.24]) {
             const bx = Math.cos(a) * 15;
             const bz = Math.sin(a) * 15;
             const soil = new THREE.Mesh(track(new THREE.CylinderGeometry(2.2, 2.3, 0.3, 28)), soilMat);
@@ -433,8 +406,8 @@ export function buildHub(): HubWorld {
 
         // gateway where the avenue meets the district
         const { group, interactable } = buildGateway(track, sector);
-        const gx = dx * GATE_D;
-        const gz = dz * GATE_D;
+        const gx = dx * GATE[i % 4];
+        const gz = dz * GATE[i % 4];
         group.scale.setScalar(1.35);
         group.position.set(gx, 0, gz);
         group.lookAt(0, 0, 0);
@@ -456,8 +429,8 @@ export function buildHub(): HubWorld {
 
         // landmark in the middle of the district
         const lm = buildLandmark(sector.id, sector.color);
-        const lx = dx * (DISTRICT_D + 1.5);
-        const lz = dz * (DISTRICT_D + 1.5);
+        const lx = dx * (DIST[i % 4] + 1.5);
+        const lz = dz * (DIST[i % 4] + 1.5);
         lm.group.position.set(lx, 0, lz);
         lm.group.lookAt(0, 0, 0);
         scene.add(lm.group);
@@ -664,7 +637,7 @@ export function buildHub(): HubWorld {
         const trees: Array<[number, number]> = [];
         for (let attempt = 0; attempt < 3000 && trees.length < 62; attempt++) {
             const a = rng() * Math.PI * 2;
-            const r = rand(RING_OUT + 4, BOUND - 1);
+            const r = rand(PLAZA_R + 8, BOUND - 1);
             const x = Math.cos(a) * r;
             const z = Math.sin(a) * r;
             if (!clearOf(x, z, 5.8)) continue;
@@ -672,10 +645,12 @@ export function buildHub(): HubWorld {
             trees.push([x, z]);
             addTree(x, z, rand(0.9, 1.5), trees.length);
         }
-        // a few shade trees inside the ring, flanking the benches
+        // a few shade trees near the plaza, only where they clear the avenues
         for (const a of [0, Math.PI, Math.PI * 1.5]) {
             for (const off of [-0.36, 0.36]) {
-                addTree(Math.cos(a + off) * 15.5, Math.sin(a + off) * 15.5, rand(0.8, 1.05), Math.round(a));
+                const tx = Math.cos(a + off) * 15.5;
+                const tz = Math.sin(a + off) * 15.5;
+                if (clearOf(tx, tz, 4.5)) addTree(tx, tz, rand(0.8, 1.05), Math.round(a));
             }
         }
         // dense tree line at the park edge frames the world
@@ -686,7 +661,7 @@ export function buildHub(): HubWorld {
         // park-land flowers
         for (let i = 0; i < 240; i++) {
             const a = rng() * Math.PI * 2;
-            const r = rand(RING_OUT + 2, BOUND);
+            const r = rand(PLAZA_R + 6, BOUND);
             const x = Math.cos(a) * r;
             const z = Math.sin(a) * r;
             if (!clearOf(x, z, 3.5)) continue;
@@ -1028,12 +1003,12 @@ export function buildHub(): HubWorld {
     return {
         scene,
         interactables,
-        spawn: { x: 0, z: 38, yaw: 0 },
-        map: { bound: BOUND, plaza: PLAZA_R, ring: [RING_IN, RING_OUT], roads, lane, districts },
+        spawn: { x: 0, z: 44, yaw: 0 },
+        map: { bound: BOUND, plaza: PLAZA_R, ring: [0, 0], roads, lane, districts },
         exitSpawn: (id) => {
-            const i = sectors.findIndex((s) => s.id === id);
-            const [dx, dz] = DIRS[Math.max(0, i) % 4];
-            return { x: dx * (GATE_D - 10), z: dz * (GATE_D - 10), yaw: Math.atan2(dx, dz) };
+            const i = Math.max(0, sectors.findIndex((s) => s.id === id));
+            const [dx, dz] = DIRS[i % 4];
+            return { x: dx * (GATE[i % 4] - 10), z: dz * (GATE[i % 4] - 10), yaw: Math.atan2(dx, dz) };
         },
         collide,
         update,
