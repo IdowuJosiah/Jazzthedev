@@ -8,6 +8,15 @@ import { MdArrowOutward } from "react-icons/md";
 
 const projects = [
     {
+        title: "Clay Studio Creations",
+        subtitle: "Creative Production Studio & Gear Rental",
+        year: "2026",
+        image: "/images/claystudiocreations.jpg",
+        description:
+            "A full-service creative production studio based in Lagos — video for brands, events, YouTube & podcasts, music videos and documentaries, plus professional gear rental, all under one roof. Built the end-to-end site around a 'Create. Curate. Connect.' identity with a consultation-booking flow and a gear catalogue.",
+        tags: ["Next.js", "TypeScript", "Dark Mode", "Booking Flow"],
+    },
+    {
         title: "Cafe Riddim",
         subtitle: "African Electronic Music Collective",
         year: "2026",

@@ -36,6 +36,15 @@ export const sectors: SectorMeta[] = [
 // screenshots, and links. These are editable placeholders.
 export const frontendProjects: Terminal[] = [
     {
+        title: "Clay Studio Creations",
+        pitch: "Creative production studio & gear rental — Lagos",
+        description:
+            "A full-service creative production studio: video for brands, events, YouTube & podcasts, music videos and documentaries, plus professional gear rental — all under one roof. Built the end-to-end site around a 'Create. Curate. Connect.' identity, with dark mode, a consultation-booking flow, and a gear catalogue.",
+        tags: ["Next.js", "TypeScript", "Dark Mode", "Booking Flow"],
+        liveUrl: "https://www.claystudiocreations.com",
+        image: "/images/claystudiocreations.jpg",
+    },
+    {
         title: "Cafe Riddim",
         pitch: "Culture & music platform for an African electronic collective",
         description:
