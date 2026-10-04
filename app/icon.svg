@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2E63F6"/>
+      <stop offset="1" stop-color="#1A45C8"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="256" rx="116" fill="url(#sheen)"/>
+  <!-- J: top bar + stem + hook, drawn as a thick round stroke -->
+  <path d="M 232 150 L 352 150 M 322 150 L 322 316 Q 322 392 252 392 Q 190 392 182 326"
+        fill="none" stroke="#ffffff" stroke-width="56"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- signature accent dot -->
+  <circle cx="356" cy="364" r="30" fill="#8FB4FF"/>
+</svg>
