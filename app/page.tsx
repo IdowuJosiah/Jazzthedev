@@ -121,17 +121,8 @@ const featuredProjects = [
         "An interactive Yoruba learning platform with mini-games, pronunciation exercises, quizzes, and responsive learning flows.",
   },
   {
-    title: "Northstar",
-    image: "/images/cRf6OhI78D9fHIZyhDlqODIP0.webp",
-    imageClassName: "pj-image-6",
-    alt: "Northstar project preview",
-    url: null,
-    description:
-        "A modular product showcase page built around reusable sections, elegant scaling, and premium content transitions.",
-  },
-  {
     title: "Mara Mania",
-    image: "/images/mara.png",
+    image: "/images/maramaniaimage.png",
     imageClassName: "pj-image-4",
     alt: "Mara Mania project preview",
     url: "https://www.maramania.live",
@@ -226,15 +217,6 @@ export default function Home() {
                             </p>
                             <p className="landing-project-description">
                                 {featuredProjects[2].description}
-                            </p>
-                        </Link>
-                        <Link href={featuredProjects[3].url ?? "#"} target={featuredProjects[3].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-bottom-right reveal" style={{ transitionDelay: '0.25s' }}>
-                            <Image src={featuredProjects[3].image} className={featuredProjects[3].imageClassName} alt={featuredProjects[3].alt} width={200} height={200} />
-                            <p className="landing-project-title">
-                                <span className="l-project-name">{featuredProjects[3].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
-                            </p>
-                            <p className="landing-project-description">
-                                {featuredProjects[3].description}
                             </p>
                         </Link>
                     </section>
