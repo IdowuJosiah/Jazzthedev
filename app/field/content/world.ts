@@ -12,6 +12,18 @@ export interface SectorMeta {
     active: boolean;
 }
 
+/** Shape of an animated content panel opened from an in-world object. */
+export interface InfoContent {
+    title: string;
+    sub?: string;
+    body?: string;
+    image?: string;
+    sections?: { heading: string; text: string }[];
+    tags?: string[];
+    links?: { label: string; url: string }[];
+    accent?: number;
+}
+
 export interface Terminal {
     title: string;
     pitch: string;
