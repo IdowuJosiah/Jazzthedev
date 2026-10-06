@@ -94,12 +94,19 @@ export class Experience {
         this.scene.add(this.environment.group);
         this.environment.setQuality(quality);
         if (this.assets.waterNormal) this.environment.setWaterNormal(this.assets.waterNormal);
+        if (this.assets.sandNormal) this.environment.setGroundTextures(this.assets.sandNormal);
 
         // Vehicle
         const sx = 0;
         const sz = 30;
         const sy = this.environment.heightAt(sx, sz) + 1.5;
-        this.vehicle = new Vehicle(this.physics, this.disposal, new THREE.Vector3(sx, sy, sz), Math.PI);
+        this.vehicle = new Vehicle(
+            this.physics,
+            this.disposal,
+            new THREE.Vector3(sx, sy, sz),
+            Math.PI,
+            this.assets.get("car")
+        );
         this.scene.add(this.vehicle.group);
 
         // Districts

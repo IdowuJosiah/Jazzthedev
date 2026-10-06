@@ -8,6 +8,7 @@ hotlinked). This page is also readable in-world from the **Credits** kiosk.
 
 | Asset | File | Author | Source | License |
 |---|---|---|---|---|
+| Race car (race-future) | `car.glb` | Kenney | https://kenney.nl/assets/car-kit | CC0 1.0 |
 | Palm Tree | `palm.glb` | Quaternius | https://poly.pizza/m/P0tgwyXBgr | CC0 1.0 |
 | Lantern | `lantern.glb` | Kay Lousberg | https://poly.pizza/m/CtHBJ1ufeW | CC0 1.0 |
 | Market Stand | `market.glb` | Quaternius | https://poly.pizza/m/DGIM5HGISb | CC0 1.0 |
@@ -41,7 +42,8 @@ stats.js (MIT), detect-gpu (MIT).
 
 ## Notes
 
-All models are CC0 and share the Quaternius/Kay Lousberg flat-shaded low-poly style,
-re-tinted and re-lit to fit the neon-night palette. No CC-BY, non-commercial, or
+All models are CC0 and share the Quaternius / Kay Lousberg / Kenney flat-shaded
+low-poly style, re-tinted and re-lit to fit the neon-night palette. The car's
+colour-palette texture is embedded into `car.glb` so it loads self-contained. No CC-BY, non-commercial, or
 no-derivatives assets are used, so no mandatory attribution remains — this page is
 courtesy credit. The water normal map is MIT (commercial use + derivatives allowed).

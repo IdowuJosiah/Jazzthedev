@@ -19,7 +19,10 @@ export class Vehicle {
     group = new THREE.Group();
     private body!: RAPIER.RigidBody;
     private controller!: RAPIER.DynamicRayCastVehicleController;
-    private wheelMeshes: THREE.Object3D[] = [];
+    private wheelMeshes: THREE.Object3D[] = []; // procedural wheels
+    private modelWheels: THREE.Object3D[] = []; // [FL, FR, RL, RR] from the GLB
+    private usingModel = false;
+    private wheelSpin = 0;
     private steer = 0;
     private spawn: THREE.Vector3;
     private spawnYaw: number;
@@ -36,12 +39,15 @@ export class Vehicle {
         private physics: Physics,
         private disposal: Disposal,
         spawn: THREE.Vector3,
-        spawnYaw: number
+        spawnYaw: number,
+        private carModel: THREE.Object3D | null = null
     ) {
         this.spawn = spawn.clone();
         this.spawnYaw = spawnYaw;
         this.buildBody();
-        this.buildMesh();
+        if (carModel) this.buildFromModel(carModel);
+        else this.buildProcedural();
+        this.addNeon();
     }
 
     private buildBody() {
@@ -82,17 +88,53 @@ export class Vehicle {
         }
     }
 
-    private buildMesh() {
+    /** Use the Kenney low-poly car GLB: body + its 4 separate wheel nodes. */
+    private buildFromModel(src: THREE.Object3D) {
+        this.usingModel = true;
+        const model = src;
+
+        // Kenney car-kit faces -Z; turn it to face +Z (our forward).
+        const pivot = new THREE.Group();
+        model.rotation.y = Math.PI;
+        pivot.add(model);
+
+        // scale so the body length matches the physics chassis
+        const box = new THREE.Box3().setFromObject(pivot);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const targetLen = V.chassisHalf.z * 2 * 1.02;
+        const scale = targetLen / Math.max(size.z, 0.001);
+        pivot.scale.setScalar(scale);
+
+        // sit the wheels on the ground contact
+        const scaledBox = new THREE.Box3().setFromObject(pivot);
+        const groundGap = -(V.suspensionRest + V.wheelRadius - 0.18);
+        pivot.position.y = groundGap - scaledBox.min.y;
+
+        pivot.traverse((o) => {
+            const m = o as THREE.Mesh;
+            if (m.isMesh) {
+                m.castShadow = true;
+                m.receiveShadow = true;
+            }
+        });
+        this.group.add(pivot);
+
+        // wheel nodes in controller order: FL, FR, RL, RR
+        const names = ["wheel-front-left", "wheel-front-right", "wheel-back-left", "wheel-back-right"];
+        for (const n of names) {
+            const node = model.getObjectByName(n);
+            if (node) this.modelWheels.push(node);
+        }
+    }
+
+    /** Fallback low-poly wedge if the model fails to load. */
+    private buildProcedural() {
         const d = this.disposal;
         const accent = PALETTE.neonCyan;
-
-        // Low-poly wedge body (Cybertruck-ish night cruiser).
-        const bodyMat = new THREE.MeshStandardMaterial({
-            color: 0x20232e,
-            metalness: 0.6,
-            roughness: 0.35,
-        });
-        d.track(bodyMat);
+        const bodyMat = d.track(
+            new THREE.MeshStandardMaterial({ color: 0x20232e, metalness: 0.6, roughness: 0.35 })
+        );
         const shape = new THREE.Shape();
         const L = V.chassisHalf.z;
         shape.moveTo(-L, 0);
@@ -116,77 +158,42 @@ export class Vehicle {
         bodyMesh.castShadow = true;
         this.group.add(bodyMesh);
 
-        // Glass greenhouse
-        const glassMat = new THREE.MeshStandardMaterial({
-            color: 0x10151f,
-            metalness: 0.9,
-            roughness: 0.1,
-            transparent: true,
-            opacity: 0.8,
-        });
-        d.track(glassMat);
-        const glassGeo = new THREE.BoxGeometry(V.chassisHalf.x * 1.7, 0.34, 1.7);
-        d.track(glassGeo);
-        const glass = new THREE.Mesh(glassGeo, glassMat);
-        glass.position.set(0, 0.52, 0.1);
-        this.group.add(glass);
-
-        // Neon light bars (front amber, rear pink) + underglow
-        const mkBar = (color: number, z: number) => {
-            const m = new THREE.MeshStandardMaterial({
-                color,
-                emissive: color,
-                emissiveIntensity: 2.4,
-                roughness: 0.4,
-            });
-            d.track(m);
-            const g = new THREE.BoxGeometry(V.chassisHalf.x * 1.5, 0.08, 0.08);
-            d.track(g);
-            const bar = new THREE.Mesh(g, m);
-            bar.position.set(0, 0.2, z);
-            this.group.add(bar);
-        };
-        mkBar(PALETTE.neonAmber, V.chassisHalf.z - 0.05);
-        mkBar(PALETTE.neonPink, -V.chassisHalf.z + 0.05);
-
-        const glowMat = new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.5 });
-        d.track(glowMat);
-        const glowGeo = new THREE.PlaneGeometry(V.chassisHalf.x * 2.1, V.chassisHalf.z * 2.1);
-        d.track(glowGeo);
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.rotation.x = -Math.PI / 2;
-        glow.position.y = -0.26;
-        this.group.add(glow);
-
-        const headlight = new THREE.PointLight(PALETTE.neonAmber, 6, 40, 2);
-        headlight.position.set(0, 0.3, V.chassisHalf.z);
-        this.group.add(headlight);
-
-        // Wheels
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0a0b10, roughness: 0.8 });
-        d.track(wheelMat);
-        const rimMat = new THREE.MeshStandardMaterial({
-            color: accent,
-            emissive: accent,
-            emissiveIntensity: 1.1,
-            roughness: 0.4,
-        });
-        d.track(rimMat);
-        const wGeo = new THREE.CylinderGeometry(V.wheelRadius, V.wheelRadius, 0.34, 18);
+        const wheelMat = d.track(new THREE.MeshStandardMaterial({ color: 0x0a0b10, roughness: 0.8 }));
+        const rimMat = d.track(
+            new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 1.1, roughness: 0.4 })
+        );
+        const wGeo = d.track(new THREE.CylinderGeometry(V.wheelRadius, V.wheelRadius, 0.34, 18));
         wGeo.rotateZ(Math.PI / 2);
-        d.track(wGeo);
-        const rimGeo = new THREE.CylinderGeometry(V.wheelRadius * 0.5, V.wheelRadius * 0.5, 0.36, 12);
+        const rimGeo = d.track(new THREE.CylinderGeometry(V.wheelRadius * 0.5, V.wheelRadius * 0.5, 0.36, 12));
         rimGeo.rotateZ(Math.PI / 2);
-        d.track(rimGeo);
         for (let i = 0; i < 4; i++) {
             const w = new THREE.Group();
             const tire = new THREE.Mesh(wGeo, wheelMat);
             tire.castShadow = true;
-            const rim = new THREE.Mesh(rimGeo, rimMat);
-            w.add(tire, rim);
+            w.add(tire, new THREE.Mesh(rimGeo, rimMat));
             this.group.add(w);
             this.wheelMeshes.push(w);
         }
+    }
+
+    /** Neon underglow + head/tail light — shared by both body styles. */
+    private addNeon() {
+        const d = this.disposal;
+        const glowMat = d.track(
+            new THREE.MeshBasicMaterial({ color: PALETTE.neonCyan, transparent: true, opacity: 0.5 })
+        );
+        const glowGeo = d.track(new THREE.PlaneGeometry(V.chassisHalf.x * 2.3, V.chassisHalf.z * 2.3));
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.rotation.x = -Math.PI / 2;
+        glow.position.y = -0.55;
+        this.group.add(glow);
+
+        const headlight = new THREE.PointLight(PALETTE.neonAmber, 8, 46, 2);
+        headlight.position.set(0, 0.4, V.chassisHalf.z);
+        this.group.add(headlight);
+        const tail = new THREE.PointLight(PALETTE.neonPink, 3, 20, 2);
+        tail.position.set(0, 0.3, -V.chassisHalf.z);
+        this.group.add(tail);
     }
 
     get position() {
@@ -288,16 +295,26 @@ export class Vehicle {
         this.group.position.set(t.x, t.y, t.z);
         this.group.quaternion.set(r.x, r.y, r.z, r.w);
 
+        // roll angle from ground speed
+        this.wheelSpin += (this.speed / V.wheelRadius) * (1 / 60);
+
+        if (this.usingModel) {
+            // animate the GLB wheels in place: steer front, spin all
+            for (let i = 0; i < this.modelWheels.length; i++) {
+                const w = this.modelWheels[i];
+                w.rotation.set(this.wheelSpin, i < 2 ? this.steer : 0, 0);
+            }
+            return;
+        }
+
+        // procedural wheels: reposition to the controller's suspension points
         for (let i = 0; i < 4; i++) {
             const mesh = this.wheelMeshes[i];
             const conn = this.controller.wheelChassisConnectionPointCs(i);
             const susp = this.controller.wheelSuspensionLength(i) ?? V.suspensionRest;
             const steer = this.controller.wheelSteering(i) ?? 0;
             const rot = this.controller.wheelRotation(i) ?? 0;
-            if (conn) {
-                mesh.position.set(conn.x, conn.y - susp, conn.z);
-            }
-            // local wheel orientation: steer around Y, spin around X (axle)
+            if (conn) mesh.position.set(conn.x, conn.y - susp, conn.z);
             this._m.makeRotationY(steer);
             mesh.setRotationFromMatrix(this._m);
             mesh.rotateX(rot);

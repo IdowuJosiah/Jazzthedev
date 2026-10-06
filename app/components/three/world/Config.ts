@@ -70,7 +70,7 @@ export const CONFIG = {
         suspensionTravel: 0.35,
         wheelRadius: 0.42,
         chassisHalf: { x: 1.0, y: 0.35, z: 1.9 },
-        respawnBelowY: -8,
+        respawnBelowY: -3.5, // deep water becomes a soft boundary → respawn
     },
     physics: {
         gravity: -24,

@@ -61,6 +61,18 @@ reasoning is auditable. Newest at the bottom.
   data off the music bus. Raw Web Audio also gave me a PannerNode for the
   positional night-market ambience. howler was removed from dependencies.
 
+## Visual polish pass (feedback: graphics low, car off, water/land not separated)
+- **Car**: replaced the procedural wedge with Kenney's CC0 `race-future` GLB
+  (separate body + 4 wheel nodes → wheels steer + spin). Its external colour-map
+  texture is embedded into the GLB via `gltf-transform copy` so it loads
+  self-contained (no 404). Kept the neon underglow + head/tail lights.
+- **Water/land separation**: rewrote the water shader to reconstruct the terrain
+  height in GLSL and compute per-fragment depth → sandy shallows, animated foam
+  at the waterline, deep blue offshore. Clear shoreline now. Deep water respawns
+  the car (soft boundary).
+- **Terrain**: applied the ambientCG sand normal map for surface relief so the
+  land catches light instead of reading flat.
+
 ## Verification notes
 - Core loop verified early (physics/vehicle/camera/environment/HUD) before layering.
 - `three 0.186` removed `PCFSoftShadowMap` → switched to `PCFShadowMap`.

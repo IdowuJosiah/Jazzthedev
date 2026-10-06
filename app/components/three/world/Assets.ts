@@ -4,6 +4,7 @@ import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 import type { Disposal } from "./utils/disposal";
 
 const MODELS = {
+    car: "/assets/models/car.glb",
     palm: "/assets/models/palm.glb",
     lantern: "/assets/models/lantern.glb",
     market: "/assets/models/market.glb",

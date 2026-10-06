@@ -55,6 +55,14 @@ export class Environment {
         mat.uniforms.uHasNormal.value = 1;
     }
 
+    /** Surface relief for the terrain so the land catches light instead of reading flat. */
+    setGroundTextures(normal: THREE.Texture) {
+        const mat = this.terrainMesh.material as THREE.MeshStandardMaterial;
+        mat.normalMap = normal;
+        mat.normalScale.set(0.7, 0.7);
+        mat.needsUpdate = true;
+    }
+
     private buildSky() {
         const geo = new THREE.SphereGeometry(CONFIG.camera.far * 0.9, 32, 16);
         this.disposal.track(geo);
