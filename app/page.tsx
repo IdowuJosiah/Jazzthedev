@@ -129,6 +129,15 @@ const featuredProjects = [
     description:
         "A cinematic documentary experience for bold visuals, storytelling-focused layouts, and African street culture presentation.",
   },
+  {
+    title: "Clay Studio Creations",
+    image: "/images/claystudiocreations.jpg",
+    imageClassName: "pj-image-6",
+    alt: "Clay Studio Creations project preview",
+    url: "https://www.claystudiocreations.com",
+    description:
+        "A Lagos creative production studio site — brand, event, music video and documentary production plus gear rental, with a consultation-booking flow.",
+  },
 ];
 
 
@@ -219,6 +228,15 @@ export default function Home() {
                                 {featuredProjects[2].description}
                             </p>
                         </Link>
+                        <Link href={featuredProjects[3].url ?? "#"} target={featuredProjects[3].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-bottom-right reveal" style={{ transitionDelay: '0.25s' }}>
+                            <Image src={featuredProjects[3].image} className={featuredProjects[3].imageClassName} alt={featuredProjects[3].alt} width={200} height={200} />
+                            <p className="landing-project-title">
+                                <span className="l-project-name">{featuredProjects[3].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
+                            </p>
+                            <p className="landing-project-description">
+                                {featuredProjects[3].description}
+                            </p>
+                        </Link>
                     </section>
                 </div>
             </div>
@@ -304,7 +322,7 @@ export default function Home() {
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.2s' }}>
-                      I've worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
+                      I&apos;ve worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.25s' }}>
