@@ -3,6 +3,8 @@
 // code changes needed. Consumed by the field scenes.
 // ─────────────────────────────────────────────────────────────
 
+import type { AreaId } from "@/app/components/three/world3/types";
+
 export interface SectorMeta {
     id: "frontend" | "eko" | "music" | "journey";
     name: string;
@@ -33,6 +35,10 @@ export interface Terminal {
     repoUrl?: string;
     /** screenshot rendered onto the in-world monitor */
     image: string;
+    /** v3 board image (1600×900 WebP built by scripts/boards). */
+    boardImage: string;
+    /** v3 one-line board pitch, ≤ 32 characters. */
+    boardPitch: string;
 }
 
 /** The four sector gateways shown in the hub, in arc order. */
@@ -55,6 +61,8 @@ export const frontendProjects: Terminal[] = [
         tags: ["Next.js", "TypeScript", "Dark Mode", "Booking Flow"],
         liveUrl: "https://www.claystudiocreations.com",
         image: "/images/claystudiocreations.jpg",
+        boardImage: "/assets/boards/clay.webp",
+        boardPitch: "Creative studio & gear rental",
     },
     {
         title: "Cafe Riddim",
@@ -64,6 +72,8 @@ export const frontendProjects: Terminal[] = [
         tags: ["Next.js", "TypeScript", "Cloudinary", "Resend"],
         liveUrl: "https://www.caferiddim.com",
         image: "/images/caferridim.png",
+        boardImage: "/assets/boards/caferiddim.webp",
+        boardPitch: "Platform for a music collective",
     },
     {
         title: "Mara Mania",
@@ -73,6 +83,8 @@ export const frontendProjects: Terminal[] = [
         tags: ["Next.js", "TypeScript", "Motion"],
         liveUrl: "https://www.maramania.live",
         image: "/images/mara.png",
+        boardImage: "/assets/boards/mara.webp",
+        boardPitch: "Cinematic documentary site",
     },
     {
         title: "SphiderAss Web",
@@ -81,6 +93,8 @@ export const frontendProjects: Terminal[] = [
             "Built and maintained the company's main site and contributed to a ticketing platform that powered 3,000+ ticket sales. Worked across component architecture, REST API integration, and delivery.",
         tags: ["React", "TypeScript", "REST APIs", "CI/CD"],
         image: "/images/cRf6OhI78D9fHIZyhDlqODIP0.webp",
+        boardImage: "/assets/boards/sphiderass.webp",
+        boardPitch: "Main site & ticketing platform",
     },
 ];
 
@@ -111,12 +125,12 @@ export const journeyStops: JourneyStop[] = [
     {
         year: "2025",
         title: "Founding Eko",
-        body: "Moved into product: founded and led Eko, an interactive Yoruba learning platform — roadmap, research, and cross-functional delivery. (Full story in the Eko sector.)",
+        body: "Moved into product: founded and led Eko, an interactive Yoruba learning platform — roadmap, research, and cross-functional delivery. (Full story in the Eko area.)",
     },
     {
         year: "2025",
         title: "Music & culture platforms",
-        body: "Built cultural/music products like Cafe Riddim and Mara Mania, integrating Spotify, Cloudinary, and email systems. (See the Music sector.)",
+        body: "Built cultural/music products like Cafe Riddim and Mara Mania, integrating Spotify, Cloudinary, and email systems. (See the Music area.)",
     },
     {
         year: "Now",
@@ -187,15 +201,22 @@ export const ekoMilestones: EkoMilestone[] = [
 ];
 
 /** Floating vocabulary orbs scattered near the path — playful texture. */
-export const yorubaWords: { word: string; meaning: string }[] = [
-    { word: "Ẹ káàbọ̀", meaning: "Welcome" },
-    { word: "Ọmọ", meaning: "Child" },
-    { word: "Ilé", meaning: "Home" },
-    { word: "Omi", meaning: "Water" },
-    { word: "Oúnjẹ", meaning: "Food" },
-    { word: "Ọ̀rẹ́", meaning: "Friend" },
-    { word: "Ìfẹ́", meaning: "Love" },
-    { word: "Ẹ ṣé", meaning: "Thank you" },
+export interface YorubaWord {
+    word: string;
+    meaning: string;
+    /** Optional pronunciation guide (shown in the v3 glossary when present). */
+    pron?: string;
+}
+
+export const yorubaWords: YorubaWord[] = [
+    { word: "Ẹ káàbọ̀", meaning: "Welcome", pron: "eh kah-ah-baw" },
+    { word: "Ọmọ", meaning: "Child", pron: "aw-maw" },
+    { word: "Ilé", meaning: "Home", pron: "ee-lay" },
+    { word: "Omi", meaning: "Water", pron: "oh-mee" },
+    { word: "Oúnjẹ", meaning: "Food", pron: "oh-oon-jeh" },
+    { word: "Ọ̀rẹ́", meaning: "Friend", pron: "aw-reh" },
+    { word: "Ìfẹ́", meaning: "Love", pron: "ee-feh" },
+    { word: "Ẹ ṣé", meaning: "Thank you", pron: "eh sheh" },
 ];
 
 // ── Sector C — Music Platform (Spotify API) ──
@@ -222,6 +243,129 @@ export const musicPillars: MusicPillar[] = [
     },
     {
         title: "Tech stack",
-        body: "Next.js, TypeScript, the Spotify Web API for data, and the Web Audio API powering the live visualizer you're standing in.",
+        body: "Next.js, TypeScript, the Spotify Web API for data, and the Web Audio API powering the visualiser on the stage (with sound on).",
     },
 ];
+
+// ─────────────────────────────────────────────────────────────
+// v3 world (/field?v=3) — additive content. v2 ignores these.
+// ─────────────────────────────────────────────────────────────
+
+export interface WorldMeta {
+    /** HTML-only, always set in Inter. Owner picks the final name at the gate. */
+    worldName: string;
+    /** 3D hero word (ASCII / Latin-1 only: set in Bricolage). */
+    heroWord: string;
+    /** Flat role line under the hero word. */
+    role: string;
+    /** Flat greeting on the Welcome plaza (Yoruba: set in Inter). */
+    greeting: string;
+}
+
+export const meta: WorldMeta = {
+    worldName: "Èkó",
+    heroWord: "JAZZ",
+    role: "FRONTEND DEVELOPER · PRODUCT LEAD",
+    greeting: "Ẹ káàbọ̀ — welcome",
+};
+
+export interface AboutContent {
+    /** Full bio for the About panel. */
+    bio: string;
+    /** In-world bio, ≤ 100 characters (max 3 lines at maxWidth 16). */
+    bioShort: string;
+    /** Portrait image on the About board. */
+    portrait: string;
+    /** Optional avatar model; when the file is absent the portrait board is used. */
+    avatarModel?: string;
+}
+
+export const about: AboutContent = {
+    bio: "I build digital products from both sides of the table: the frontend details users feel immediately, and the product decisions that keep teams moving with clarity. I grew from frontend developer to operations officer at SphiderAssWeb, shipped 30+ sites as a freelancer, led Eko as product manager, and today lead product and frontend for Health Connect.",
+    bioShort: "Frontend developer and product lead. I build the details users feel and the decisions behind them.",
+    portrait: "/assets/boards/profile.webp",
+    avatarModel: "/assets/models/avatar.glb",
+};
+
+export interface ContactLink {
+    id: "email" | "github" | "linkedin" | "cv";
+    /** Pad label (uppercase). */
+    label: string;
+    url: string;
+    /** Human-readable value for the Contact tab. */
+    display: string;
+}
+
+/** From app/contact/page.tsx and app/components/SiteFooter.tsx. The CV pad is
+ *  built only when a `cv` link exists (none yet). */
+export const contactLinks: ContactLink[] = [
+    {
+        id: "email",
+        label: "EMAIL",
+        url: "mailto:josiahidowutioluwanimi@gmail.com",
+        display: "josiahidowutioluwanimi@gmail.com",
+    },
+    { id: "github", label: "GITHUB", url: "https://github.com/IdowuJosiah", display: "github.com/IdowuJosiah" },
+    {
+        id: "linkedin",
+        label: "LINKEDIN",
+        url: "https://www.linkedin.com/in/josiah-idowu-7282a6232/",
+        display: "linkedin.com/in/josiah-idowu-7282a6232",
+    },
+];
+
+export interface CreditEntry {
+    name: string;
+    author: string;
+    license: string;
+    url: string;
+}
+
+/** Credits tab + jetty sign. Mirrors CREDITS.md for the assets v3 uses. */
+export const credits: CreditEntry[] = [
+    { name: "three.js", author: "mrdoob and contributors", license: "MIT", url: "https://threejs.org" },
+    { name: "Rapier (rapier3d-compat)", author: "Dimforge", license: "Apache-2.0", url: "https://rapier.rs" },
+    { name: "troika-three-text", author: "Jason Johnston", license: "MIT", url: "https://github.com/protectwise/troika" },
+    { name: "GSAP", author: "GreenSock", license: "Standard \"no charge\" license", url: "https://gsap.com" },
+    { name: "detect-gpu", author: "pmndrs", license: "MIT", url: "https://github.com/pmndrs/detect-gpu" },
+    { name: "Inter", author: "Rasmus Andersson", license: "OFL 1.1", url: "https://github.com/google/fonts/tree/main/ofl/inter" },
+    {
+        name: "Bricolage Grotesque",
+        author: "Mathieu Triay",
+        license: "OFL 1.1",
+        url: "https://github.com/google/fonts/tree/main/ofl/bricolagegrotesque",
+    },
+    { name: "Car Kit (car)", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/car-kit" },
+    { name: "Nature Kit", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/nature-kit" },
+    { name: "Impact Sounds", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/impact-sounds" },
+    { name: "Interface Sounds", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/interface-sounds" },
+    { name: "Palm Tree", author: "Quaternius", license: "CC0 1.0", url: "https://poly.pizza/m/P0tgwyXBgr" },
+    { name: "Cool City (music bed)", author: "mintodog", license: "CC0 1.0", url: "https://opengameart.org/content/cool-city" },
+    {
+        name: "Racing car engine loop",
+        author: "domasx2",
+        license: "CC0 1.0",
+        url: "https://opengameart.org/content/racing-car-engine-sound-loops",
+    },
+];
+
+/** One-line sign text on the Credits jetty. */
+export const creditsSignLine = "three.js · Rapier · Kenney · Inter · Bricolage Grotesque";
+
+export interface AreaCopy {
+    name: string;
+    /** Short line used by the first-visit toast and the map list. */
+    blurb: string;
+}
+
+export const areaCopy: Record<AreaId, AreaCopy> = {
+    welcome: { name: "Welcome", blurb: "Start here" },
+    hub: { name: "Crossroads", blurb: "Every path starts here" },
+    projects: { name: "Frontend Projects", blurb: `${frontendProjects.length} projects` },
+    journey: { name: "Journey & Skills", blurb: `${journeyStops.length} milestones · ${skillTotems.length} skill sets` },
+    eko: { name: "Eko", blurb: "Product case study" },
+    music: { name: "Music & Culture", blurb: `${musicPillars.length} records` },
+    about: { name: "About & Contact", blurb: "Say hello" },
+    playground: { name: "Playground", blurb: "Ramp, bowling and a brick wall" },
+    credits: { name: "Credits", blurb: "Who made what" },
+};
