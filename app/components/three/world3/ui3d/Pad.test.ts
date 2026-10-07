@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { ACCENT } from "../Config";
+import { ACCENT, CONFIG } from "../Config";
 import { LAYERS } from "../utils/shapes";
 import type { MaterialsApi, TextApi, TextHandle } from "../types";
 import { buildKeycap, buildPad, type PadDeps } from "./Pad";
@@ -42,6 +42,26 @@ describe("ui3d/Pad (§5.3)", () => {
             if (o.castShadow) casters++;
         });
         expect(casters).toBe(0);
+        k.dispose();
+    });
+
+    it("reads reducedMotion live when given a getter (runtime toggle, §9.4)", () => {
+        const K = CONFIG.pad.keycap;
+        let reduced = true;
+        const k = buildKeycap(deps, { reducedMotion: () => reduced });
+        const cap = k.group.children[0];
+        k.show();
+        expect(cap.position.y).toBe(K.raisedY); // snapped, no tween
+        k.hide();
+        expect(cap.position.y).toBe(K.restY);
+        expect(cap.visible).toBe(false);
+        reduced = false;
+        k.show();
+        expect(cap.visible).toBe(true);
+        expect(cap.position.y).toBe(K.restY); // tween starts from rest
+        reduced = true;
+        k.punch();
+        expect(cap.position.y).toBe(K.raisedY);
         k.dispose();
     });
 });

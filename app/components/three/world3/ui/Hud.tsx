@@ -65,7 +65,7 @@ export default function Hud(p: HudProps) {
                     {area && (
                         <span className="w3-area-chip">
                             <span className="w3-dot" style={{ background: area.accent }} aria-hidden="true" />
-                            {areaCopy[area.id].name}
+                            <span className="w3-area-chip-label">{areaCopy[area.id].name}</span>
                         </span>
                     )}
                 </div>
@@ -160,11 +160,25 @@ function ControlsHint() {
 }
 
 // ── Photo mode ───────────────────────────────────────────────────────────
-export function PhotoBar({ onCapture, onExit }: { onCapture: () => void; onExit: () => void }) {
+interface PhotoBarProps {
+    onCapture: () => void;
+    onExit: () => void;
+    /** Focuses the world canvas, so P and WASD work again after a pointer Capture. */
+    focusCanvas: () => void;
+}
+
+export function PhotoBar({ onCapture, onExit, focusCanvas }: PhotoBarProps) {
     return (
         <div className="w3-hud">
             <div className="w3-photo-bar">
-                <button type="button" className="w3-btn w3-btn-primary" onClick={onCapture}>
+                <button
+                    type="button"
+                    className="w3-btn w3-btn-primary"
+                    onClick={(e) => {
+                        onCapture();
+                        refocusAfterPointer(e, focusCanvas);
+                    }}
+                >
                     <LuCamera size={20} aria-hidden="true" />
                     Capture
                 </button>

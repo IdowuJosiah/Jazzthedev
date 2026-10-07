@@ -339,6 +339,21 @@ export const CONFIG = {
         suspensionTravel: 0.35,
         wheelRadius: 0.42,
         chassisHalf: { x: 1.0, y: 0.35, z: 1.9 },
+        /** Chassis rigid body / collider (v2 Physics.createVehicle). */
+        chassis: { linearDamping: 0.12, angularDamping: 0.6, friction: 0.8, restitution: 0.1 },
+        /** Wheel connection points in chassis space: y offset, and inset from the chassis ends along z. */
+        wheelConnection: { y: -0.05, insetZ: 0.5 },
+        handling: {
+            /** Engine output → Rapier engine force. */
+            engineForceScale: 60,
+            /** Brake strength when the throttle opposes the motion (fraction of brakePower). */
+            opposingBrakeFactor: 0.8,
+            /** Handbrake: rear wheels brake harder and lose grip so the tail slides. */
+            handbrakeRearFactor: 1.4,
+            handbrakeRearGripFactor: 0.5,
+        },
+        /** Drift metric: ignored below minSpeed; lateral slip × gain, clamped to 1; drifting above threshold (tyre dust). */
+        driftMetric: { minSpeed: 2, gain: 1.4, threshold: 0.35 },
         // ── v3 fixes ──
         /** Rapier `controller.setIndexForwardAxis = 2` (a setter property). */
         forwardAxis: 2,
@@ -365,6 +380,25 @@ export const CONFIG = {
         dynamicLetter: { mass: 80, friction: 0.6, restitution: 0.1, linearDamping: 0.3, angularDamping: 0.4 },
         /** Hero letters reset when the car is further than this. */
         heroLetterResetDistance: 60,
+        /** Fixed-collider surfaces: scenery / props, the ground slab (grippy), the bound walls (slide along). */
+        colliders: {
+            fixed: { friction: 0.9, restitution: 0.2 },
+            ground: { friction: 1.0, restitution: 0.05 },
+            wall: { friction: 0.2, restitution: 0.2 },
+        },
+        /** Defaults for the dynamic helpers (v2 box / ball values); options override them. */
+        dynamicDefaults: {
+            box: { friction: 0.7, restitution: 0.3, linearDamping: 0.4, angularDamping: 0.5, impact: "wood" },
+            cylinder: { friction: 0.7, restitution: 0.3, linearDamping: 0.4, angularDamping: 0.5, impact: "wood" },
+            ball: { friction: 0.6, restitution: 0.6, linearDamping: 0.3, angularDamping: 0.3, impact: "heavy" },
+            letter: { impact: "heavy" },
+        },
+        /**
+         * Impact filter: a contact-force event counts only when a registered prop
+         * in the pair moves faster than this (u/s, rad/s) before or after the step,
+         * so resting stacks stay silent.
+         */
+        impact: { minLinearSpeed: 0.5, minAngularSpeed: 0.5 },
     },
 
     text: {
@@ -485,6 +519,19 @@ export const CONFIG = {
             tree: { radius: 0.45, height: 3 },
             palm: { radius: 0.5, height: 3 },
         },
+        /**
+         * Size every Nature Kit model is normalised to at load time (Assets
+         * normalizeNature), so the scale ranges above mean the same for "kit" and
+         * "procedural". Each matches the procedural prop: tree height 4.9 (the
+         * crown top, 3.2 + 1.7); bush height 0.9 (scale ≤ 1.6 stays ≤ 1.5 high near
+         * the south / east bounds); boulder footprint 2 (Dodecahedron(1)'s
+         * diameter: kit rocks are flat slabs, so height would make them 3–4× wider).
+         */
+        kitNormalize: {
+            tree: { measure: "height", size: 4.9 },
+            bush: { measure: "height", size: 0.9 },
+            boulder: { measure: "footprint", size: 2 },
+        } satisfies Record<string, { measure: "height" | "footprint"; size: number }>,
         /** Occluder dither (§1.3): keep = smoothstep(near, far, d) + step(endT, t). */
         occluder: { near: 2.0, far: 3.5, endT: 0.97, carLift: 1 },
     },
@@ -513,6 +560,8 @@ export const CONFIG = {
             warmup: { weight: 0.05, label: "Building the world" },
         },
         timeoutMs: 15000,
+        /** Attempts after the first failure for a required asset (car.glb, Rapier). */
+        retries: 1,
         canvasFadeMs: 400,
     },
 

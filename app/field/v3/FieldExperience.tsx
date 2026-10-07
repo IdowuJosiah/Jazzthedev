@@ -114,8 +114,9 @@ export default function FieldExperience() {
     const onStart = useCallback(() => {
         // All inside the click: the audio context may only start on a user gesture.
         const muted = mutedOnStart(readSoundPref());
-        store.commands.start();
+        // The sound choice first, so unlock() sees it (and skips music.ogg when off).
         store.commands.setMuted(muted);
+        store.commands.start();
         writeSoundPref(muted ? "off" : "on");
         canvasRef.current?.focus({ preventScroll: true });
     }, [store]);
@@ -170,7 +171,11 @@ export default function FieldExperience() {
             )}
 
             {running && photoMode && (
-                <PhotoBar onCapture={() => store.commands.capturePhoto()} onExit={() => store.commands.togglePhotoMode()} />
+                <PhotoBar
+                    onCapture={() => store.commands.capturePhoto()}
+                    onExit={() => store.commands.togglePhotoMode()}
+                    focusCanvas={focusCanvas}
+                />
             )}
 
             {running && isTouch && !overlayOpen && !photoMode && <TouchControls store={store} prompt={state.prompt} />}

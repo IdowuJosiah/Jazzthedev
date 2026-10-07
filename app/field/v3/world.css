@@ -316,7 +316,7 @@
     left: 16px;
     right: 16px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 8px;
     pointer-events: none;
@@ -330,11 +330,17 @@
     align-items: center;
     gap: 8px;
 }
+/* The left cluster gives way; the right cluster (Classic, Map, Sound, Menu) never shrinks. */
 .w3-topleft {
+    flex: 1 1 auto;
     gap: 12px;
     min-width: 0;
 }
+.w3-topright {
+    flex: none;
+}
 .w3-wordmark {
+    flex: none;
     margin: 0;
     font-family: var(--w-display);
     font-size: 20px;
@@ -354,10 +360,16 @@
     font-size: 13px;
     line-height: 16px;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: 100%;
+}
+/* The ellipsis lives on the label: text-overflow never applies to an anonymous flex item. */
+.w3-area-chip-label {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .w3-dot {
     flex: none;
@@ -1014,6 +1026,24 @@
     }
 }
 
+/*
+ * Narrow top bar. At ≤ 640 px the right cluster is 4 × 44 + 3 × 8 = 200 px on
+ * coarse pointers; the longest chip ("Frontend Projects") is about 160 px, the
+ * wordmark plus its gap 57 px, and the gutters 32 + 8. The full row needs about
+ * 457 px, so below 480 px the wordmark goes and the chip keeps the space.
+ */
+@media (max-width: 480px) {
+    .w3-wordmark {
+        display: none;
+    }
+}
+/* Too narrow even for an ellipsized chip; the aria-live Announcer still says "Entered …". */
+@media (max-width: 299px) {
+    .w3-area-chip {
+        display: none;
+    }
+}
+
 /* Touch targets ≥ 44 px (§9.4) */
 @media (pointer: coarse) {
     .w3-iconbtn,
@@ -1025,6 +1055,12 @@
         width: 44px;
     }
     .w3-tab {
+        height: 44px;
+    }
+    .w3-skip {
+        min-height: 44px;
+    }
+    .w3-option span {
         height: 44px;
     }
 }

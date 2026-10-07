@@ -20,24 +20,10 @@ import { applyLayerToMaterial, applyLayerToObject, LAYERS } from "./utils/shapes
 
 const V = CONFIG.vehicle;
 
-// ── Stream-local tuning (v2 values; not yet in CONFIG.vehicle) ──────────
-/** Chassis rigid body / collider (copied from v2 Physics.createVehicle). */
-const CHASSIS = { linearDamping: 0.12, angularDamping: 0.6, friction: 0.8, restitution: 0.1 } as const;
-/** Wheel connection points in chassis space: y offset, and inset from the chassis ends along z. */
-const WHEEL_CONNECTION = { y: -0.05, insetZ: 0.5 } as const;
-/** Engine output → Rapier engine force. */
-const ENGINE_FORCE_SCALE = 60;
-/** Brake strength when the throttle opposes the motion (fraction of brakePower). */
-const OPPOSING_BRAKE_FACTOR = 0.8;
-/** Handbrake: rear wheels brake harder and lose grip so the tail slides. */
-const HANDBRAKE_REAR_FACTOR = 1.4;
-const HANDBRAKE_REAR_GRIP_FACTOR = 0.5;
+// Chassis, wheel connection, handling and drift-metric tunables live in CONFIG.vehicle.
+// ── Stream-local geometry / presentation constants ──────────────────────
 /** Throttle / steer dead zone. */
 const INPUT_EPSILON = 0.01;
-/** Drift metric: ignored below this speed; lateral slip × gain, clamped to 1. */
-const DRIFT_METRIC = { minSpeed: 2, gain: 1.4 } as const;
-/** driftAmount above which the car counts as drifting (tyre dust). */
-const DRIFT_THRESHOLD = 0.35;
 /** The model is scaled so its length is the chassis length × this. */
 const MODEL_LENGTH_FACTOR = 1.02;
 /** Brake/reverse lamps on the model's rear face: x as a fraction of the half width, y of the height. */
@@ -117,7 +103,7 @@ export function driveCommand(input: VehicleInput, speed: number): DriveCommand {
     let brake = 0;
     const opposing = (backward && speed > V.brakeAboveSpeed) || (forward && speed < -V.brakeAboveSpeed);
     if (opposing) {
-        brake = V.brakePower * OPPOSING_BRAKE_FACTOR;
+        brake = V.brakePower * V.handling.opposingBrakeFactor;
     } else if (forward) {
         engine = speed > V.maxSpeed * boostMul ? 0 : throttle * V.enginePower * boostMul;
     } else if (backward) {
@@ -128,15 +114,15 @@ export function driveCommand(input: VehicleInput, speed: number): DriveCommand {
     let rearGrip: number = V.grip;
     if (input.handbrake) {
         brake = V.brakePower;
-        rearBrake = V.brakePower * HANDBRAKE_REAR_FACTOR;
-        rearGrip = V.grip * V.drift * HANDBRAKE_REAR_GRIP_FACTOR;
+        rearBrake = V.brakePower * V.handling.handbrakeRearFactor;
+        rearGrip = V.grip * V.drift * V.handling.handbrakeRearGripFactor;
     }
 
     let light: LightState = "off";
     if (opposing || input.handbrake) light = "brake";
     else if (speed < V.reverseLightBelowSpeed && backward) light = "reverse";
 
-    return { engineForce: engine * ENGINE_FORCE_SCALE, frontBrake: brake, rearBrake, rearGrip, light, boosting };
+    return { engineForce: engine * V.handling.engineForceScale, frontBrake: brake, rearBrake, rearGrip, light, boosting };
 }
 
 /**
@@ -167,7 +153,7 @@ export const REST_COMPRESSION = Math.min(
 );
 
 /** Chassis centre height above flat ground when the car is at rest. */
-export const REST_HEIGHT = -WHEEL_CONNECTION.y + V.suspensionRest + V.wheelRadius - REST_COMPRESSION;
+export const REST_HEIGHT = -V.wheelConnection.y + V.suspensionRest + V.wheelRadius - REST_COMPRESSION;
 
 /** Blob opacity × clamp(1 − h / liftFade, 0, 1)², h = chassis height above rest (§1.5). */
 export function blobOpacity(baseOpacity: number, chassisY: number, groundY = 0): number {
@@ -305,15 +291,15 @@ export class Vehicle {
         this.body = world.createRigidBody(
             RAPIER.RigidBodyDesc.dynamic()
                 .setTranslation(spawn.x, REST_HEIGHT, spawn.z)
-                .setLinearDamping(CHASSIS.linearDamping)
-                .setAngularDamping(CHASSIS.angularDamping)
+                .setLinearDamping(V.chassis.linearDamping)
+                .setAngularDamping(V.chassis.angularDamping)
                 .setCanSleep(false)
         );
         world.createCollider(
             RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z)
                 .setMass(V.mass)
-                .setFriction(CHASSIS.friction)
-                .setRestitution(CHASSIS.restitution),
+                .setFriction(V.chassis.friction)
+                .setRestitution(V.chassis.restitution),
             this.body
         );
         this.controller = world.createVehicleController(this.body);
@@ -351,8 +337,8 @@ export class Vehicle {
         const down = { x: 0, y: -1, z: 0 };
         const axle = { x: -1, y: 0, z: 0 };
         const cx = V.chassisHalf.x;
-        const cy = WHEEL_CONNECTION.y;
-        const cz = V.chassisHalf.z - WHEEL_CONNECTION.insetZ;
+        const cy = V.wheelConnection.y;
+        const cz = V.chassisHalf.z - V.wheelConnection.insetZ;
         // 0 FL, 1 FR, 2 RL, 3 RR — left is +X for a car facing +Z.
         const points = [
             { x: cx, y: cy, z: cz },
@@ -448,7 +434,7 @@ export class Vehicle {
         const rimR = V.wheelRadius * FALLBACK.rimRadiusFraction;
         const rimGeo = d.track(new THREE.CylinderGeometry(rimR, rimR, FALLBACK.rimWidth, FALLBACK.rimSegments));
         rimGeo.rotateZ(Math.PI / 2);
-        const cz = L - WHEEL_CONNECTION.insetZ;
+        const cz = L - V.wheelConnection.insetZ;
         const spots = [
             [W, cz],
             [-W, cz],
@@ -546,12 +532,12 @@ export class Vehicle {
         const lv = this.body.linvel();
         this.velocity.set(lv.x, 0, lv.z);
         const flatSpeed = this.velocity.length();
-        if (flatSpeed > DRIFT_METRIC.minSpeed) {
+        if (flatSpeed > V.driftMetric.minSpeed) {
             const r = this.body.rotation();
             this._q.set(r.x, r.y, r.z, r.w);
             const right = this._v.set(-1, 0, 0).applyQuaternion(this._q);
             const lateral = Math.abs((this.velocity.x * right.x + this.velocity.z * right.z) / flatSpeed);
-            this.driftAmount = clamp(lateral * DRIFT_METRIC.gain, 0, 1);
+            this.driftAmount = clamp(lateral * V.driftMetric.gain, 0, 1);
         } else {
             this.driftAmount = 0;
         }
@@ -594,7 +580,7 @@ export class Vehicle {
 
     /** Is the car drifting (handbrake held or sliding sideways)? */
     get drifting(): boolean {
-        return this.handbrake || this.driftAmount > DRIFT_THRESHOLD;
+        return this.handbrake || this.driftAmount > V.driftMetric.threshold;
     }
 
     /** World positions of the rear wheel contact points (tyre dust sources). */

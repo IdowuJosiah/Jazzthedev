@@ -8,8 +8,11 @@ import { clamp } from "./utils/math";
 //   on AZERTY and other layouts.
 // - Mnemonic shortcuts use `e.key` (lower-cased): E/Enter interact, R respawn,
 //   M map, N mute, P photo mode, Escape menu / close the top layer.
-// - Keys are ignored while a form control has focus (button, input, textarea,
-//   select, [contenteditable]) — except Escape — so Enter/Space never fire twice.
+// - Keys act only while focus belongs to the world (nothing, the canvas or
+//   <body>) — except Escape. A focused link, button, form control or the
+//   FieldSummary sheet keeps its keys, so Enter/Space never fire twice and
+//   Enter on the HUD "Classic site" link never also runs interact().
+//   (Extends the §4.3 form-control list; DECISIONS.md, Wave 2 prep.)
 // - preventDefault only for Space and the arrows, and only while the canvas has focus.
 // - Interact runs SYNCHRONOUSLY inside the keydown handler (Safari popup rule)
 //   and ignores auto-repeat.
@@ -76,7 +79,12 @@ export interface FocusLike {
     closest?(selector: string): unknown;
 }
 
-/** True when keyboard focus is in a form control or editable content (§4.3). */
+/**
+ * True when keyboard focus is in a form control or editable content (§4.3).
+ * Controls itself now gates on world focus, which is stricter (any focused
+ * element other than the canvas or <body> keeps its keys); this stays exported
+ * as the literal §4.3 rule.
+ */
 export function isFormControl(el: FocusLike | null | undefined): boolean {
     if (!el) return false;
     if (el.tagName && FORM_TAGS.has(el.tagName.toUpperCase())) return true;
@@ -198,7 +206,9 @@ export class Controls {
         // Autofill and some synthetic events dispatch keydown with no `key`.
         const key = (e.key ?? "").toLowerCase();
         const action = ACTION_KEYS[key];
-        if (isFormControl(this.env.doc.activeElement) && action !== "escape") return;
+        // Only Escape reaches the world while focus is elsewhere (a link, a
+        // button, the FieldSummary sheet); dialogs stop its propagation themselves.
+        if (!this.hasWorldFocus() && action !== "escape") return;
 
         const drive = DRIVE_CODES[e.code];
         if (drive) {
@@ -242,6 +252,12 @@ export class Controls {
         // Keys released while Cmd was down never sent their keyup (macOS): drop them all.
         else if (META_CODES.has(e.code)) this.held.clear();
     };
+
+    /** Keyboard focus belongs to the world: nothing, the canvas, or the page body. */
+    private hasWorldFocus(): boolean {
+        const ae = this.env.doc.activeElement;
+        return !ae || ae === this.canvas || ae.tagName?.toUpperCase() === "BODY";
+    }
 
     private onVisibility = () => {
         if (this.env.doc.hidden) this.clear();

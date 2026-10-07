@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { Audio, binsToBands, impactGain } from "./Audio";
+import { describe, expect, it, vi } from "vitest";
+import { AUDIO_FILES, Audio, binsToBands, impactGain } from "./Audio";
 import { CONFIG } from "./Config";
 
 describe("Audio (ported from v2, no beat return / market panner)", () => {
@@ -40,5 +40,51 @@ describe("Audio (ported from v2, no beat return / market panner)", () => {
         a.unlock(false);
         expect(a.getBands(9)).toBeNull();
         a.dispose();
+    });
+
+    it("suspends on a hidden tab, and fetches music.ogg only once sound is on", async () => {
+        const listeners = new Map<string, () => void>();
+        const doc = {
+            hidden: false,
+            addEventListener: (t: string, fn: () => void) => listeners.set(t, fn),
+            removeEventListener: (t: string) => listeners.delete(t),
+        };
+        const ctx = {
+            state: "running",
+            currentTime: 0,
+            destination: {},
+            suspend: vi.fn(async () => undefined),
+            resume: vi.fn(async () => undefined),
+            close: vi.fn(async () => undefined),
+            createGain: () => ({ gain: { value: 0, setTargetAtTime() {} }, connect() {} }),
+            createAnalyser: () => ({ fftSize: 0, smoothingTimeConstant: 0, frequencyBinCount: 128, connect() {} }),
+            decodeAudioData: vi.fn(async () => null),
+        };
+        const fetchSpy = vi.fn(async () => ({ ok: false }));
+        vi.stubGlobal("document", doc);
+        vi.stubGlobal("window", { AudioContext: function () { return ctx; } });
+        vi.stubGlobal("fetch", fetchSpy);
+        try {
+            const a = new Audio();
+            a.unlock(true);
+            await Promise.resolve();
+            const urls = () => fetchSpy.mock.calls.map((c) => (c as unknown[])[0]);
+            expect(urls()).not.toContain(AUDIO_FILES.music);
+            a.setMuted(false);
+            a.setMuted(true);
+            a.setMuted(false);
+            expect(urls().filter((u) => u === AUDIO_FILES.music)).toHaveLength(1);
+
+            doc.hidden = true;
+            listeners.get("visibilitychange")!();
+            expect(ctx.suspend).toHaveBeenCalledTimes(1);
+            doc.hidden = false;
+            listeners.get("visibilitychange")!();
+            expect(ctx.resume).toHaveBeenCalled();
+            a.dispose();
+            expect(listeners.size).toBe(0);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });

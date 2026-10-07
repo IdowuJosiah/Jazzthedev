@@ -8,8 +8,9 @@ import { clamp } from "./utils/math";
 // - The AudioContext is created inside the Start click (`unlock()`), so sound
 //   starts only on that gesture and no "not allowed to start" warning appears.
 // - Small sounds (engine loop, UI one-shots) are fetched and decoded right
-//   after Start; `music.ogg` (3.4 MB) is fetched lazily after Start too and
-//   starts looping once decoded.
+//   after Start; `music.ogg` (3.4 MB) is fetched lazily, after Start and only
+//   once sound is on, and starts looping once decoded.
+// - A hidden tab suspends the context (rAF stops, so nothing else would).
 // - Engine loop: pitch and volume follow the car's speed.
 // - The music bus feeds an AnalyserNode for `getBands(n)` (the Music stage's
 //   EQ bars). There is NO beat return (nothing in the world pulses to the
@@ -113,7 +114,14 @@ export class Audio implements AudioApi {
     private lastImpact: Record<ImpactKind, number> = { soft: -Infinity, wood: -Infinity, heavy: -Infinity };
     private voices = 0;
     private muted = true;
+    private musicRequested = false;
     private disposed = false;
+
+    constructor() {
+        // A hidden tab stops rAF, so update() would leave the engine droning at
+        // its last pitch and the music playing: suspend the context instead.
+        if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.onVisibility);
+    }
 
     /** True once unlock() created a context. */
     get started(): boolean {
@@ -149,12 +157,14 @@ export class Audio implements AudioApi {
         if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
         this.applyMute();
         void this.loadSmall();
-        void this.loadMusic();
+        // music.ogg (3.4 MB) only once sound is on: a visitor who keeps it off never downloads it.
+        if (!muted) void this.loadMusic();
     }
 
     setMuted(m: boolean): void {
         this.muted = m;
         this.applyMute();
+        if (!m && this.ctx) void this.loadMusic();
     }
 
     /** Per frame: engine pitch / volume from the signed car speed. */
@@ -236,6 +246,7 @@ export class Audio implements AudioApi {
     dispose(): void {
         if (this.disposed) return;
         this.disposed = true;
+        if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onVisibility);
         for (const src of [this.engineSrc, this.musicSrc]) {
             try {
                 src?.stop();
@@ -251,6 +262,13 @@ export class Audio implements AudioApi {
     }
 
     // ── internals ────────────────────────────────────────────────────────
+    private onVisibility = () => {
+        const ctx = this.ctx;
+        if (!ctx || this.disposed) return;
+        if (document.hidden) void ctx.suspend().catch(() => undefined);
+        else void ctx.resume().catch(() => undefined);
+    };
+
     private applyMute() {
         if (!this.master || !this.ctx) return;
         const target = this.muted ? 0 : A.masterVolume;
@@ -281,8 +299,13 @@ export class Audio implements AudioApi {
         this.engineGain = loop.gain;
     }
 
-    /** music.ogg is fetched only after Start (§8.2), then loops on the analysed bus. */
+    /**
+     * music.ogg is fetched only after Start and only while sound is on (§8.2),
+     * once per page, then loops on the analysed bus.
+     */
     private async loadMusic() {
+        if (this.musicRequested) return;
+        this.musicRequested = true;
         const music = await this.decode("music");
         if (!music || !this.ctx || !this.analyser || this.disposed) return;
         this.musicSrc = this.startLoop(music, A.musicVolume, this.analyser).src;

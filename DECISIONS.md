@@ -310,3 +310,103 @@ the normal bundle. It has these folders:
   - Chrome uses the device-pixel box (`canvas.width === devicePixelContentBoxSize.width`).
   The preview pane was a hidden document (rAF about 1 fps), so motion and gsap
   tweens could not be judged there. The visual and fps checks belong in a focused browser.
+
+## Wave 2 prep (integrator, before the Wave 2 areas start)
+The open contract requests Wave 2 depends on, and the Wave 1 system-review
+fixes. Later decisions override earlier ones and the spec.
+
+### Contract requests resolved
+- **(a) Dynamic-body helpers on `PhysicsApi`**: `addDynamicBox`,
+  `addDynamicBall`, `addDynamicCylinder`, `addDynamicLetter` and `removeBody`
+  are on the contract (types.ts, landed with the Wave 1 integration). Areas
+  create props through `ctx.physics` with no casts. `DynamicBodyOptions` is a
+  type-only re-export from Physics.ts.
+- **(b) Lazy board textures reachable from `AreaContext`**: `ctx.assets.boards`
+  (`BoardLoaderApi`: `register`, `request`, `get`, `onLoaded`). The Experience
+  calls `boards.start()` inside Start and `boards.update(focus.x, focus.z)` every
+  frame after the camera update (two numbers, not a vector; the earlier note
+  said `update(focus)`).
+- **(c) Stream-local tunables moved into Config** (values unchanged):
+  - `CONFIG.physics.colliders` (fixed / ground / wall friction + restitution),
+    `CONFIG.physics.dynamicDefaults` (box / cylinder / ball / letter, with each
+    one's impact family) and `CONFIG.physics.impact` (the moving-prop filter
+    speeds). Physics.ts keeps only its numeric guards (`STEP_EPSILON`,
+    `MIN_HALF_EXTENT`).
+  - `CONFIG.vehicle.chassis` (body damping, collider friction / restitution),
+    `CONFIG.vehicle.wheelConnection`, `CONFIG.vehicle.handling` (engine force
+    scale, opposing-brake and handbrake factors) and
+    `CONFIG.vehicle.driftMetric` (min speed, gain, threshold). The key is
+    `driftMetric` because `CONFIG.vehicle.drift` (0.86, rear grip) already
+    exists. Fallback-body geometry, lamp placement and the blob map stay
+    stream-local in Vehicle.ts: they are presentation, not tuning.
+  - `CONFIG.scenery.kitNormalize` (tree height 4.9, bush height 0.9, boulder
+    footprint 2). Assets' `NATURE_NORMALIZE` is now that object.
+  - `CONFIG.loading.retries` (1). Assets' `REQUIRED_RETRIES` and the Rapier
+    init (`withRetries(loadRapier, CONFIG.loading.retries)`) both read it.
+- **`AreaContext.runtime: Readonly<RuntimeInfo>`** (additive). It is the same
+  live object `update(dt, t, rt)` receives. The Experience now creates it
+  before `areas.build()`, so builders can keep it. Build-time animations must
+  read `runtime.reducedMotion` when they run, never once at build.
+- **`KeycapOptions.reducedMotion?: boolean | (() => boolean)`** (ui3d/Pad.ts).
+  Areas pass `reducedMotion: () => ctx.runtime.reducedMotion`, so a Menu or OS
+  toggle reaches keycaps that already exist. With reduced motion on, `punch()`
+  settles the cap at the raised pose.
+
+### System-review fixes
+- **HUD top bar at phone widths (§6.2)**: the bar centres its items; the left
+  cluster flexes and the right cluster and wordmark never shrink; the chip name
+  sits in `.w3-area-chip-label`, which carries the ellipsis (`text-overflow`
+  never applies to an anonymous flex item). The wordmark hides at ≤ 480 px (the
+  maths is next to the rule) and the chip at ≤ 299 px; the aria-live Announcer
+  still says "Entered …". Checked at 327 px with a coarse pointer: the chip
+  gets 87 px, so "Welcome" and "Frontend Projects" both ellipsize ("Front…"),
+  nothing overlaps, and the chip and buttons share a centre line. With a fine
+  pointer the chip gets about 103 px and "Welcome" fits.
+- **Keyboard focus (extends the §4.3 form-control list)**: keys act only while
+  focus belongs to the world: nothing, the canvas or `<body>`. Escape still
+  passes from anywhere (dialogs stop its propagation). A focused link (the HUD
+  "Classic site"), button or the FieldSummary sheet keeps its keys, so Enter
+  on a link no longer also runs `interact()`, and Tab-browsing the sheet no
+  longer drives the car. `isFormControl` stays exported as the literal §4.3
+  rule.
+- **Audio**: a hidden tab suspends the AudioContext and a visible one resumes
+  it (rAF stops in the background, so the engine loop would drone and the
+  music would play). `music.ogg` (3.4 MB) is fetched only once sound is on: at
+  Start when the stored preference is on, else on the first unmute.
+  FieldExperience now calls `setMuted` before `start()`, so `unlock()` sees the
+  real preference.
+- **Boot probes release their WebGL contexts**: `webgl2Available()` loses its
+  probe context before returning. `detectRenderProfile()` creates one `webgl`
+  probe, passes it to detect-gpu as `glContext` (detect-gpu 5.0.70 never
+  releases its own), loses it in a `finally`, and clears the 3 s race timer. A
+  late detect-gpu rejection is swallowed.
+- **One "confirm" per pad interaction**: `commands.openUrl` no longer plays it;
+  `interact()` already does for every pad.
+- **Travel closes the content panel too** (`mapOpen: false, panel: null`), so
+  driving resumes in the new area.
+- **Photo mode**: a pointer click on Capture returns focus to the canvas
+  (`PhotoBar` takes `focusCanvas`), so P and WASD keep working.
+- **Touch targets (§9.4)**: under `(pointer: coarse)`, "Skip to classic
+  portfolio" is at least 44 px tall and the Quality pills are 44 px.
+- `buildWorld` reads reduced motion from the store, not from `init()`'s
+  argument. An OS toggle during loading has already updated the store.
+
+### Tests added
+- Assets.test.ts (ported from W1-D's scratch checks): every shipped Nature Kit
+  model normalises to 4.9 / 0.9 / 2 with an identity root; an unknown Nature
+  Kit material makes `model()` null without rejecting `load()`; only a failed
+  car.glb rejects; `dispose()` during loading frees every model on arrival;
+  a texture that arrives after `dispose()` is freed and not cached.
+- Controls.test.ts: with a link or another element focused, Enter does not
+  interact and WASD adds no held input; `<body>` and the canvas restore the keys.
+- Audio.test.ts: visibility suspend / resume, and music fetched once, only after unmute.
+- Pad.test.ts: the reduced-motion getter is read live.
+- Experience.test.ts: `withRetries`.
+
+### Verification
+- `npx tsc --noEmit` is clean, `npm run test` passes 18 files / 264 tests,
+  ESLint is clean on world3 + app/field, and `npm run build` (Turbopack, with
+  network) compiles and prerenders every route.
+- In the browser (dev, `/field?v=3&debug`, 327 × 640 with a coarse pointer):
+  the top bar measures as described above, there are no console errors, and a
+  muted Start fetches the UI sounds and engine.wav but not music.ogg.

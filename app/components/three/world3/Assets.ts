@@ -59,22 +59,12 @@ export function natureKind(name: NatureModelName): NatureKind {
 }
 
 /**
- * Size every Nature Kit model is normalised to at load time (`normalizeNature`),
- * so the CONFIG.scenery.scale ranges mean the same for `'kit'` and
- * `'procedural'` (§2.6). The kit ships in its own units (trees ≈ 1.2–1.7 tall,
- * bushes ≈ 0.24, rocks ≈ 0.2–0.3 tall). Each size matches the procedural prop:
- * - tree: height 4.9, the procedural crown top (3.2 + 1.7);
- * - bush: height 0.9, the procedural bush's half-height, so scale ≤ 1.6 stays
- *   ≤ 1.5 high near the south / east bounds;
- * - boulder: footprint 2, the procedural Dodecahedron(1)'s diameter. Kit rocks
- *   are flat slabs; matching their height instead would make them 3–4× wider.
+ * Size every Nature Kit model is normalised to at load time (`normalizeNature`):
+ * CONFIG.scenery.kitNormalize (why each size, there). The kit ships in its own
+ * units (trees ≈ 1.2–1.7 tall, bushes ≈ 0.24, rocks ≈ 0.2–0.3 tall).
  */
 export const NATURE_NORMALIZE: Readonly<Record<NatureKind, { measure: "height" | "footprint"; size: number }>> =
-    Object.freeze({
-        tree: { measure: "height", size: 4.9 },
-        bush: { measure: "height", size: 0.9 },
-        boulder: { measure: "footprint", size: 2 },
-    });
+    CONFIG.scenery.kitNormalize;
 
 /**
  * Nature Kit source material name → palette token (exact, case-sensitive).
@@ -127,7 +117,7 @@ export const BOARD_LOAD_DISTANCE = 120;
 export const BOARD_DIR = "/assets/boards/";
 export const BOARD_EXT = ".webp";
 /** Attempts after the first failure for required assets (§6.2: retry once). */
-export const REQUIRED_RETRIES = 1;
+export const REQUIRED_RETRIES = CONFIG.loading.retries;
 /**
  * Progress weights (bytes) used until a response reports its real size; close
  * to the shipped files so the bar moves evenly from the start. The avatar is

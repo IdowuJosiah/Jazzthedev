@@ -96,11 +96,20 @@ export async function detectRenderProfile(): Promise<RenderProfile> {
         (window.matchMedia?.("(pointer: coarse)").matches || (navigator.maxTouchPoints ?? 0) > 0);
     let tier: number = G.fallbackTier;
     let isMobile = coarse;
+    // One probe context, handed to detect-gpu (which never releases its own)
+    // and lost afterwards, so no orphan context counts against the browser's
+    // live-context limit until GC.
+    let gl: WebGLRenderingContext | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
+        gl = document.createElement("canvas").getContext("webgl");
         const { getGPUTier } = await import("detect-gpu");
         const result = await Promise.race([
-            getGPUTier({ benchmarksURL: G.benchmarksURL }),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), G.timeoutMs)),
+            // A late rejection (after the timeout won and the probe was lost) stays quiet.
+            getGPUTier({ benchmarksURL: G.benchmarksURL, glContext: gl ?? undefined }).catch(() => null),
+            new Promise<null>((resolve) => {
+                timer = setTimeout(() => resolve(null), G.timeoutMs);
+            }),
         ]);
         if (result) {
             tier = result.tier;
@@ -108,8 +117,20 @@ export async function detectRenderProfile(): Promise<RenderProfile> {
         }
     } catch {
         /* keep the fallback tier */
+    } finally {
+        clearTimeout(timer);
+        loseContext(gl);
     }
     return applyNextVisitDprCap(pickProfile(tier, isMobile));
+}
+
+/** Releases a probe context now instead of at GC. */
+function loseContext(gl: WebGLRenderingContext | WebGL2RenderingContext | null): void {
+    try {
+        gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    } catch {
+        /* already lost / unsupported: nothing to release */
+    }
 }
 
 export type LoadStage = keyof typeof CONFIG.loading.stages;
@@ -136,10 +157,23 @@ export class LoadTracker {
     }
 }
 
+/** Runs `fn`, retrying up to `retries` more times before rejecting with the last error. */
+export async function withRetries<T>(fn: () => Promise<T>, retries: number): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (attempt >= retries) throw err;
+        }
+    }
+}
+
+/** WebGL2 probe; its context is lost before returning (see loseContext). */
 export function webgl2Available(): boolean {
     try {
-        const c = document.createElement("canvas");
-        return !!c.getContext("webgl2");
+        const gl = document.createElement("canvas").getContext("webgl2");
+        loseContext(gl);
+        return !!gl;
     } catch {
         return false;
     }
@@ -403,8 +437,8 @@ export class Experience {
             const [, font] = await Promise.all([
                 step(preloadAll(collectStrings(content))),
                 step(loadTypeface()),
-                // One retry (§6.2): loadRapier() forgets a failed init.
-                step(loadRapier().catch(() => loadRapier())),
+                // Retried (§6.2, CONFIG.loading.retries): loadRapier() forgets a failed init.
+                step(withRetries(loadRapier, CONFIG.loading.retries)),
             ]);
             if (this.halted()) return;
             this.tracker.complete("fonts");
@@ -429,7 +463,7 @@ export class Experience {
 
             // 4. Environment, car, camera, controls, text, then the areas.
             this.tracker.report("build", 0);
-            this.w = this.buildWorld({ renderer, scene, physics, materials, assets, font, profile, reducedMotion, isTouch });
+            this.w = this.buildWorld({ renderer, scene, physics, materials, assets, font, profile, isTouch });
             this.tracker.complete("build");
 
             // 5. Warm-up render (compiles every program before the first real frame).
@@ -503,11 +537,12 @@ export class Experience {
         assets: Assets;
         font: Awaited<ReturnType<typeof loadTypeface>>;
         profile: RenderProfile;
-        reducedMotion: boolean;
         isTouch: boolean;
     }): World {
         const { renderer, scene, physics, materials, assets, font, profile } = o;
         const size = renderer.size;
+        // The store's value, not init()'s: an OS toggle during loading already updated it.
+        const reducedMotion = this.store.snapshot.reducedMotion;
 
         // Environment owns background, fog, lights, ground slab, walls, quay, water, jetty.
         const env = new Environment({ scene, physics, materials, profile, renderer: renderer.instance });
@@ -532,7 +567,7 @@ export class Experience {
 
         const camera = new Camera(this.canvas, {
             aspect: size.aspect,
-            reducedMotion: o.reducedMotion,
+            reducedMotion,
             focus: SPAWN,
             shot: "intro",
         });
@@ -564,6 +599,17 @@ export class Experience {
 
         this.own(physics.onImpact((kind, force) => this.audio.playImpact(kind, force)));
 
+        // Runtime values exist before the areas build, so builders can hold on to
+        // them (ctx.runtime) and read reducedMotion when an animation runs.
+        const rt: RuntimeInfo = {
+            carPos: vehicle.position,
+            carSpeed: 0,
+            reducedMotion,
+            muted: this.store.snapshot.muted,
+            isTouch: o.isTouch,
+        };
+        this.rt = rt;
+
         // Areas: the root group is in the scene BEFORE build (words arm on build).
         const commands: WorldCommands = {
             openMenu: (tab) => this.store.commands.openMenu(tab),
@@ -580,6 +626,7 @@ export class Experience {
             audio: this.audio,
             commands,
             disposal: this.disposal,
+            runtime: rt,
         };
         const areas = new Areas(services);
         scene.add(areas.group);
@@ -589,14 +636,6 @@ export class Experience {
         scene.add(this.interim);
         this.own(() => this.interim.removeFromParent());
         this.buildInterimMarkers(areas, text, text3d);
-
-        this.rt = {
-            carPos: vehicle.position,
-            carSpeed: 0,
-            reducedMotion: o.reducedMotion,
-            muted: this.store.snapshot.muted,
-            isTouch: o.isTouch,
-        };
 
         // Quality: the Menu setting + adaptive steps → shadows / dust (scenery in Wave 2).
         this.steps = adaptiveSteps(profile);
@@ -740,11 +779,9 @@ export class Experience {
                 this.audio.playUi("click");
             },
             closeMenu: () => store.set({ menuTab: null }),
-            // Synchronous inside the input handler (Safari popup rule, §4.3).
-            openUrl: (url) => {
-                openExternalUrl(url);
-                this.audio.playUi("confirm");
-            },
+            // Synchronous inside the input handler (Safari popup rule, §4.3). No
+            // sound here: interact() already plays "confirm" for every pad.
+            openUrl: (url) => openExternalUrl(url),
             respawn: () => {
                 const w = this.w;
                 if (!w || !running()) return;
@@ -792,7 +829,8 @@ export class Experience {
         const w = this.w;
         if (!w || this.store.snapshot.phase !== "running") return;
         const a = AREA_BY_ID[id].arrival;
-        this.store.set({ mapOpen: false });
+        // A content panel left open under the map would cover the new area and keep driving off.
+        this.store.set({ mapOpen: false, panel: null });
         // teleport() snaps the interpolation and fires afterTeleport (detect + visited).
         w.vehicle.teleport(a.x, a.z, a.yaw, undefined, id);
         w.camera.flyTo(a.x, a.z);

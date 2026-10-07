@@ -314,6 +314,13 @@ export interface AreaContext {
     audio: AudioApi;
     commands: WorldCommands;
     disposal: Disposal;
+    /**
+     * Live runtime values (the same object update() receives), readable at any
+     * time: build-time animations read `runtime.reducedMotion` when they run,
+     * e.g. `buildKeycap(deps, { reducedMotion: () => ctx.runtime.reducedMotion })`
+     * (Wave 2 prep, DECISIONS.md).
+     */
+    runtime: Readonly<RuntimeInfo>;
     def: AreaDef;
     layout: LayoutApi;
     /** Registers an interactable; returns an unregister function. */

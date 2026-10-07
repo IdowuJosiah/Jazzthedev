@@ -109,8 +109,12 @@ export function buildPad(def: PadDef, deps: PadDeps, opts: PadOptions): PadVisua
 
 export interface KeycapOptions {
     label?: string;
-    /** Under reduced motion the keycap snaps instead of tweening. */
-    reducedMotion?: boolean;
+    /**
+     * Under reduced motion the keycap snaps instead of tweening. Pass a getter
+     * (`() => ctx.runtime.reducedMotion`) so a runtime toggle (Menu or OS) is
+     * honoured; a boolean is read as a fixed value.
+     */
+    reducedMotion?: boolean | (() => boolean);
 }
 
 export interface Keycap {
@@ -158,6 +162,7 @@ export function buildKeycap(deps: PadDeps, opts: KeycapOptions = {}): Keycap {
 
     let shown = false;
     const kill = () => gsap.killTweensOf(cap.position);
+    const rm = () => (typeof opts.reducedMotion === "function" ? opts.reducedMotion() : !!opts.reducedMotion);
 
     return {
         group,
@@ -169,7 +174,7 @@ export function buildKeycap(deps: PadDeps, opts: KeycapOptions = {}): Keycap {
             shown = true;
             kill();
             cap.visible = true;
-            if (opts.reducedMotion) {
+            if (rm()) {
                 cap.position.y = K.raisedY;
                 return;
             }
@@ -179,7 +184,7 @@ export function buildKeycap(deps: PadDeps, opts: KeycapOptions = {}): Keycap {
             if (!shown) return;
             shown = false;
             kill();
-            if (opts.reducedMotion) {
+            if (rm()) {
                 cap.position.y = K.restY;
                 cap.visible = false;
                 return;
@@ -196,7 +201,11 @@ export function buildKeycap(deps: PadDeps, opts: KeycapOptions = {}): Keycap {
         punch() {
             if (!shown) return;
             kill();
-            if (opts.reducedMotion) return;
+            if (rm()) {
+                // Reduced motion switched on mid-rise: settle at the raised pose.
+                cap.position.y = K.raisedY;
+                return;
+            }
             gsap.timeline()
                 .to(cap.position, { y: K.punchY, duration: K.punch.duration, ease: "none" })
                 .to(cap.position, { y: K.raisedY, duration: K.punch.recover, ease: K.punch.recoverEase });

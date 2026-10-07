@@ -26,32 +26,10 @@ import type { ImpactKind, PhysicsApi, QuatLike } from "./types";
 // is not the identity).
 // ─────────────────────────────────────────────────────────────────────────
 
-// ── Stream-local tunables (not in Config; reported as contract requests) ──
+// Surface, dynamic-default and impact-filter tunables live in CONFIG.physics.
+const PH = CONFIG.physics;
 /** Accumulator slack: a 120 Hz frame pair (2 × 1/120) must count as one 1/60 step. */
 const STEP_EPSILON = 1e-9;
-/** Fixed scenery / props. */
-const FIXED_FRICTION = 0.9;
-const FIXED_RESTITUTION = 0.2;
-/** Ground slab: grippy, almost no bounce (v2 terrain values). */
-const GROUND_FRICTION = 1.0;
-const GROUND_RESTITUTION = 0.05;
-/** Invisible bound walls: low friction so the car slides along them. */
-const WALL_FRICTION = 0.2;
-const WALL_RESTITUTION = 0.2;
-/** Generic dynamic props (v2 box/ball defaults). */
-const DYNAMIC_DEFAULTS = {
-    box: { friction: 0.7, restitution: 0.3, linearDamping: 0.4, angularDamping: 0.5, impact: "wood" },
-    cylinder: { friction: 0.7, restitution: 0.3, linearDamping: 0.4, angularDamping: 0.5, impact: "wood" },
-    ball: { friction: 0.6, restitution: 0.6, linearDamping: 0.3, angularDamping: 0.3, impact: "heavy" },
-    letter: { impact: "heavy" },
-} as const satisfies Record<string, { impact: ImpactKind; [k: string]: unknown }>;
-/**
- * Impact filter: a contact-force event only counts when one of the registered
- * props in the pair was moving before or after the step. Resting stacks (both
- * bodies still) report every step until the island sleeps; they are dropped.
- */
-const MIN_IMPACT_LINEAR_SPEED = 0.5; // u/s
-const MIN_IMPACT_ANGULAR_SPEED = 0.5; // rad/s
 /** Smallest half-extent of a bbox fallback cuboid (flat / degenerate hulls). */
 const MIN_HALF_EXTENT = 0.01;
 
@@ -137,8 +115,8 @@ export class Physics implements PhysicsApi {
 
     /** Requires `loadRapier()` to have resolved; prefer `Physics.create()`. */
     constructor() {
-        this.world = new RAPIER.World({ x: 0, y: CONFIG.physics.gravity, z: 0 });
-        this.world.timestep = CONFIG.physics.fixedStep;
+        this.world = new RAPIER.World({ x: 0, y: PH.gravity, z: 0 });
+        this.world.timestep = PH.fixedStep;
         this.events = new RAPIER.EventQueue(true);
     }
 
@@ -150,10 +128,10 @@ export class Physics implements PhysicsApi {
      */
     step(dt: number, beforeEachStep: (h: number) => void): number {
         if (this.disposed) return 0;
-        const h = CONFIG.physics.fixedStep;
+        const h = PH.fixedStep;
         this.acc += Number.isFinite(dt) && dt > 0 ? dt : 0;
         let n = 0;
-        while (this.acc >= h - STEP_EPSILON && n < CONFIG.physics.maxSubSteps) {
+        while (this.acc >= h - STEP_EPSILON && n < PH.maxSubSteps) {
             beforeEachStep(h);
             this.snapshot("prev");
             this.markMovingBefore();
@@ -174,7 +152,7 @@ export class Physics implements PhysicsApi {
 
     /** Current render alpha in [0, 1): fraction of a step owed by the accumulator. */
     get alpha(): number {
-        return Math.min(Math.max(this.acc / CONFIG.physics.fixedStep, 0), 1 - Number.EPSILON);
+        return Math.min(Math.max(this.acc / PH.fixedStep, 0), 1 - Number.EPSILON);
     }
 
     /** Registers body → object; both snapshots start at the body's current pose. */
@@ -218,8 +196,8 @@ export class Physics implements PhysicsApi {
         const body = this.fixedBody(pos, quat);
         const desc = RAPIER.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z)
             .setTranslation(offset?.x ?? 0, offset?.y ?? 0, offset?.z ?? 0)
-            .setFriction(FIXED_FRICTION)
-            .setRestitution(FIXED_RESTITUTION);
+            .setFriction(PH.colliders.fixed.friction)
+            .setRestitution(PH.colliders.fixed.restitution);
         this.world.createCollider(desc, body);
         return body;
     }
@@ -228,8 +206,8 @@ export class Physics implements PhysicsApi {
     addFixedCylinder(halfHeight: number, radius: number, pos: Vec3Like): RAPIER.RigidBody {
         const body = this.fixedBody(pos);
         const desc = RAPIER.ColliderDesc.cylinder(halfHeight, radius)
-            .setFriction(FIXED_FRICTION)
-            .setRestitution(FIXED_RESTITUTION);
+            .setFriction(PH.colliders.fixed.friction)
+            .setRestitution(PH.colliders.fixed.restitution);
         this.world.createCollider(desc, body);
         return body;
     }
@@ -246,7 +224,8 @@ export class Physics implements PhysicsApi {
         try {
             const desc = RAPIER.ColliderDesc.convexHull(points);
             if (desc) {
-                this.world.createCollider(desc.setFriction(FIXED_FRICTION).setRestitution(FIXED_RESTITUTION), body);
+                const F = PH.colliders.fixed;
+                this.world.createCollider(desc.setFriction(F.friction).setRestitution(F.restitution), body);
                 built = true;
             }
         } catch {
@@ -260,8 +239,8 @@ export class Physics implements PhysicsApi {
             );
             const desc = RAPIER.ColliderDesc.cuboid(box.half.x, box.half.y, box.half.z)
                 .setTranslation(box.center.x, box.center.y, box.center.z)
-                .setFriction(FIXED_FRICTION)
-                .setRestitution(FIXED_RESTITUTION);
+                .setFriction(PH.colliders.fixed.friction)
+                .setRestitution(PH.colliders.fixed.restitution);
             this.world.createCollider(desc, body);
         }
         return body;
@@ -272,8 +251,8 @@ export class Physics implements PhysicsApi {
         const G = CONFIG.world.groundSlab;
         const body = this.fixedBody(G.center);
         const desc = RAPIER.ColliderDesc.cuboid(G.halfExtents.x, G.halfExtents.y, G.halfExtents.z)
-            .setFriction(GROUND_FRICTION)
-            .setRestitution(GROUND_RESTITUTION);
+            .setFriction(PH.colliders.ground.friction)
+            .setRestitution(PH.colliders.ground.restitution);
         this.world.createCollider(desc, body);
         return body;
     }
@@ -282,8 +261,8 @@ export class Physics implements PhysicsApi {
     addWall(halfExtents: Vec3Like, pos: Vec3Like): RAPIER.RigidBody {
         const body = this.fixedBody(pos);
         const desc = RAPIER.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z)
-            .setFriction(WALL_FRICTION)
-            .setRestitution(WALL_RESTITUTION);
+            .setFriction(PH.colliders.wall.friction)
+            .setRestitution(PH.colliders.wall.restitution);
         this.world.createCollider(desc, body);
         return body;
     }
@@ -291,7 +270,7 @@ export class Physics implements PhysicsApi {
     // ── Dynamic bodies (Wave 2 helpers) ──────────────────────────────────
     /** Bricks and boxes. Not linked: call `link(body, mesh)` yourself. */
     addDynamicBox(halfExtents: Vec3Like, pos: Vec3Like, opts: DynamicBodyOptions): RAPIER.RigidBody {
-        const D = DYNAMIC_DEFAULTS.box;
+        const D = PH.dynamicDefaults.box;
         const desc = RAPIER.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z)
             .setFriction(opts.friction ?? D.friction)
             .setRestitution(opts.restitution ?? D.restitution);
@@ -300,7 +279,7 @@ export class Physics implements PhysicsApi {
 
     /** Ball (bowling ball). */
     addDynamicBall(radius: number, pos: Vec3Like, opts: DynamicBodyOptions): RAPIER.RigidBody {
-        const D = DYNAMIC_DEFAULTS.ball;
+        const D = PH.dynamicDefaults.ball;
         const desc = RAPIER.ColliderDesc.ball(radius)
             .setFriction(opts.friction ?? D.friction)
             .setRestitution(opts.restitution ?? D.restitution);
@@ -309,7 +288,7 @@ export class Physics implements PhysicsApi {
 
     /** Upright (Y-axis) cylinder, e.g. bowling pins (r 0.42, mass 8). */
     addDynamicCylinder(halfHeight: number, radius: number, pos: Vec3Like, opts: DynamicBodyOptions): RAPIER.RigidBody {
-        const D = DYNAMIC_DEFAULTS.cylinder;
+        const D = PH.dynamicDefaults.cylinder;
         const desc = RAPIER.ColliderDesc.cylinder(halfHeight, radius)
             .setFriction(opts.friction ?? D.friction)
             .setRestitution(opts.restitution ?? D.restitution);
@@ -327,12 +306,12 @@ export class Physics implements PhysicsApi {
         pos: Vec3Like,
         opts: Partial<DynamicBodyOptions> & { offset: Vec3Like }
     ): RAPIER.RigidBody {
-        const L = CONFIG.physics.dynamicLetter;
+        const L = PH.dynamicLetter;
         const merged: DynamicBodyOptions = { ...opts, mass: opts.mass ?? L.mass };
         const desc = RAPIER.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z)
             .setFriction(opts.friction ?? L.friction)
             .setRestitution(opts.restitution ?? L.restitution);
-        return this.dynamicBody(desc, pos, merged, L, DYNAMIC_DEFAULTS.letter.impact);
+        return this.dynamicBody(desc, pos, merged, L, PH.dynamicDefaults.letter.impact);
     }
 
     /** Unlinks, forgets impact sources and removes the body (with its colliders). */
@@ -395,7 +374,7 @@ export class Physics implements PhysicsApi {
         );
         desc.setTranslation(o.x, o.y, o.z).setMass(opts.mass);
         const impact = opts.impact === undefined ? defaultImpact : opts.impact;
-        const threshold = opts.mass * CONFIG.physics.contactForcePerMass;
+        const threshold = opts.mass * PH.contactForcePerMass;
         if (impact) {
             desc.setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(threshold);
         }
@@ -467,7 +446,7 @@ function isMoving(body: RAPIER.RigidBody): boolean {
     const w = body.angvel();
     const lin2 = v.x * v.x + v.y * v.y + v.z * v.z;
     const ang2 = w.x * w.x + w.y * w.y + w.z * w.z;
-    return lin2 >= MIN_IMPACT_LINEAR_SPEED ** 2 || ang2 >= MIN_IMPACT_ANGULAR_SPEED ** 2;
+    return lin2 >= PH.impact.minLinearSpeed ** 2 || ang2 >= PH.impact.minAngularSpeed ** 2;
 }
 
 /** Moving at the start of the substep (landing with no bounce) or after it (struck by the car). */

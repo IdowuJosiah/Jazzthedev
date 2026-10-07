@@ -5,6 +5,7 @@ import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { describe, expect, it, vi } from "vitest";
 import { CONFIG, PALETTE } from "./Config";
 import {
+    Assets,
     BOARD_LOAD_DISTANCE,
     BoardTextures,
     CAR_COLORMAP_CELLS,
@@ -13,6 +14,7 @@ import {
     NATURE_KINDS,
     NATURE_MATERIAL_TOKENS,
     NATURE_MODELS,
+    NATURE_NORMALIZE,
     ProgressAggregator,
     UnknownNatureMaterialError,
     applyTokenRemap,
@@ -20,7 +22,9 @@ import {
     carRepaintCells,
     convertStandardToLambert,
     findStandardMaterials,
+    natureKind,
     natureToken,
+    normalizeNature,
     paintColormapCells,
     prepareCar,
     prepareNature,
@@ -342,5 +346,125 @@ describe("BoardTextures (§5.1 lazy load)", () => {
         await expect(boards.request("eko-phone")).resolves.toBeNull();
         expect(boards.get("eko-phone")).toBeNull();
         warn.mockRestore();
+    });
+});
+
+// ── Load-time behaviour (ported from W1-D's scratch checks) ─────────────
+describe("normalizeNature (§2.6 kit sizes)", () => {
+    it("normalises trees to height 4.9, bushes to 0.9 and boulders to a footprint of 2", async () => {
+        expect(NATURE_NORMALIZE).toBe(CONFIG.scenery.kitNormalize);
+        expect(NATURE_NORMALIZE.tree).toEqual({ measure: "height", size: 4.9 });
+        expect(NATURE_NORMALIZE.bush).toEqual({ measure: "height", size: 0.9 });
+        expect(NATURE_NORMALIZE.boulder).toEqual({ measure: "footprint", size: 2 });
+        const mats = new Materials();
+        for (const name of NATURE_MODELS) {
+            const gltf = await parseGLB(publicFile(`${NATURE_DIR}${name}.glb`));
+            prepareNature(gltf.scene, mats, name);
+            const kind = natureKind(name);
+            normalizeNature(gltf.scene, kind);
+            const box = new THREE.Box3().setFromObject(gltf.scene);
+            const spec = NATURE_NORMALIZE[kind];
+            const measured =
+                spec.measure === "height" ? box.max.y : Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+            expect(measured, name).toBeCloseTo(spec.size, 5);
+            // Baked into the geometry: the root keeps an identity transform for Scenery to scale.
+            expect(gltf.scene.scale.toArray()).toEqual([1, 1, 1]);
+            // A scaled clone scales the normalised size (no double-applied factor).
+            const clone = gltf.scene.clone(true);
+            clone.scale.setScalar(1.5);
+            clone.updateMatrixWorld(true);
+            expect(new THREE.Box3().setFromObject(clone).max.y).toBeCloseTo(box.max.y * 1.5, 5);
+        }
+    });
+});
+
+type FetchOutcome = { ok: true; gltf: GLTF } | { ok: false; error: unknown };
+/** Assets with its network layer replaced (fetchGLTF / the texture loader are private). */
+type AssetsInternals = {
+    fetchGLTF: (url: string) => Promise<FetchOutcome>;
+    textureLoader: { loadAsync: (url: string) => Promise<THREE.Texture> };
+};
+const internals = (a: Assets) => a as unknown as AssetsInternals;
+
+/** A GLTF-shaped result: one mesh whose material carries `materialName`. */
+function fakeGLTF(materialName: string): GLTF {
+    const scene = new THREE.Group();
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(), Object.assign(new THREE.MeshStandardMaterial(), { name: materialName })));
+    return { scene, animations: [] } as unknown as GLTF;
+}
+
+describe("Assets.load", () => {
+    it("an unknown Nature Kit material skips that model (model() null) without rejecting load()", async () => {
+        const err = vi.spyOn(console, "error").mockImplementation(() => {});
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const a = new Assets({ materials: new Materials(), avatarUrl: null, loadNature: true });
+            internals(a).fetchGLTF = async (url) => ({
+                ok: true,
+                gltf: fakeGLTF(url.includes("tree_oak") ? "lava" : url.includes("nature") ? "dirt" : "body"),
+            });
+            await expect(a.load()).resolves.toBeUndefined();
+            expect(a.model("nature/tree_oak")).toBeNull();
+            expect(a.model("nature/tree_default")).not.toBeNull();
+            expect(a.model("car")).not.toBeNull();
+            expect(err).toHaveBeenCalledTimes(1);
+            expect(String(err.mock.calls[0][0])).toContain("tree_oak");
+        } finally {
+            err.mockRestore();
+            warn.mockRestore();
+        }
+    });
+
+    it("rejects only when the required car.glb fails", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const a = new Assets({ materials: new Materials(), avatarUrl: null, loadNature: false });
+            internals(a).fetchGLTF = async () => ({ ok: false, error: new Error("404") });
+            await expect(a.load()).rejects.toThrow(/required/);
+        } finally {
+            warn.mockRestore();
+        }
+    });
+
+    it("dispose() during loading frees every model once it arrives", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const a = new Assets({ materials: new Materials(), avatarUrl: null, loadNature: false });
+            const arrivals: (() => void)[] = [];
+            const geometries: THREE.BufferGeometry[] = [];
+            internals(a).fetchGLTF = (url) =>
+                new Promise((resolve) => {
+                    const gltf = fakeGLTF(url);
+                    gltf.scene.traverse((o) => {
+                        if ((o as THREE.Mesh).isMesh) geometries.push((o as THREE.Mesh).geometry);
+                    });
+                    arrivals.push(() => resolve({ ok: true, gltf }));
+                });
+            const loading = a.load();
+            a.dispose();
+            const spies = geometries.map((g) => vi.spyOn(g, "dispose"));
+            for (const arrive of arrivals) arrive();
+            await loading;
+            expect(a.model("car")).toBeNull();
+            expect(a.model("palm")).toBeNull();
+            for (const spy of spies) expect(spy).toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+        }
+    });
+
+    it("a texture that arrives after dispose() is freed, not cached", async () => {
+        const a = new Assets({ materials: new Materials() });
+        const tex = new THREE.Texture();
+        const freed = vi.spyOn(tex, "dispose");
+        let arrive!: () => void;
+        internals(a).textureLoader = {
+            loadAsync: () => new Promise((resolve) => (arrive = () => resolve(tex))),
+        };
+        const pending = a.texture("/assets/boards/clay.webp");
+        a.dispose();
+        arrive();
+        await expect(pending).rejects.toThrow(/after dispose/);
+        expect(freed).toHaveBeenCalledTimes(1);
     });
 });

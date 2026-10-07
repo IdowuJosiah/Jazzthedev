@@ -8,6 +8,7 @@ import {
     NextVisitMonitor,
     pickProfile,
     resolveQuality,
+    withRetries,
 } from "./Experience";
 import { WorldStore } from "./State";
 
@@ -127,5 +128,26 @@ describe("next-visit DPR fallback (§9.1)", () => {
     it("does nothing when fast, or on other profiles", () => {
         expect(run("mobile", 16).wrote).toBe(false);
         expect(run("desktop-high", 40).wrote).toBe(false);
+    });
+});
+
+describe("withRetries (§6.2 required assets)", () => {
+    it("retries CONFIG.loading.retries times, then rejects with the last error", async () => {
+        let n = 0;
+        const flaky = async () => {
+            if (++n < 2) throw new Error(`fail ${n}`);
+            return "ok";
+        };
+        await expect(withRetries(flaky, CONFIG.loading.retries)).resolves.toBe("ok");
+        n = -5;
+        await expect(withRetries(flaky, 1)).rejects.toThrow("fail -3");
+        let calls = 0;
+        await expect(
+            withRetries(async () => {
+                calls++;
+                throw new Error("x");
+            }, 0)
+        ).rejects.toThrow("x");
+        expect(calls).toBe(1);
     });
 });

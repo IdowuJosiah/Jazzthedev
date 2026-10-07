@@ -101,6 +101,25 @@ describe("Controls (§4.3)", () => {
         expect(calls).toEqual(["escape"]);
     });
 
+    it("ignores keys while a link (or the summary sheet) has focus: Enter never runs interact", () => {
+        const { controls, calls, doc, canvas, key } = setup();
+        doc.activeElement = { tagName: "A" };
+        key("keydown", "Enter", "Enter");
+        key("keydown", "KeyW", "w");
+        key("keydown", "ArrowUp", "ArrowUp");
+        expect(calls).toEqual([]);
+        expect(controls.getInput().throttle).toBe(0);
+        doc.activeElement = { tagName: "SECTION" };
+        key("keydown", "KeyE", "e");
+        expect(calls).toEqual([]);
+        // The world owns the keys again on the canvas or <body>.
+        doc.activeElement = { tagName: "BODY" };
+        key("keydown", "KeyE", "e");
+        doc.activeElement = canvas;
+        key("keydown", "Enter", "Enter");
+        expect(calls).toEqual(["interact", "interact"]);
+    });
+
     it("prevents default for Space / arrows only while the canvas has focus", () => {
         const { doc, canvas, key } = setup();
         expect(key("keydown", "Space", " ")).toBe(false);
