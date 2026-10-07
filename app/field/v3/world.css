@@ -1,0 +1,1075 @@
+/* ───────────────────────────────────────────────────────────────
+   /field v3 "clean diorama" UI (§6). Every class is prefixed `w3-`
+   so it never collides with v2's `eko-` / `ekoworld-` styles.
+
+   Rules (§3.4.7, §6.1): whole-pixel font sizes; 8 px spacing grid;
+   radii 8 / 12 / 16 only; no gradients on controls, no glows, no
+   text-shadow, no backdrop-filter; centre with flex rows (never
+   left: 50% + translateX(−50%)); animate only opacity and integer
+   translateY, ending at transform: none.
+   ─────────────────────────────────────────────────────────────── */
+
+.w3-root {
+    --w-bg: #f3dcc0;
+    --w-paper: #fffdf8;
+    --w-ink: #24222b;
+    --w-ink-2: #45414c;
+    --w-line: rgba(36, 34, 43, 0.1);
+    --w-chip: #f1eae0;
+    --w-chip-ink: #3a3741;
+    --w-focus: #2f6fed;
+    --w-brand: #e2553f;
+    --w-r-s: 8px;
+    --w-r-m: 12px;
+    --w-r-l: 16px;
+    --w-shadow: 0 1px 2px rgba(36, 34, 43, 0.06), 0 8px 24px rgba(36, 34, 43, 0.1);
+    --w-scrim: rgba(36, 34, 43, 0.25);
+    --w-track: rgba(36, 34, 43, 0.12);
+    --w-font: var(--font-inter), system-ui, sans-serif;
+    --w-display: var(--font-bricolage), var(--w-font);
+    --w-safe-b: env(safe-area-inset-bottom, 0px);
+
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--w-bg);
+    color: var(--w-ink);
+    font-family: var(--w-font);
+    font-size: 16px;
+    line-height: 24px;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.w3-root *,
+.w3-root *::before,
+.w3-root *::after {
+    box-sizing: border-box;
+}
+
+.w3-root :focus-visible {
+    outline: 2px solid var(--w-focus);
+    outline-offset: 2px;
+}
+
+/* Zero specificity, so every class rule below (.w3-btn, .w3-tab,
+   .w3-touch-btn, ...) sets its own type and colour. */
+:where(.w3-root) :where(button) {
+    font: inherit;
+    color: inherit;
+}
+
+/* ── Type scale (§6.1) ── */
+.w3-kicker {
+    margin: 0;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.w3-small {
+    margin: 0;
+    font-size: 14px;
+    line-height: 20px;
+}
+.w3-body {
+    margin: 0;
+    font-size: 16px;
+    line-height: 24px;
+}
+.w3-h3 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+}
+.w3-panel-title {
+    margin: 0;
+    font-family: var(--w-display);
+    font-size: 28px;
+    line-height: 34px;
+    font-weight: 800;
+}
+.w3-start-title {
+    margin: 0;
+    font-family: var(--w-display);
+    font-size: 40px;
+    line-height: 44px;
+    font-weight: 800;
+}
+.w3-muted {
+    color: var(--w-ink-2);
+}
+
+/* ── Canvas ── */
+.w3-canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 400ms linear;
+}
+.w3-canvas.is-visible {
+    opacity: 1;
+}
+.w3-root .w3-canvas:focus-visible {
+    outline-offset: -2px;
+}
+.w3-canvas:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ── Layers ── */
+.w3-hud {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+}
+.w3-hud > * {
+    pointer-events: auto;
+}
+.w3-touch {
+    z-index: 20;
+}
+.w3-panel-layer {
+    z-index: 30;
+}
+.w3-toast-wrap {
+    z-index: 35;
+}
+.w3-map-layer {
+    z-index: 40;
+}
+.w3-menu-layer {
+    z-index: 50;
+}
+.w3-overlay {
+    z-index: 60;
+}
+
+/* ── Overlays (loader / start / failure) ── */
+.w3-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.w3-overlay.is-opaque {
+    background: var(--w-bg);
+}
+
+/* ── Cards ── */
+.w3-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(480px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    padding: 24px;
+    background: var(--w-paper);
+    border-radius: var(--w-r-l);
+    box-shadow: var(--w-shadow);
+    animation: w3-rise 240ms ease-out both;
+}
+.w3-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+/* ── Buttons and links ── */
+.w3-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 24px;
+    border-radius: var(--w-r-m);
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.w3-btn-primary {
+    border: 0;
+    background: var(--w-ink);
+    color: var(--w-paper);
+}
+.w3-btn-secondary {
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    color: var(--w-ink);
+}
+.w3-link {
+    color: var(--w-ink-2);
+    font-size: 14px;
+    line-height: 20px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+.w3-skip {
+    align-self: flex-start;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ── Keyboard chips ── */
+.w3-kbd-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.w3-kbd-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 4px;
+    border-radius: var(--w-r-s);
+    background: var(--w-chip);
+    color: var(--w-chip-ink);
+    font-size: 13px;
+    line-height: 16px;
+}
+.w3-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: var(--w-r-s);
+    background: var(--w-paper);
+    border: 1px solid var(--w-line);
+    color: var(--w-ink);
+    font-family: var(--w-font);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+}
+
+/* ── Loader (§6.2) ── */
+.w3-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+.w3-wordmark-xl {
+    margin: 0;
+    font-family: var(--w-display);
+    font-size: 56px;
+    line-height: 64px;
+    font-weight: 800;
+    color: var(--w-ink);
+}
+.w3-progress {
+    width: 200px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--w-track);
+    overflow: hidden;
+}
+.w3-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--w-ink);
+}
+.w3-load-label {
+    margin: 0;
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--w-ink-2);
+}
+.w3-loader-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+}
+
+/* ── HUD (§6.2) ── */
+.w3-topbar {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: none;
+}
+.w3-topbar > * {
+    pointer-events: auto;
+}
+.w3-topleft,
+.w3-topright {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.w3-topleft {
+    gap: 12px;
+    min-width: 0;
+}
+.w3-wordmark {
+    margin: 0;
+    font-family: var(--w-display);
+    font-size: 20px;
+    line-height: 24px;
+    font-weight: 800;
+    color: var(--w-ink);
+}
+.w3-area-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--w-r-s);
+    background: var(--w-paper);
+    border: 1px solid var(--w-line);
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+.w3-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.w3-iconbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: var(--w-r-m);
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    color: var(--w-ink);
+    cursor: pointer;
+    text-decoration: none;
+}
+.w3-classic {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--w-r-m);
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    color: var(--w-ink);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+/* Prompt card (bottom centre) */
+.w3-prompt-wrap {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + var(--w-safe-b));
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+.w3-root.is-touch .w3-prompt-wrap {
+    bottom: calc(168px + var(--w-safe-b));
+}
+.w3-prompt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 480px;
+    padding: 10px 14px;
+    border-radius: var(--w-r-m);
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    box-shadow: var(--w-shadow);
+    pointer-events: auto;
+    animation: w3-rise 200ms ease-out both;
+}
+.w3-prompt-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--w-r-s);
+    border: 0;
+    padding: 0;
+    background: var(--w-ink);
+    color: var(--w-paper);
+    font-family: var(--w-font);
+    font-size: 14px;
+    line-height: 16px;
+    font-weight: 700;
+}
+.w3-prompt-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.w3-prompt-title {
+    margin: 0;
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.w3-prompt-sub {
+    margin: 0;
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--w-ink-2);
+}
+
+/* Toasts (top centre) */
+.w3-toast-wrap {
+    position: absolute;
+    top: 72px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+.w3-toast {
+    max-width: 480px;
+    padding: 8px 16px;
+    border-radius: var(--w-r-m);
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    box-shadow: var(--w-shadow);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+    animation: w3-drop 200ms ease-out both;
+}
+
+/* Controls hint (bottom left, desktop only) */
+.w3-hint {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: var(--w-r-m);
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    box-shadow: var(--w-shadow);
+    animation: w3-rise 240ms ease-out both;
+}
+.w3-hint .w3-kbd-row {
+    max-width: 320px;
+}
+
+/* Photo mode bar */
+.w3-photo-bar {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + var(--w-safe-b));
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* aria-live region / SSR summary: visually hidden, still in the a11y tree */
+.w3-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Content panel (§6.2) ── */
+.w3-panel-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.w3-scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--w-scrim);
+    pointer-events: auto;
+    animation: w3-fade 200ms ease-out both;
+}
+.w3-panel-layer .w3-scrim {
+    display: none;
+}
+.w3-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 440px;
+    max-width: calc(100vw - 24px);
+    height: calc(100dvh - 24px);
+    display: flex;
+    flex-direction: column;
+    background: var(--w-paper);
+    border-radius: var(--w-r-l);
+    box-shadow: var(--w-shadow);
+    overflow: hidden;
+    pointer-events: auto;
+    animation: w3-rise 240ms ease-out both;
+}
+.w3-panel:focus {
+    outline: none;
+}
+.w3-panel-head {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 12px 0;
+}
+.w3-panel-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: 0 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.w3-panel-image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 10px;
+    background: var(--w-chip);
+}
+.w3-panel-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.w3-panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.w3-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.w3-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: var(--w-r-s);
+    background: var(--w-chip);
+    color: var(--w-chip-ink);
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 500;
+}
+.w3-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* ── Modals (map + menu) ── */
+.w3-modal-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+.w3-modal-layer > .w3-scrim {
+    display: block;
+}
+.w3-modal {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--w-paper);
+    border-radius: var(--w-r-l);
+    box-shadow: var(--w-shadow);
+    overflow: hidden;
+    animation: w3-rise 240ms ease-out both;
+}
+.w3-modal:focus {
+    outline: none;
+}
+.w3-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 16px 8px 24px;
+}
+
+/* Map modal */
+.w3-map {
+    width: min(880px, calc(100vw - 32px));
+    height: min(620px, calc(100dvh - 32px));
+}
+.w3-map-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 16px;
+    padding: 0 16px 16px;
+}
+.w3-map-canvas-wrap {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    border-radius: var(--w-r-m);
+    overflow: hidden;
+    background: var(--w-bg);
+}
+.w3-map-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.w3-map-list {
+    flex: none;
+    width: 248px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.w3-travel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 12px;
+    border-radius: var(--w-r-m);
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    color: var(--w-ink);
+    text-align: left;
+    cursor: pointer;
+}
+.w3-travel.is-here {
+    background: var(--w-chip);
+}
+.w3-travel-name {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+}
+.w3-travel-meta {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--w-ink-2);
+}
+.w3-travel-check {
+    flex: none;
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    color: var(--w-ink);
+}
+.w3-travel-go {
+    flex: none;
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 600;
+    color: var(--w-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* Menu */
+.w3-menu {
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+}
+.w3-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 8px;
+    overflow-x: auto;
+    touch-action: pan-x;
+    border-bottom: 1px solid var(--w-line);
+}
+.w3-tab {
+    flex: none;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--w-r-m);
+    border: 1px solid transparent;
+    background: none;
+    color: var(--w-ink-2);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.w3-tab[aria-selected="true"] {
+    background: var(--w-chip);
+    color: var(--w-ink);
+}
+.w3-tabpanel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: 16px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.w3-tabpanel:focus {
+    outline: none;
+}
+.w3-fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.w3-legend {
+    padding: 0;
+    margin-bottom: 8px;
+}
+.w3-segmented {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.w3-option {
+    position: relative;
+    display: inline-flex;
+}
+.w3-option input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+.w3-option span {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--w-r-m);
+    border: 1px solid var(--w-line);
+    background: var(--w-paper);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+}
+.w3-option input:checked + span {
+    background: var(--w-ink);
+    border-color: var(--w-ink);
+    color: var(--w-paper);
+}
+.w3-option input:focus-visible + span {
+    outline: 2px solid var(--w-focus);
+    outline-offset: 2px;
+}
+.w3-check {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    font-size: 16px;
+    line-height: 24px;
+    cursor: pointer;
+}
+.w3-check input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--w-ink);
+    cursor: pointer;
+}
+.w3-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.w3-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--w-line);
+}
+.w3-row:last-child {
+    border-bottom: 0;
+}
+.w3-row-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.w3-row a {
+    color: var(--w-ink);
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+}
+.w3-word {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 600;
+}
+.w3-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* ── Touch controls (§6.2) ── */
+.w3-touch {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.w3-joy {
+    position: absolute;
+    left: 24px;
+    bottom: calc(24px + var(--w-safe-b));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 253, 248, 0.6);
+    border: 2px solid rgba(36, 34, 43, 0.2);
+    pointer-events: auto;
+    touch-action: none;
+}
+.w3-joy-knob {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--w-ink);
+    pointer-events: none;
+}
+.w3-touch-actions {
+    position: absolute;
+    right: 24px;
+    bottom: calc(24px + var(--w-safe-b));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 16px;
+    pointer-events: none;
+}
+.w3-touch-row {
+    display: flex;
+    gap: 16px;
+}
+.w3-touch-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(36, 34, 43, 0.2);
+    background: var(--w-paper);
+    color: var(--w-ink);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 700;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.w3-touch-btn.is-held {
+    background: var(--w-chip);
+}
+.w3-touch-e {
+    border: 0;
+    background: var(--w-ink);
+    color: var(--w-paper);
+    font-size: 20px;
+    line-height: 24px;
+}
+
+/* ── Phone layout (≤ 640 px, CONFIG.ui.mobileMaxWidth) ── */
+@media (max-width: 640px) {
+    .w3-classic {
+        width: 40px;
+        padding: 0;
+        justify-content: center;
+    }
+    .w3-classic-text {
+        display: none;
+    }
+    .w3-hint {
+        display: none;
+    }
+    .w3-panel-layer .w3-scrim {
+        display: block;
+    }
+    .w3-panel {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-width: none;
+        height: auto;
+        max-height: 78dvh;
+        border-radius: var(--w-r-l) var(--w-r-l) 0 0;
+        padding-bottom: var(--w-safe-b);
+    }
+    .w3-map-body {
+        flex-direction: column;
+    }
+    .w3-map-canvas-wrap {
+        flex: 1 1 55%;
+    }
+    .w3-map-list {
+        flex: 1 1 45%;
+        width: auto;
+        min-height: 0;
+    }
+    .w3-start-title {
+        font-size: 32px;
+        line-height: 36px;
+    }
+}
+
+/* Touch targets ≥ 44 px (§9.4) */
+@media (pointer: coarse) {
+    .w3-iconbtn,
+    .w3-root .w3-classic {
+        min-width: 44px;
+        height: 44px;
+    }
+    .w3-iconbtn {
+        width: 44px;
+    }
+    .w3-tab {
+        height: 44px;
+    }
+}
+
+/* ── Motion: opacity + integer translateY only, ending at transform: none ── */
+@keyframes w3-rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@keyframes w3-drop {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@keyframes w3-fade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .w3-root *,
+    .w3-root *::before,
+    .w3-root *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+.w3-root.is-reduced-motion *,
+.w3-root.is-reduced-motion *::before,
+.w3-root.is-reduced-motion *::after {
+    animation: none !important;
+    transition: none !important;
+}

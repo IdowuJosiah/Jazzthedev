@@ -1,204 +1,234 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import "./world.css";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Experience, detectRenderProfile } from "@/app/components/three/world3/Experience";
-import { WorldStore, type WorldState } from "@/app/components/three/world3/State";
-import { CONFIG, PALETTE } from "@/app/components/three/world3/Config";
-import { meta } from "@/app/field/content/world";
+import { WorldStore } from "@/app/components/three/world3/State";
+import { CONFIG } from "@/app/components/three/world3/Config";
+import type { AreaId } from "@/app/components/three/world3/types";
+import Hud, { Announcer, PhotoBar } from "@/app/components/three/world3/ui/Hud";
+import { Loader, StartCard, mutedOnStart, readSoundPref, writeSoundPref } from "@/app/components/three/world3/ui/StartScreen";
+import { ContentPanel, MenuModal } from "@/app/components/three/world3/ui/Panels";
+import MapModal from "@/app/components/three/world3/ui/MapModal";
+import TouchControls from "@/app/components/three/world3/ui/TouchControls";
+import FailCard from "@/app/components/three/world3/ui/FailCard";
 
 // ─────────────────────────────────────────────────────────────────────────
-// v3 shell (Step 0 stub). Mounts Experience through the frozen API and shows
-// a minimal loader / start / failure overlay so /field?v=3 renders. W1-F
-// replaces the overlay with the real UI (world.css, Hud, StartScreen, ...).
+// v3 shell. Mounts Experience through the frozen API (constructor → init →
+// interact / dispose), mirrors the WorldStore into React with
+// useSyncExternalStore, and wires the HTML UI (§6) to store.commands.
+//
+// Layer order (bottom → top): canvas, HUD, touch, panel, map, menu, then the
+// loader / start / failure overlays. Dialogs render only while the world runs,
+// so a failure card never sits over a hidden dialog that holds the focus trap.
+// Only the topmost dialog traps focus; when the last one closes, focus returns
+// to the canvas so WASD keeps working.
 // ─────────────────────────────────────────────────────────────────────────
 
-const root: CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    background: PALETTE.background,
-    color: PALETTE.ink,
-    fontFamily: "system-ui, sans-serif",
-};
-const canvasStyle: CSSProperties = { display: "block", width: "100%", height: "100%" };
-const overlay: CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-};
-const card: CSSProperties = {
-    width: "min(480px, 100%)",
-    background: PALETTE.paper,
-    borderRadius: 16,
-    padding: 24,
-    boxShadow: "0 1px 2px rgba(36,34,43,.06), 0 8px 24px rgba(36,34,43,.10)",
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-};
-const primary: CSSProperties = {
-    height: 48,
-    padding: "0 24px",
-    borderRadius: 12,
-    border: 0,
-    background: PALETTE.ink,
-    color: PALETTE.paper,
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: "pointer",
-    alignSelf: "flex-start",
-};
-const link: CSSProperties = { color: PALETTE.ink2, fontSize: 14 };
-
-const FAIL_COPY: Record<NonNullable<WorldState["failReason"]>, string> = {
-    webgl: "Your browser can't show the 3D world",
-    "context-lost": "Graphics were reset",
-    timeout: "This is taking longer than usual",
-    asset: "Something didn't load",
-};
-
-function Loader({ state, onKeepWaiting }: { state: WorldState; onKeepWaiting: () => void }) {
-    return (
-        <div style={{ ...overlay, flexDirection: "column", gap: 16 }} role="status" aria-live="polite">
-            <p style={{ margin: 0, fontSize: 56, fontWeight: 800 }}>{meta.heroWord}</p>
-            <div style={{ width: 200, height: 4, borderRadius: 2, background: "rgba(36,34,43,.12)" }}>
-                <div
-                    style={{
-                        width: `${Math.round(state.loadProgress * 100)}%`,
-                        height: "100%",
-                        borderRadius: 2,
-                        background: PALETTE.ink,
-                    }}
-                />
-            </div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: PALETTE.ink2 }}>{state.loadLabel}</p>
-            {state.failReason === "timeout" && (
-                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                    <span style={{ fontSize: 14 }}>{FAIL_COPY.timeout}</span>
-                    <button
-                        type="button"
-                        onClick={onKeepWaiting}
-                        style={{ ...link, background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline" }}
-                    >
-                        Keep waiting
-                    </button>
-                    <Link href="/" style={link}>
-                        Classic site
-                    </Link>
-                </div>
-            )}
-        </div>
-    );
-}
+const detectTouch = () =>
+    window.matchMedia("(pointer: coarse)").matches || (navigator.maxTouchPoints ?? 0) > 0;
 
 export default function FieldExperience() {
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [store] = useState(() => new WorldStore());
+    const [localTouch] = useState(detectTouch);
     const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
+    // ── Engine lifecycle ─────────────────────────────────────────────────
     useEffect(() => {
         const canvas = canvasRef.current;
         const container = containerRef.current;
         if (!canvas || !container) return;
-        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const isTouch = window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+        const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
         const exp = new Experience(canvas, container, store);
         let disposed = false;
+
+        // interact() must stay synchronous inside the key / click handler (§4.3).
+        store.wire({ interact: () => exp.interact() });
 
         if (new URLSearchParams(window.location.search).has("debug")) {
             (window as unknown as { __world3Store?: WorldStore }).__world3Store = store;
         }
 
+        const onMotionChange = (e: MediaQueryListEvent) => store.commands.setReducedMotion(e.matches);
+        motionQuery.addEventListener("change", onMotionChange);
+
         (async () => {
             store.set({ phase: "loading" });
-            const profile = await detectRenderProfile();
-            if (disposed) return;
-            await exp.init({ profile, reducedMotion, isTouch });
+            try {
+                const profile = await detectRenderProfile();
+                if (disposed) return;
+                await exp.init({ profile, reducedMotion: motionQuery.matches, isTouch: detectTouch() });
+            } catch (err) {
+                // init() never throws by contract; this guards the profile step.
+                console.error("[world3] boot failed", err);
+                if (!disposed) store.fail("asset");
+            }
         })();
 
         return () => {
             disposed = true;
+            motionQuery.removeEventListener("change", onMotionChange);
             exp.dispose();
         };
     }, [store]);
 
-    const failed = state.phase === "failed";
-    const failReason = state.failReason;
+    const { phase, panel, mapOpen, menuTab, photoMode } = state;
+    const running = phase === "running";
+    const isTouch = state.isTouch || localTouch;
+    const overlayOpen = panel !== null || mapOpen || menuTab !== null;
+
+    // ── Focus returns to the canvas when the last dialog closes ─────────
+    const wasOpen = useRef(false);
+    useEffect(() => {
+        if (wasOpen.current && !overlayOpen) canvasRef.current?.focus({ preventScroll: true });
+        wasOpen.current = overlayOpen;
+    }, [overlayOpen]);
+
+    // ── Toasts expire in the store, not the HUD, so a HUD remount (photo
+    // mode, context restore) never replays an old toast ──────────────────
+    const { toast } = state;
+    useEffect(() => {
+        if (!toast) return;
+        const t = window.setTimeout(() => {
+            if (store.snapshot.toast?.id === toast.id) store.set({ toast: null });
+        }, CONFIG.ui.toastMs);
+        return () => window.clearTimeout(t);
+    }, [store, toast]);
+
+    // ── Desktop controls hint: the first CONFIG.ui.controlsHintMs after Start ──
+    const [hintDone, setHintDone] = useState(false);
+    useEffect(() => {
+        if (!running) return;
+        const t = window.setTimeout(() => setHintDone(true), CONFIG.ui.controlsHintMs);
+        return () => window.clearTimeout(t);
+    }, [running]);
+
+    // ── Sound choice persists whatever toggled it (HUD, menu, or the N key) ──
+    useEffect(() => {
+        if (running) writeSoundPref(state.muted ? "off" : "on");
+    }, [running, state.muted]);
+
+    // ── Commands ─────────────────────────────────────────────────────────
+    const onStart = useCallback(() => {
+        // All inside the click: the audio context may only start on a user gesture.
+        const muted = mutedOnStart(readSoundPref());
+        store.commands.start();
+        store.commands.setMuted(muted);
+        writeSoundPref(muted ? "off" : "on");
+        canvasRef.current?.focus({ preventScroll: true });
+    }, [store]);
+
+    const onToggleSound = useCallback(() => store.commands.setMuted(!store.snapshot.muted), [store]);
+
+    const onTravel = useCallback(
+        (id: AreaId) => {
+            store.commands.travelTo(id);
+            store.commands.closeMap();
+        },
+        [store]
+    );
+
+    const focusCanvas = useCallback(() => canvasRef.current?.focus({ preventScroll: true }), []);
+    const onOpenMap = useCallback(() => store.commands.openMap(), [store]);
+    const onOpenMenu = useCallback(() => store.commands.openMenu("settings"), [store]);
+    const onClosePanel = useCallback(() => store.commands.closePanel(), [store]);
+    const onCloseMap = useCallback(() => store.commands.closeMap(), [store]);
+    const onCloseMenu = useCallback(() => store.commands.closeMenu(), [store]);
+    const onKeepWaiting = useCallback(() => store.set({ failReason: undefined }), [store]);
+
+    const rootClass = ["w3-root", isTouch ? "is-touch" : "", state.reducedMotion ? "is-reduced-motion" : ""]
+        .filter(Boolean)
+        .join(" ");
 
     return (
-        <div ref={containerRef} style={root}>
+        <div ref={containerRef} className={rootClass}>
             <canvas
                 ref={canvasRef}
-                style={{
-                    ...canvasStyle,
-                    opacity: state.phase === "ready" || state.phase === "running" ? 1 : 0,
-                    transition: `opacity ${CONFIG.loading.canvasFadeMs}ms linear`,
-                }}
-                tabIndex={0}
-                aria-label="Interactive 3D portfolio world"
+                className={`w3-canvas${phase === "ready" || running ? " is-visible" : ""}`}
+                style={{ transitionDuration: `${CONFIG.loading.canvasFadeMs}ms` }}
+                // Not in the tab order until the world runs: "Skip to classic portfolio" comes first.
+                tabIndex={running ? 0 : -1}
+                role="application"
+                aria-label="3D world. Drive with W A S D or the arrow keys, press E to open what you reach, M for the map."
             />
 
-            {(state.phase === "boot" || state.phase === "loading") && <Loader state={state} onKeepWaiting={() => store.set({ failReason: undefined })} />}
+            {running && !photoMode && (
+                <Hud
+                    areaId={state.areaId}
+                    prompt={state.prompt}
+                    toast={state.toast}
+                    muted={state.muted}
+                    isTouch={isTouch}
+                    showHint={!hintDone}
+                    focusCanvas={focusCanvas}
+                    onOpenMap={onOpenMap}
+                    onToggleSound={onToggleSound}
+                    onOpenMenu={onOpenMenu}
+                />
+            )}
 
-            {state.phase === "ready" && (
-                <div style={overlay}>
-                    <div style={card}>
-                        <Link href="/" style={link}>
-                            Skip to classic portfolio
-                        </Link>
-                        <p style={{ margin: 0, fontSize: 12, fontWeight: 600, letterSpacing: ".08em" }}>
-                            INTERACTIVE PORTFOLIO
-                        </p>
-                        <h1 style={{ margin: 0, fontSize: 40, lineHeight: "44px", fontWeight: 800 }}>
-                            Drive through my work
-                        </h1>
-                        <p style={{ margin: 0, fontSize: 16, lineHeight: "24px", color: PALETTE.ink2 }}>
-                            A small world of the projects, products and music I&apos;ve built. Drive up to anything
-                            to open it.
-                        </p>
-                        <button type="button" style={primary} onClick={() => store.commands.start()}>
-                            Start
-                        </button>
-                    </div>
+            {running && photoMode && (
+                <PhotoBar onCapture={() => store.commands.capturePhoto()} onExit={() => store.commands.togglePhotoMode()} />
+            )}
+
+            {running && isTouch && !overlayOpen && !photoMode && <TouchControls store={store} prompt={state.prompt} />}
+
+            {running && panel && (
+                <ContentPanel
+                    content={panel}
+                    areaId={state.areaId}
+                    topmost={!mapOpen && menuTab === null}
+                    onClose={onClosePanel}
+                />
+            )}
+
+            {running && mapOpen && (
+                <MapModal
+                    store={store}
+                    visited={state.visited}
+                    areaId={state.areaId}
+                    topmost={menuTab === null}
+                    onTravel={onTravel}
+                    onClose={onCloseMap}
+                />
+            )}
+
+            {running && menuTab !== null && (
+                <MenuModal
+                    state={state}
+                    commands={store.commands}
+                    topmost
+                    onToggleSound={onToggleSound}
+                    onClose={onCloseMenu}
+                />
+            )}
+
+            {(phase === "boot" || phase === "loading") && (
+                <Loader
+                    progress={state.loadProgress}
+                    label={state.loadLabel}
+                    engineTimedOut={state.failReason === "timeout"}
+                    onKeepWaiting={onKeepWaiting}
+                />
+            )}
+
+            {phase === "ready" && <StartCard isTouch={isTouch} onStart={onStart} />}
+
+            {phase === "failed" && (
+                <div className="w3-overlay is-opaque">
+                    <FailCard reason={state.failReason} />
                 </div>
             )}
 
-            {failed && (
-                <div style={overlay}>
-                    <div style={card} role="alert">
-                        <h1 style={{ margin: 0, fontSize: 28, lineHeight: "34px", fontWeight: 800 }}>
-                            {failReason ? FAIL_COPY[failReason] : FAIL_COPY.asset}
-                        </h1>
-                        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                            {failReason === "webgl" ? (
-                                <Link href="/projects" style={{ ...primary, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
-                                    View projects
-                                </Link>
-                            ) : (
-                                <button type="button" style={primary} onClick={() => window.location.reload()}>
-                                    Reload
-                                </button>
-                            )}
-                            <Link href="/" style={link}>
-                                Classic site
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {state.phase === "running" && (
-                <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 20, fontWeight: 800 }}>{meta.heroWord}</span>
-                    <Link href="/" style={{ ...link, background: PALETTE.paper, borderRadius: 12, padding: "10px 14px" }}>
-                        Classic site
-                    </Link>
-                </div>
-            )}
+            <Announcer
+                areaId={state.areaId}
+                prompt={state.prompt}
+                toast={state.toast}
+                isTouch={isTouch}
+                active={running}
+            />
         </div>
     );
 }

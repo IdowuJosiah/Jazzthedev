@@ -10,8 +10,10 @@ import type { InfoContent } from "@/app/field/content/world";
 import type { HexColor, RenderProfileId, SceneryTier, Vec3Like } from "./Config";
 import type { FlatLayerId } from "./utils/shapes";
 import type { Disposal } from "./utils/disposal";
+// Type-only (no runtime cycle): the options shape lives with its implementation.
+import type { DynamicBodyOptions } from "./Physics";
 
-export type { HexColor, Vec3Like, RenderProfileId, SceneryTier };
+export type { HexColor, Vec3Like, RenderProfileId, SceneryTier, DynamicBodyOptions };
 
 // ── Layout ───────────────────────────────────────────────────────────────
 export type AreaId =
@@ -159,6 +161,21 @@ export interface PhysicsApi {
     addGroundSlab(): RAPIER.RigidBody;
     addWall(halfExtents: Vec3Like, pos: Vec3Like): RAPIER.RigidBody;
     onImpact(cb: (kind: ImpactKind, force: number) => void): () => void;
+    // ── Wave 1 integration (DECISIONS.md): dynamic props for Wave 2 areas ──
+    /** Bricks / boxes. Not linked: call `link(body, mesh)` yourself. */
+    addDynamicBox(halfExtents: Vec3Like, pos: Vec3Like, opts: DynamicBodyOptions): RAPIER.RigidBody;
+    /** The bowling ball. Not linked. */
+    addDynamicBall(radius: number, pos: Vec3Like, opts: DynamicBodyOptions): RAPIER.RigidBody;
+    /** Upright (Y-axis) cylinder, e.g. bowling pins. Not linked. */
+    addDynamicCylinder(halfHeight: number, radius: number, pos: Vec3Like, opts: DynamicBodyOptions): RAPIER.RigidBody;
+    /** Dynamic 3D letter; body origin on the baseline, collider offset by `offset` (§3.3). */
+    addDynamicLetter(
+        halfExtents: Vec3Like,
+        pos: Vec3Like,
+        opts: Partial<DynamicBodyOptions> & { offset: Vec3Like }
+    ): RAPIER.RigidBody;
+    /** Unlinks, forgets impact sources and removes the body with its colliders. */
+    removeBody(body: RAPIER.RigidBody): void;
 }
 
 export interface LambertOptions {
@@ -186,12 +203,31 @@ export interface MaterialsApi {
 
 export type ModelName = "car" | "palm" | "avatar" | `nature/${string}`;
 
+/**
+ * Distance-gated lazy board-image loader (§5.1; Assets.ts BoardTextures).
+ * Areas register each board's world position; the Experience enables loading
+ * on Start and feeds it the camera focus every frame. Failures resolve null
+ * (the board keeps its placeholder colour).
+ */
+export interface BoardLoaderApi {
+    /** "clay" → /assets/boards/clay.webp; anything containing "/" is a URL. */
+    register(nameOrUrl: string, x: number, z: number): void;
+    /** Starts loading now (idempotent); `onLoaded` runs once it is ready. */
+    request(nameOrUrl: string, onLoaded?: (texture: THREE.Texture) => void): Promise<THREE.Texture | null>;
+    /** The texture if already loaded, else null. */
+    get(nameOrUrl: string): THREE.Texture | null;
+    /** Fires for every board that finishes loading from now on. Returns unsubscribe. */
+    onLoaded(cb: (url: string, texture: THREE.Texture) => void): () => void;
+}
+
 /** Asset service (W1-D). Models come back as fresh clones with Lambert materials. */
 export interface AssetsApi {
     /** null for optional models that failed / are absent (avatar, Nature Kit). */
     model(name: ModelName): THREE.Object3D | null;
     /** sRGB, mipmapped, anisotropy min(8, max). Rejects on failure. */
     texture(url: string): Promise<THREE.Texture>;
+    /** Lazy board images (Wave 1 integration, DECISIONS.md). */
+    readonly boards: BoardLoaderApi;
 }
 
 // ── Text ─────────────────────────────────────────────────────────────────

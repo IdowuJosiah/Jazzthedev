@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import * as Layout from "./Layout";
-import { AREAS, areaAt, padLocal, pointInPad } from "./Layout";
+import { AREAS, areaAt, distToRect, padLocal, pointInPad } from "./Layout";
 import type {
     AreaBuilder,
     AreaContext,
@@ -8,18 +8,30 @@ import type {
     AreaHandle,
     AreaId,
     RuntimeInfo,
+    Word3D,
     WorldInteractable,
 } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────
-// Areas (skeleton, Step 0). Builds every REGISTERED area from AREAS, keeps the
-// interactable registry, and resolves the active pad with rect tests in the
-// pad's local frame (§5.3). Area modules (Wave 2) register a builder:
+// Areas. Builds every REGISTERED area from AREAS, keeps the interactable
+// registry, and resolves the active pad with rect tests in the pad's local
+// frame (§5.3). Area modules (Wave 2) register a builder:
 //
 //     registerArea("projects", build);   // build(ctx: AreaContext): AreaHandle
 //
-// The integrator imports the area modules once (side-effect registration)
-// before calling Areas.build().
+// The Experience imports the area modules once (side-effect registration,
+// `areas/index.ts`) before calling Areas.build(). Zero registered areas is a
+// valid world (Wave 1).
+//
+// Wave 1 integration:
+// - `areas.group` must be in the scene BEFORE build(): every 3D word an area
+//   creates through ctx.text3d is reset() (armed) right after its builder
+//   returns, so colliders exist before the first physics step (W1-B rule:
+//   place a word's group under ctx.group inside the builder, never move it).
+// - A builder that throws is logged and skipped (its group removed), so one
+//   broken area never takes the whole world down.
+// - cull(): areas whose rect is further than `distance` from the focus are
+//   hidden (and not updated), §9.2 text budget.
 // ─────────────────────────────────────────────────────────────────────────
 
 const BUILDERS = new Map<AreaId, AreaBuilder>();
@@ -61,16 +73,42 @@ export class Areas {
             const group = new THREE.Group();
             group.name = `area:${def.id}`;
             this.group.add(group);
+            const words: Word3D[] = [];
+            const unregister: (() => void)[] = [];
             const ctx: AreaContext = {
                 ...this.services,
+                text3d: {
+                    word: (text, opts) => {
+                        const w = this.services.text3d.word(text, opts);
+                        words.push(w);
+                        return w;
+                    },
+                },
                 group,
                 def,
                 layout: Layout,
-                addInteractable: (i) => this.addInteractable(i),
+                addInteractable: (i) => {
+                    const off = this.addInteractable(i);
+                    unregister.push(off);
+                    return off;
+                },
             };
-            const handle = builder(ctx);
-            this.built.set(def.id, { def, group, handle });
+            try {
+                const handle = builder(ctx);
+                // Arm every word now (W1-B): colliders before the first physics step.
+                for (const w of words) w.reset();
+                this.built.set(def.id, { def, group, handle });
+            } catch (err) {
+                console.error(`[world3] area "${def.id}" failed to build; skipping it`, err);
+                for (const off of unregister) off();
+                group.removeFromParent();
+            }
         }
+    }
+
+    /** Ids of the areas that were built (registered and not failed). */
+    get builtIds(): AreaId[] {
+        return [...this.built.keys()];
     }
 
     // ── Interactables ────────────────────────────────────────────────────
@@ -157,6 +195,11 @@ export class Areas {
     setAreaVisible(id: AreaId, visible: boolean): void {
         const b = this.built.get(id);
         if (b) b.group.visible = visible;
+    }
+
+    /** Hides (and stops updating) every built area whose rect is further than `distance` from (x, z). */
+    cull(x: number, z: number, distance: number): void {
+        for (const b of this.built.values()) b.group.visible = distToRect(b.def.rect, x, z) <= distance;
     }
 
     reset(id?: AreaId): void {

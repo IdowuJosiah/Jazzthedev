@@ -137,8 +137,10 @@ The Step 0 contracts (`world3/{Config,types,Layout,State,Experience}.ts`,
 - **Layer heights have one source of truth.** `flatPlate`/`flatRing` bake
   `LAYERS[id].y` into the geometry. `applyLayerToObject` sets only renderOrder
   and the shadow flags and never `position.y`. Previously it also set
-  `position.y`, which doubled the height to 0.05, above ground text. Objects
-  built at y = 0 (text) set `position.y = LAYERS[id].y` themselves.
+  `position.y`, which doubled the height to 0.05, above ground text.
+  *(Amended in Wave 1 integration.)* `TextApi.flat()` / `onPath()` text already
+  sits at its layer height on the inner troika mesh, so callers keep
+  `handle.object.position.y = 0`. Setting it to `LAYERS[id].y` doubles the height.
 - **`CONFIG.lights.preset` removed.** It was a copy of `LOOK[ACTIVE_LOOK]` cached
   when the module loads. Consumers read `LOOK[CONFIG.look]` at use time, so the look
   is one Config value (§1.7).
@@ -156,3 +158,155 @@ The Step 0 contracts (`world3/{Config,types,Layout,State,Experience}.ts`,
   The v3 chunk's loading placeholder uses the active look's background.
 - A WebGL renderer constructor that throws (even after the WebGL2 probe passed)
   fails with `"webgl"` (the "can't show the 3D world" card), not `"asset"`.
+
+## Wave 1 integration (`/field?v=3`)
+The integrator wired the Wave 1 modules into `Experience.ts`. These are the
+edits outside the integrator's own files, the contract changes and the calls
+made along the way.
+
+### Contract changes (types.ts)
+- **`PhysicsApi` gains the dynamic-prop helpers**: `addDynamicBox`,
+  `addDynamicBall`, `addDynamicCylinder`, `addDynamicLetter` and `removeBody`.
+  W1-A's `Physics` already implements all five. Wave 2 areas (Playground
+  bricks, pins and ball; any area's dynamic words) can now use them through
+  `ctx.physics` without casting. `DynamicBodyOptions` is re-exported from
+  types.ts through a type-only import of `Physics.ts`, so there is no runtime cycle.
+- **`AssetsApi.boards: BoardLoaderApi`**, with `register`, `request`, `get` and
+  `onLoaded`, provides the lazy, distance-gated board images (§5.1). Areas register
+  each board's world position. The Experience calls `boards.start()` on Start
+  and `boards.update(focus)` every frame. Assets' `BoardTextures` implements it.
+  `natureModel()` / `animations()` stay off the contract (W1-D made them
+  reachable through `model()` and exported helpers).
+
+### Minimal edits to other streams' files
+- **Vehicle.ts**: optional `VehicleDeps.blobTexture`. The Experience passes
+  `env.blobTexture("rect")`, so the car blob and the low-profile prop blobs
+  share one texture (§1.5). The look chosen is Environment's falloff (corner
+  0.6, smoothstep 0..1). The car still owns its MeshBasicMaterial for the
+  per-frame lift fade. Without the dep (in tests), the car still builds its own map.
+- **Environment.test.ts**: adds the W1-C regression check. There are 22 planks, and no
+  plank top overlaps the quay strip top (z ≤ quayZ − strip.depth). The
+  test also checks that `scene.background` is null after dispose.
+- **Areas.ts** (integrator-owned):
+  - Every 3D word an area creates through `ctx.text3d` is `reset()` (armed)
+    right after its builder returns, so colliders exist before the first physics step.
+  - A builder that throws is logged and skipped. Its group is removed and its
+    interactables are unregistered.
+  - `builtIds` and `cull(x, z, distance)` are added (text budget, §9.2).
+- **New `world3/areas/index.ts`**: the side-effect registry of Wave 2 area
+  modules. The integrator adds one `import "./X"` per area. The Experience
+  imports it as `"./areas/index"`. On a case-insensitive disk (macOS),
+  `"./areas"` resolves to `Areas.ts`.
+
+### Rules for Wave 2 area authors
+- **3D words**: place the word's group under `ctx.group` (position and
+  rotation) inside the builder, and never move it afterwards. Areas arms it
+  when the builder returns (W1-B). Dev builds warn if a group moves after arming.
+- **Flat text**: keep `handle.object.position.y = 0` (see the amended layer line above).
+- **Welcome**: `handle.reset()` must return the hero letters home. The
+  Experience calls `areas.reset("welcome")` after Travel, R, the fall-off
+  respawn and the Start drop. The > 60-unit auto-reset (§3.3) belongs in
+  Welcome's `update(dt, t, rt)` (rt.carPos), triggered on the near-to-far change.
+- **Playground**: `handle.reset()` resets the bricks, pins, ball and PLAY,
+  and snaps each one. `commands.resetPlayground()` calls `areas.reset("playground")`.
+- Dynamic props come from `ctx.physics.addDynamic*()`. Remove them with
+  `ctx.physics.removeBody()`, never with `world.removeRigidBody`, so stale
+  impact sources are dropped.
+
+### Experience behaviour
+- **Boot**: the React shell detects the profile first, with detect-gpu and a 3 s race.
+  Then `Renderer` + `Sizes` start, replacing the Step 0 `createRenderer()` and
+  its container ResizeObserver. The fonts load next (`preloadAll` over every content string, plus
+  `loadTypeface`), in parallel with `loadRapier()` (one retry). Each of
+  the three jobs advances the fonts stage by a third. After that come the assets,
+  then the build (Environment, text, the car, tyre dust, Camera, Controls, Areas
+  and the interim markers), then `compile` + one render, then `"ready"`.
+  - A font, typeface, Rapier or car.glb failure goes to `"asset"`.
+  - A renderer constructor that throws goes to `"webgl"`.
+  - `webglcontextlost` stops the loop and goes to `"context-lost"`. Restore
+    reloads the page.
+  - Init stops as soon as the phase is `"failed"`, for example after a context
+    loss during loading, so it never overwrites the failure with `"ready"`.
+- **Interim markers (Wave 1 only)**: so the world is not empty, every area
+  without a registered builder shows its `title3D` at its Layout position:
+  - the JAZZ hero word and PLAY, dynamic, in ink;
+  - every other title static, in its ACCENT_INK.
+  Welcome's role line also shows when Welcome is absent. Each marker
+  disappears automatically once its area registers. The interim hero word gets the
+  §3.3 auto-reset (> 60 units) and resets after Travel and R. The interim PLAY word
+  resets with `resetPlayground`.
+- **Avatar**: `avatar.glb` is requested only once the About area is registered,
+  so Wave 1 makes no 404 request. Palm and the Nature Kit load as configured.
+- **Start**:
+  - creates the AudioContext inside the click;
+  - drops the car in and plays the intro (which releases Camera's intro hold);
+  - enables board loading.
+  The spawn area counts as visited without a toast, because the Start card is the welcome.
+- **Per frame**:
+  - First-visit toasts use `areaCopy[id].name · blurb`.
+  - The current area is null between rects, so the HUD chip hides there.
+  - Camera zones use `AreaDef.cameraZone` + `cameraShot`, else "default".
+    `setShot` is called every frame, and the camera ignores repeats.
+  - Area culling is 70 units from the focus to the rect.
+  - The occluder segment is parked before Start and in photo mode.
+- **Input gating**: Controls (driving, E, R) and camera pan/zoom are enabled
+  only while running, unpaused and with no panel, map or menu open. The store
+  subscription keeps this in sync. M, N, P and Esc are handled while running.
+  Esc is the fallback when no dialog swallowed it: it leaves photo mode, closes
+  the top layer (menu, then map, then panel), or opens Settings.
+- **Quality (§9.3)**: Menu High = 2048 shadows, Medium = 1024, and Low = no
+  shadow map (blobs) and no tyre dust. Scenery tiers are applied by Scenery
+  (W2-6) once it is wired. Auto = the profile, plus the adaptive steps when
+  adaptive is on. Profiles without a shadow map skip `shadow1024`. Adaptive takes
+  the median of 4 s / 10 s windows (fully covered), evaluates once a second, ignores
+  the first 5 s, hidden tabs and camera tweens, and makes at most one change every 8 s. Changing
+  the setting, or toggling adaptive, resets it to level 0. `sceneryScale` is
+  computed but has no consumer until Scenery exists.
+- **Next-visit DPR fallback (§9.1)**: on the `mobile` profile, the median frame
+  time over seconds 5–15 after Start is checked once. Above 28 ms it writes
+  `dprCap = 2` for the next visit and never changes the current session.
+
+### Audio.ts (ported from v2)
+- The AudioContext is created in the Start gesture, which avoids Chrome's
+  "not allowed to start" warning. The UI and engine sounds and `music.ogg`
+  are fetched after Start (§8.2: music lazily). Nothing is fetched before Start.
+- **No beat return and no market panner.** `ambient.ogg` is not played; whether
+  it suits the day look is the owner's call.
+- `getBands(n)` returns log-spaced analyser bands in [0, 1] for the Music
+  stage's EQ bars. It returns null while muted, before Start, and until the music plays.
+- `playImpact(kind, force)` synthesizes short hits (filtered noise, plus a low
+  thump for wood and heavy), with a per-kind 60 ms flood guard and 6 voices. No impact
+  files are needed. The Kenney impact pack (P1) can replace the synth later.
+  The tuning constants are stream-local in Audio.ts.
+
+### Debug.ts (`?debug`)
+lil-gui is loaded with a dynamic import only under `?debug`, so it is not in
+the normal bundle. It has these folders:
+- Look preset (`env.applyLook` + `renderer.setLook`);
+- Lights (intensity and colour per light);
+- Shadow (map size, intensity, radius, bias, normal bias);
+- Camera (shot, plus zoom, d and fov readouts);
+- Text (hide SDF text, hide 3D letters, force the desktopOnly rule);
+- Probe: tick "probe on click", then click a pixel. It reads linear r/g/b,
+  the hex value, and PASS/FAIL against the active look's band;
+- Perf (fps, draw calls, triangles, troika count, bodies, DPR, buffer size and
+  path, quality state).
+
+### Verification notes
+- `npx tsc --noEmit` is clean, `npm run test` passes 18 files / 255 tests, and
+  `npm run lint` has 0 errors.
+- The machine had no DNS, so `npm run build` (Turbopack) failed only on the 5
+  `next/font/google` fetches: Geist, Geist Mono and Poppins in the root
+  layout, and Inter and Bricolage in `/field`. With
+  `NEXT_FONT_GOOGLE_MOCKED_RESPONSES`, `next build --webpack` compiles,
+  type-checks and prerenders every route. Turbopack's font mock does not cover
+  font files. Re-run `npm run build` with network before shipping.
+- In the browser (dev, `/field?v=3&debug`):
+  - the page boots to the Start card with no console errors;
+  - after Start the car drives nose-first, north at yaw π;
+  - travel teleports and marks the area visited;
+  - M, Esc, R, N and P work;
+  - the quay, bollards, lagoon foam and jetty render;
+  - Chrome uses the device-pixel box (`canvas.width === devicePixelContentBoxSize.width`).
+  The preview pane was a hidden document (rAF about 1 fps), so motion and gsap
+  tweens could not be judged there. The visual and fps checks belong in a focused browser.
