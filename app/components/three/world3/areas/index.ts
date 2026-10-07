@@ -1,13 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Area registry (side-effect imports). Each Wave 2 area module calls
 // `registerArea(id, build)` at module load; the integrator adds one import
-// per module here, e.g.
+// per module here. Experience imports this file before Areas.build().
 //
-//     import "./Welcome";
-//     import "./Hub";
-//
-// Experience imports this file before Areas.build(). Empty in Wave 1: the
-// world boots with zero areas (plus the interim markers, see Experience.ts).
+// Areas without a module here still show their interim 3D title marker
+// (Experience.buildInterimMarkers); each marker disappears once its module
+// registers.
 // ─────────────────────────────────────────────────────────────────────────
 
-export {};
+import "./Welcome";
+import "./Hub";

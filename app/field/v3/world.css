@@ -497,25 +497,6 @@
     animation: w3-drop 200ms ease-out both;
 }
 
-/* Controls hint (bottom left, desktop only) */
-.w3-hint {
-    position: absolute;
-    left: 16px;
-    bottom: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    border-radius: var(--w-r-m);
-    border: 1px solid var(--w-line);
-    background: var(--w-paper);
-    box-shadow: var(--w-shadow);
-    animation: w3-rise 240ms ease-out both;
-}
-.w3-hint .w3-kbd-row {
-    max-width: 320px;
-}
-
 /* Photo mode bar */
 .w3-photo-bar {
     position: absolute;
@@ -989,9 +970,6 @@
         justify-content: center;
     }
     .w3-classic-text {
-        display: none;
-    }
-    .w3-hint {
         display: none;
     }
     .w3-panel-layer .w3-scrim {

@@ -10,7 +10,7 @@ import Hud, { Announcer, PhotoBar } from "@/app/components/three/world3/ui/Hud";
 import { Loader, StartCard, mutedOnStart, readSoundPref, writeSoundPref } from "@/app/components/three/world3/ui/StartScreen";
 import { ContentPanel, MenuModal } from "@/app/components/three/world3/ui/Panels";
 import MapModal from "@/app/components/three/world3/ui/MapModal";
-import TouchControls from "@/app/components/three/world3/ui/TouchControls";
+import TouchControls, { isTouchDevice } from "@/app/components/three/world3/ui/TouchControls";
 import FailCard from "@/app/components/three/world3/ui/FailCard";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -25,8 +25,12 @@ import FailCard from "@/app/components/three/world3/ui/FailCard";
 // to the canvas so WASD keeps working.
 // ─────────────────────────────────────────────────────────────────────────
 
-const detectTouch = () =>
-    window.matchMedia("(pointer: coarse)").matches || (navigator.maxTouchPoints ?? 0) > 0;
+/**
+ * Genuine touch devices only (owner direction, DECISIONS.md "Owner:
+ * desktop-first, no on-screen controls"): desktops and touchscreen laptops
+ * with a mouse or trackpad never get the joystick or touch copy.
+ */
+const detectTouch = () => isTouchDevice(window.matchMedia.bind(window));
 
 export default function FieldExperience() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -97,14 +101,6 @@ export default function FieldExperience() {
         return () => window.clearTimeout(t);
     }, [store, toast]);
 
-    // ── Desktop controls hint: the first CONFIG.ui.controlsHintMs after Start ──
-    const [hintDone, setHintDone] = useState(false);
-    useEffect(() => {
-        if (!running) return;
-        const t = window.setTimeout(() => setHintDone(true), CONFIG.ui.controlsHintMs);
-        return () => window.clearTimeout(t);
-    }, [running]);
-
     // ── Sound choice persists whatever toggled it (HUD, menu, or the N key) ──
     useEffect(() => {
         if (running) writeSoundPref(state.muted ? "off" : "on");
@@ -162,7 +158,6 @@ export default function FieldExperience() {
                     toast={state.toast}
                     muted={state.muted}
                     isTouch={isTouch}
-                    showHint={!hintDone}
                     focusCanvas={focusCanvas}
                     onOpenMap={onOpenMap}
                     onToggleSound={onToggleSound}

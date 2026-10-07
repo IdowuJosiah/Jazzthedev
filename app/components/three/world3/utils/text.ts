@@ -46,7 +46,7 @@ export const DISPLAY_SAFE_RANGES: readonly (readonly [number, number])[] = [
 ];
 /** Unicode combining diacritical marks block (Yoruba tone marks). */
 const COMBINING_MARKS: readonly [number, number] = [0x300, 0x36f];
-/** Printable ASCII, always preloaded (pad labels, keycaps, controls card). */
+/** Printable ASCII, always preloaded (pad labels, path labels). */
 const ASCII_PRINTABLE: readonly [number, number] = [0x20, 0x7e];
 /** Characters skipped by the preload: C0 controls (newlines, tabs) and DEL. */
 const CONTROL_MAX = 0x1f;

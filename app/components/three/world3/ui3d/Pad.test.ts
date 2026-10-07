@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { ACCENT, CONFIG } from "../Config";
+import { ACCENT } from "../Config";
 import { LAYERS } from "../utils/shapes";
 import type { MaterialsApi, TextApi, TextHandle } from "../types";
-import { buildKeycap, buildPad, type PadDeps } from "./Pad";
+import * as PadModule from "./Pad";
+import { buildPad, type PadDeps } from "./Pad";
 
 const handle = (): TextHandle => ({ object: new THREE.Object3D(), dispose() {} }) as unknown as TextHandle;
 const deps: PadDeps = {
@@ -35,33 +36,12 @@ describe("ui3d/Pad (§5.3)", () => {
         expect(maxMeshY(onPlate.group)).toBeCloseTo(LAYERS.padOnPlate.y, 6);
     });
 
-    it("the keycap never casts a shadow (it would shade the pad label)", () => {
-        const k = buildKeycap(deps);
-        let casters = 0;
-        k.group.traverse((o) => {
-            if (o.castShadow) casters++;
-        });
-        expect(casters).toBe(0);
-        k.dispose();
-    });
-
-    it("reads reducedMotion live when given a getter (runtime toggle, §9.4)", () => {
-        const K = CONFIG.pad.keycap;
-        let reduced = true;
-        const k = buildKeycap(deps, { reducedMotion: () => reduced });
-        const cap = k.group.children[0];
-        k.show();
-        expect(cap.position.y).toBe(K.raisedY); // snapped, no tween
-        k.hide();
-        expect(cap.position.y).toBe(K.restY);
-        expect(cap.visible).toBe(false);
-        reduced = false;
-        k.show();
-        expect(cap.visible).toBe(true);
-        expect(cap.position.y).toBe(K.restY); // tween starts from rest
-        reduced = true;
-        k.punch();
-        expect(cap.position.y).toBe(K.raisedY);
-        k.dispose();
+    it("has no floating 3D keycap (owner: desktop-first, no on-screen controls)", () => {
+        expect("buildKeycap" in PadModule).toBe(false);
+        const pad = buildPad(def, deps, { accent: ACCENT.brand, label: "OPEN" });
+        pad.setActive(true);
+        // Outline + fill + the flat label only; nothing rises above the plate layer.
+        expect(pad.group.children).toHaveLength(3);
+        expect(maxMeshY(pad.group)).toBeCloseTo(LAYERS.plate.y, 6);
     });
 });

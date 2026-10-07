@@ -14,7 +14,10 @@ import FailCard, { CLASSIC_SITE_URL } from "./FailCard";
 // Classic site while loading continues underneath.
 //
 // Start card: "Skip to classic portfolio" is the first focusable element.
-// Start enables sound and persists the choice (localStorage, try/catch).
+// Start enables sound and persists the choice (localStorage, try/catch). No
+// keyboard-shortcut chip row (owner direction, DECISIONS.md "Owner:
+// desktop-first, no on-screen controls"): one short sub line instead; the
+// full list lives in Menu → Controls.
 // ─────────────────────────────────────────────────────────────────────────
 
 // ── Sound preference (persisted across visits) ───────────────────────────
@@ -118,20 +121,12 @@ export function Loader({ progress, label, engineTimedOut, onKeepWaiting }: Loade
 }
 
 // ── Start card ───────────────────────────────────────────────────────────
-interface ControlChip {
+export interface ControlChip {
     keys: string;
     action: string;
 }
 
-/** Desktop kbd row: WASD Drive · Shift Boost · Space Brake · E Open · M Map. */
-export const START_CONTROLS: readonly ControlChip[] = [
-    { keys: "WASD", action: "Drive" },
-    { keys: "Shift", action: "Boost" },
-    { keys: "Space", action: "Brake" },
-    { keys: "E", action: "Open" },
-    { keys: "M", action: "Map" },
-];
-
+/** A row of kbd chips (Menu → Controls). */
 export function KbdRow({ items, label }: { items: readonly ControlChip[]; label: string }) {
     return (
         <ul className="w3-kbd-row" aria-label={label}>
@@ -143,6 +138,11 @@ export function KbdRow({ items, label }: { items: readonly ControlChip[]; label:
             ))}
         </ul>
     );
+}
+
+/** The Start card's one-line controls note (no chip row). */
+export function startSubLine(isTouch: boolean): string {
+    return isTouch ? "Left pad to drive · tap E to open" : "All controls are in the menu (Esc).";
 }
 
 interface StartCardProps {
@@ -173,11 +173,7 @@ export function StartCard({ isTouch, onStart }: StartCardProps) {
                     A small world of the projects, products and music I&apos;ve built. Drive up to anything to open
                     it.
                 </p>
-                {isTouch ? (
-                    <p className="w3-small w3-muted">Left pad to drive · tap E to open</p>
-                ) : (
-                    <KbdRow items={START_CONTROLS} label="Controls" />
-                )}
+                <p className="w3-small w3-muted">{startSubLine(isTouch)}</p>
                 <div className="w3-card-actions">
                     <button ref={startRef} type="button" className="w3-btn w3-btn-primary" onClick={onStart}>
                         Start

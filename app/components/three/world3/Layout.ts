@@ -554,8 +554,6 @@ export const AREA_LAYOUT = {
         heroWord: welcomeHero,
         roleLine: offsetRS(welcomeHero, 0, 5.5),
         greeting: offsetRS(welcomeHero, 0, 7.6),
-        /** Desktop only: flush paper plate with 4 keycap rows. */
-        controlsCard: { x: 13, z: 10, w: 10, d: 5.2, rows: 4 },
         plazaRadius: 3,
     },
     hub: {
@@ -753,8 +751,7 @@ export const GROUND_TEXTS: readonly GroundTextSpot[] = [
         estimateTextWidth(meta.role, T.roleLine.size, T.roleLine.letterSpacing),
         T.roleLine.size
     ),
-    flatText("greeting", A.welcome.greeting, estimateTextWidth(meta.greeting, 0.9), 0.9),
-    flatText("controls-card", A.welcome.controlsCard, A.welcome.controlsCard.w, A.welcome.controlsCard.d),
+    flatText("greeting", A.welcome.greeting, estimateTextWidth(meta.greeting, T.greeting.size), T.greeting.size),
     ...PATH_LABELS.map((l) =>
         flatText(
             `path-${l.text}`,

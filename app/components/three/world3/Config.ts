@@ -447,6 +447,8 @@ export const CONFIG = {
         pathLabel: { font: "bold", size: 1.0, letterSpacing: 0.12 },
         padLabel: { font: "bold", size: 0.9 },
         floorCaption: { font: "bold", size: 0.9 },
+        /** Welcome greeting (Yoruba, Inter only, ink2 on the plaza). */
+        greeting: { font: "medium", size: 0.9 },
         floorDetail: { font: "semibold", size: 0.8 },
         /** Minimum size for any flat text. */
         minFlatSize: 0.8,
@@ -458,7 +460,7 @@ export const CONFIG = {
         coinWord: { font: "bold", size: 0.42 },
     },
 
-    /** Pads and keycaps (§5.3). */
+    /** Pads (§5.3). */
     pad: {
         lineWidth: 0.22,
         activeLineWidth: 0.32,
@@ -467,22 +469,6 @@ export const CONFIG = {
         idleOpacity: 0.35,
         activeOpacity: 1,
         fillOpacity: 0.55,
-        keycap: {
-            size: 1.4,
-            depth: 0.5,
-            segments: 2,
-            radius: 0.2,
-            label: "E",
-            labelSize: 0.8,
-            /** Gap between the keycap face and its letter. */
-            labelInset: 0.01,
-            restY: 0,
-            raisedY: 2.2,
-            punchY: 1.6,
-            rise: { duration: 0.35, ease: "back.out(3)" },
-            drop: { duration: 0.25, ease: "back.in(2)" },
-            punch: { duration: 0.05, recover: 0.25, recoverEase: "back.out(2)" },
-        },
     },
 
     /** Scenery scatter (§2.6). Counts per scenery tier; extras go in the bands. */
@@ -498,6 +484,34 @@ export const CONFIG = {
         edgeZone: 22,
         grove: { scale: 45, threshold: 0.15 },
         poissonRadius: { tree: 6, palm: 6, bush: 3.5, boulder: 3.5 },
+        /** Procedural fallback props (§2.6). Origins sit on the ground (y = 0). */
+        procedural: {
+            trunk: { radiusTop: 0.28, radiusBottom: 0.38, height: 2.4, radialSegments: 6 },
+            crown: { radius: 1.7, widthSegments: 16, heightSegments: 12, y: 3.2 },
+            /**
+             * Sphere(1, 12, 8) scaled (1.4, 0.9, 1.4), centred on the ground: only the
+             * upper half shows, so only the upper half (4 of the 8 rings) is built.
+             * Height 0.9 matches the kit bush (kitNormalize).
+             */
+            bush: { radius: 1, widthSegments: 12, heightSegments: 8, scale: { x: 1.4, y: 0.9, z: 1.4 } },
+            /** Dodecahedron(1, 0), flat-shaded, centred on the ground (half sunk). */
+            boulder: { radius: 1, detail: 0 },
+        },
+        /** Bush cluster members sit this far (min, max) from the cluster's first bush. */
+        bushClusterSpread: [1.1, 1.7] as const,
+        /** Share of trees drawn with the darker foliage token (§1.2 "chosen at random"). */
+        foliageDarkShare: 0.5,
+        /**
+         * palm.glb's widest frond tip from its trunk base, as a fraction of its
+         * height (measured from the GLB vertices).
+         */
+        palmCrownReach: 0.78,
+        /**
+         * Spatial chunks (§9.2): a model with more than `minTriangles` triangles
+         * (palm.glb: 2924) is instanced per `size` × `size` cell so the camera and
+         * the shadow camera cull each cell on its own.
+         */
+        chunk: { size: 48, minTriangles: 500 },
         counts: {
             tree: { high: 160, medium: 120, low: 70 },
             palm: { high: 60, medium: 45, low: 25 },
@@ -559,6 +573,11 @@ export const CONFIG = {
             build: { weight: 0.25, label: "Building the world" },
             warmup: { weight: 0.05, label: "Building the world" },
         },
+        /**
+         * Share of the build stage done after each step, in the §10 boot order
+         * (environment → car, camera, controls → areas → paths → scenery).
+         */
+        buildSteps: { environment: 0.15, core: 0.3, areas: 0.6, paths: 0.7, scenery: 1 },
         timeoutMs: 15000,
         /** Attempts after the first failure for a required asset (car.glb, Rapier). */
         retries: 1,
@@ -567,7 +586,6 @@ export const CONFIG = {
 
     ui: {
         toastMs: 3000,
-        controlsHintMs: 20000,
         mobileMaxWidth: 640,
         soundStorageKey: "field-v3:sound",
     },

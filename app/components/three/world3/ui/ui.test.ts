@@ -8,7 +8,7 @@ import { areaAnnouncement, promptAnnouncement } from "./Hud";
 import { MAP, fitMap, headingOnMap, mapExtent, rotateXZ, worldToMap } from "./MapModal";
 import { MENU_TABS, nextTab, panelAccentInk, trapIndex } from "./Panels";
 import { mutedOnStart, progressPercent, readSoundPref, writeSoundPref } from "./StartScreen";
-import { TOUCH, joystickVector, knobOffset } from "./TouchControls";
+import { TOUCH, TOUCH_DEVICE_QUERY, isTouchDevice, joystickVector, knobOffset } from "./TouchControls";
 
 const EPS = 1e-9;
 
@@ -114,6 +114,40 @@ describe("joystick", () => {
         expect(k).toEqual({ x: TOUCH.travel, y: 0 });
         const j = knobOffset(10.4, -7.6);
         expect(Number.isInteger(j.x) && Number.isInteger(j.y)).toBe(true);
+    });
+});
+
+describe("touch device gate (owner: desktop-first)", () => {
+    /** A matchMedia stub answering from a set of matching media features. */
+    const media = (features: string[]) => (q: string) => ({
+        matches: q
+            .split(" and ")
+            .map((f) => f.trim())
+            .every((f) => features.includes(f)),
+    });
+
+    it("asks for no hover AND a coarse pointer", () => {
+        expect(TOUCH_DEVICE_QUERY).toBe("(hover: none) and (pointer: coarse)");
+    });
+
+    it("a phone or tablet (no hover, coarse) gets the touch controls", () => {
+        expect(isTouchDevice(media(["(hover: none)", "(pointer: coarse)"]))).toBe(true);
+    });
+
+    it("desktops and touchscreen laptops with a trackpad never do", () => {
+        expect(isTouchDevice(media(["(hover: hover)", "(pointer: fine)"]))).toBe(false);
+        // Touchscreen laptop whose primary pointer is the trackpad.
+        expect(isTouchDevice(media(["(hover: hover)", "(pointer: coarse)"]))).toBe(false);
+        expect(isTouchDevice(media(["(hover: none)", "(pointer: fine)"]))).toBe(false);
+    });
+
+    it("no matchMedia (or one that throws) means no touch UI", () => {
+        expect(isTouchDevice(undefined)).toBe(false);
+        expect(
+            isTouchDevice(() => {
+                throw new Error("unsupported");
+            })
+        ).toBe(false);
     });
 });
 

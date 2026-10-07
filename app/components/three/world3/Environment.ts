@@ -524,6 +524,11 @@ export class Environment {
         return this.propBlobs.add(spots);
     }
 
+    /** True once dispose() ran (Scenery skips its blob calls then; Wave 2a integration). */
+    isDisposed(): boolean {
+        return this.disposed;
+    }
+
     /** True when static props show blobs instead of real shadows. */
     get usesPropBlobs(): boolean {
         return this.shadowMapSize <= 0;

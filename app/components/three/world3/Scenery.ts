@@ -64,31 +64,19 @@ export const LOW_KINDS: ReadonlySet<SceneryKind> = new Set<SceneryKind>(["bush",
  */
 export type SceneryZone = "grove" | "edge" | "low" | "band-all" | "band-low";
 
-// ── Stream-local constants (spec geometry; candidates for Config) ────────
+// ── Tunables (CONFIG.scenery since the Wave 2a integration; aliases kept) ──
 /** Procedural fallback props (§2.6). Origins sit on the ground (y = 0). */
-export const PROCEDURAL = {
-    trunk: { radiusTop: 0.28, radiusBottom: 0.38, height: 2.4, radialSegments: 6 },
-    crown: { radius: 1.7, widthSegments: 16, heightSegments: 12, y: 3.2 },
-    /**
-     * Sphere(1, 12, 8) scaled (1.4, 0.9, 1.4), centred on the ground: only the
-     * upper half shows, so only the upper half (4 of the 8 rings) is built.
-     * Height 0.9 matches the kit bush (CONFIG.scenery.kitNormalize).
-     */
-    bush: { radius: 1, widthSegments: 12, heightSegments: 8, scale: { x: 1.4, y: 0.9, z: 1.4 } },
-    /** Dodecahedron(1, 0), flat-shaded, centred on the ground (half sunk). */
-    boulder: { radius: 1, detail: 0 },
-} as const;
-
+export const PROCEDURAL = SC.procedural;
 /** Bush cluster members sit this far (min, max) from the cluster's first bush. */
-export const BUSH_CLUSTER_SPREAD = [1.1, 1.7] as const;
+export const BUSH_CLUSTER_SPREAD = SC.bushClusterSpread;
 /** Share of trees drawn with the darker foliage token (§1.2 "chosen at random"). */
-export const FOLIAGE_DARK_SHARE = 0.5;
+export const FOLIAGE_DARK_SHARE = SC.foliageDarkShare;
 /**
  * palm.glb's widest frond tip from its trunk base, as a fraction of its height
  * (measured from the GLB vertices: 0.78). The model's crown hangs to one side,
  * so with a random yaw the crown can be anywhere in that disc.
  */
-export const PALM_CROWN_REACH = 0.78;
+export const PALM_CROWN_REACH = SC.palmCrownReach;
 /**
  * Spatial chunks (§9.2 triangles, §1.5 shadow box): a model with more triangles
  * than `minTriangles` (palm.glb: 2924) is instanced per `size` × `size` cell, so
@@ -96,7 +84,7 @@ export const PALM_CROWN_REACH = 0.78;
  * sphere. Cheaper models (kit trees 50–196, bushes, rocks) stay one set per
  * variant: their whole-world sets cost fewer triangles than chunks cost draw calls.
  */
-export const CHUNK = { size: 48, minTriangles: 500 } as const;
+export const CHUNK = SC.chunk;
 /** Seed salts, so every run (sampling, shuffle, attributes) has its own rng stream. */
 const RUN_SALT = { tall: 0x7a11, bush: 0xb05, boulder: 0xb01d } as const;
 const RUN_STRIDE = 0x1000;

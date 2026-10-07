@@ -13,6 +13,22 @@ import type { Prompt } from "../types";
 // inside its click handler so popups opened by contact pads are allowed (§4.3).
 // ─────────────────────────────────────────────────────────────────────────
 
+/** Primary input is touch: no hover and a coarse pointer (a phone or tablet). */
+export const TOUCH_DEVICE_QUERY = "(hover: none) and (pointer: coarse)";
+
+/**
+ * True only on genuine touch devices. `pointer: coarse` or touch points alone
+ * also match touchscreen laptops driven by a trackpad; their primary pointer
+ * hovers, so they stay on the keyboard UI.
+ */
+export function isTouchDevice(matchMedia: ((query: string) => { matches: boolean }) | undefined): boolean {
+    try {
+        return !!matchMedia?.(TOUCH_DEVICE_QUERY).matches;
+    } catch {
+        return false;
+    }
+}
+
 const JOY_BASE = 120;
 const JOY_KNOB = 52;
 

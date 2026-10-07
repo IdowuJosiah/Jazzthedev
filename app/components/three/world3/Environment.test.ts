@@ -444,7 +444,10 @@ describe("Environment (integration)", () => {
         const bumper = cuboids.find((c) => c !== deck && !rails.includes(c))!;
         expect(bumper.pos!.z - bumper.half!.z).toBeCloseTo(-200);
 
+        expect(env.isDisposed()).toBe(false);
         env.dispose();
+        // Scenery reads this to skip its blob calls on a torn-down Environment.
+        expect(env.isDisposed()).toBe(true);
         expect(scene.children).not.toContain(env.group);
         expect(scene.fog).toBeNull();
         expect(scene.background).toBeNull();

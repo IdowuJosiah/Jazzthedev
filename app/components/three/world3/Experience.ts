@@ -11,8 +11,10 @@ import { Controls } from "./Controls";
 import type { Debug } from "./Debug";
 import { Environment } from "./Environment";
 import { Materials, clearOccluder, setOccluder } from "./Materials";
+import * as Paths from "./Paths";
 import { Physics, loadRapier } from "./Physics";
 import { Renderer } from "./Renderer";
+import { Scenery, planScenery, type SceneryPlan } from "./Scenery";
 import { openExternalUrl, type WorldCommandSet, type WorldStore } from "./State";
 import { TyreDust } from "./TyreDust";
 import { Vehicle, type VehicleInput } from "./Vehicle";
@@ -36,7 +38,10 @@ import * as content from "@/app/field/content/world";
 //
 // Boot (§10 Wave 3 order; the profile is detected by the React shell first):
 //   renderer → fonts (troika preload + typeface JSON) ∥ Rapier init → assets
-//   → environment → areas (+ interim markers) → warm-up render → "ready".
+//   (the scenery plan is computed while they download) → environment → car,
+//   camera, controls → areas (+ interim markers) → paths → scenery → warm-up
+//   render → "ready". The build yields to the UI between steps so the loader
+//   bar moves (CONFIG.loading.buildSteps).
 // Load contract (§6.2): fonts 0.15 → assets 0.55 → build 0.25 → warm-up 0.05,
 // progress only ever increases (LoadTracker). Failures: no WebGL2 / renderer
 // throws → "webgl"; a required asset (font, typeface, car.glb, Rapier) fails
@@ -321,6 +326,29 @@ export class NextVisitMonitor {
     }
 }
 
+/**
+ * Computes (and memoises) the scenery plan early; undefined when it throws, so
+ * Scenery's own build reports the failure and the world boots without it.
+ */
+function warmSceneryPlan(): SceneryPlan | undefined {
+    try {
+        return planScenery();
+    } catch (err) {
+        console.warn("[world3] scenery plan failed", err);
+        return undefined;
+    }
+}
+
+/** Builds an optional, decorative part of the world; a throw is logged and skipped. */
+function optional<T>(name: string, build: () => T): T | null {
+    try {
+        return build();
+    } catch (err) {
+        console.error(`[world3] ${name} failed to build; skipping it`, err);
+        return null;
+    }
+}
+
 // ── Experience ───────────────────────────────────────────────────────────
 export interface InitOptions {
     profile: RenderProfile;
@@ -334,6 +362,9 @@ const PHOTO_FILENAME = "jazz-world.png";
 const FPS_SMOOTHING = 0.1;
 /** Font-stage jobs reported as they finish: troika preload, typeface JSON, Rapier init. */
 const FONT_STAGE_JOBS = 3;
+
+/** Lets the browser paint (the loader bar) between synchronous build steps. */
+const yieldToUi = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /** The Wave 1 services, created during init (absent until then). */
 interface World {
@@ -350,6 +381,9 @@ interface World {
     camera: Camera;
     controls: Controls;
     areas: Areas;
+    /** Optional decoration: null when it failed to build (logged; the world still runs). */
+    paths: Paths.PathsHandle | null;
+    scenery: Scenery | null;
 }
 
 export class Experience {
@@ -457,18 +491,22 @@ export class Experience {
             });
             this.own(() => assets.dispose());
             this.tracker.report("assets", 0);
-            await assets.load((f) => this.tracker.report("assets", f));
+            const loadingAssets = assets.load((f) => this.tracker.report("assets", f));
+            // The scenery plan (pure maths, memoised per seed) runs while the models download.
+            const plan = warmSceneryPlan();
+            await loadingAssets;
             if (this.halted()) return;
             this.tracker.complete("assets");
 
-            // 4. Environment, car, camera, controls, text, then the areas.
+            // 4. Environment, car, camera, controls, text, areas, paths, scenery.
             this.tracker.report("build", 0);
-            this.w = this.buildWorld({ renderer, scene, physics, materials, assets, font, profile, isTouch });
+            const world = await this.buildWorld({ renderer, scene, physics, materials, assets, font, profile, isTouch, plan });
+            if (!world || this.halted()) return;
             this.tracker.complete("build");
 
             // 5. Warm-up render (compiles every program before the first real frame).
             this.tracker.report("warmup", 0);
-            const { camera } = this.w;
+            const { camera } = world;
             renderer.instance.compile(scene, camera.camera);
             renderer.render(scene, camera.camera);
             this.tracker.complete("warmup");
@@ -529,7 +567,11 @@ export class Experience {
         return this.disposed || this.store.snapshot.phase === "failed";
     }
 
-    private buildWorld(o: {
+    /**
+     * Builds the world in the §10 order, yielding to the UI between steps.
+     * Returns null when init must stop (disposed, or a failure showed meanwhile).
+     */
+    private async buildWorld(o: {
         renderer: Renderer;
         scene: THREE.Scene;
         physics: Physics;
@@ -538,15 +580,24 @@ export class Experience {
         font: Awaited<ReturnType<typeof loadTypeface>>;
         profile: RenderProfile;
         isTouch: boolean;
-    }): World {
+        plan: SceneryPlan | undefined;
+    }): Promise<World | null> {
         const { renderer, scene, physics, materials, assets, font, profile } = o;
         const size = renderer.size;
-        // The store's value, not init()'s: an OS toggle during loading already updated it.
-        const reducedMotion = this.store.snapshot.reducedMotion;
+        const B = CONFIG.loading.buildSteps;
+        /** Reports a finished build step and lets the loader paint; false = stop. */
+        const stepDone = async (fraction: number) => {
+            this.tracker.report("build", fraction);
+            await yieldToUi();
+            return !this.halted();
+        };
 
         // Environment owns background, fog, lights, ground slab, walls, quay, water, jetty.
         const env = new Environment({ scene, physics, materials, profile, renderer: renderer.instance });
         this.own(() => env.dispose());
+        if (!(await stepDone(B.environment))) return null;
+        // The store's value, not init()'s: an OS toggle during loading already updated it.
+        const reducedMotion = this.store.snapshot.reducedMotion;
 
         const text = createTextApi({ isTouch: o.isTouch, aspect: size.aspect, watchWindow: false });
         this.own(() => text.dispose());
@@ -598,6 +649,7 @@ export class Experience {
         this.own(() => controls.dispose());
 
         this.own(physics.onImpact((kind, force) => this.audio.playImpact(kind, force)));
+        if (!(await stepDone(B.core))) return null;
 
         // Runtime values exist before the areas build, so builders can hold on to
         // them (ctx.runtime) and read reducedMotion when an animation runs.
@@ -636,8 +688,30 @@ export class Experience {
         scene.add(this.interim);
         this.own(() => this.interim.removeFromParent());
         this.buildInterimMarkers(areas, text, text3d);
+        if (!(await stepDone(B.areas))) return null;
 
-        // Quality: the Menu setting + adaptive steps → shadows / dust (scenery in Wave 2).
+        // Paths: every tile, plus the labels no built area draws itself.
+        const paths = optional("paths", () => Paths.build({ materials, text }, { skipOwners: areas.builtIds }));
+        if (paths) {
+            scene.add(paths.group);
+            this.own(() => paths.dispose());
+        }
+        if (!(await stepDone(B.paths))) return null;
+
+        // Scenery (§2.6). Registered after the Environment, so its teardown runs
+        // first (it hides its blob ranges on a live Environment). Tier and density
+        // are applied by applyQuality() below.
+        const scenery = optional(
+            "scenery",
+            () => new Scenery({ physics, materials, assets, environment: env, profile, plan: o.plan })
+        );
+        if (scenery) {
+            scene.add(scenery.group);
+            this.own(() => scenery.dispose());
+        }
+        if (!(await stepDone(B.scenery))) return null;
+
+        // Quality: the Menu setting + adaptive steps → shadows, scenery, dust.
         this.steps = adaptiveSteps(profile);
         this.adaptive = new AdaptiveQuality(this.steps.length, () => this.applyQuality());
         this.nextVisit = new NextVisitMonitor(profile);
@@ -656,6 +730,8 @@ export class Experience {
             camera,
             controls,
             areas,
+            paths,
+            scenery,
         };
         // Input gating follows the store (Start, dialogs, pause).
         const sync = () => this.syncInput(world);
@@ -667,11 +743,11 @@ export class Experience {
     }
 
     /**
-     * Interim markers (Wave 1 only): every area that has no registered builder
-     * yet shows its 3D title (the JAZZ hero word and PLAY dynamic, the rest
-     * static) at its Layout position, and Welcome's role line, so the world is
-     * not empty before Wave 2. Each disappears automatically once its area
-     * module registers (DECISIONS.md, Wave 1 integration).
+     * Interim markers: every area that has no built area module yet shows its
+     * 3D title (the JAZZ hero word and PLAY dynamic, the rest static) at its
+     * Layout position, and Welcome's role line while Welcome is absent. An area
+     * whose module registered and built (Welcome and Hub since Wave 2a) gets no
+     * marker (DECISIONS.md, Wave 1 integration).
      */
     private buildInterimMarkers(areas: Areas, text: TextSystem, text3d: Text3DSystem) {
         const built = new Set(areas.builtIds);
@@ -728,7 +804,7 @@ export class Experience {
                 const q = this.quality;
                 const lvl = this.adaptive?.level ?? 0;
                 return q
-                    ? `${this.store.snapshot.quality} · shadow ${q.shadowMapSize || "blobs"} · dust ${q.dust ? "on" : "off"} · adaptive ${lvl}/${this.steps.length}`
+                    ? `${this.store.snapshot.quality} · shadow ${q.shadowMapSize || "blobs"} · scenery ${q.scenery} ×${q.sceneryScale} · dust ${q.dust ? "on" : "off"} · adaptive ${lvl}/${this.steps.length}`
                     : "";
             },
         });
@@ -895,8 +971,9 @@ export class Experience {
         const q = resolveQuality(s.quality, profile, this.steps.slice(0, level));
         this.quality = q;
         w.env.setShadowMapSize(q.shadowMapSize);
+        // §9.3 order: shadow map → scenery −30% (sceneryScale) → tyre dust.
+        w.scenery?.setQuality(q);
         w.dust.setEnabled(q.dust);
-        // q.scenery / q.sceneryScale: applied by Scenery (W2-6) once it is wired.
     }
 
     // ── per frame ────────────────────────────────────────────────────────

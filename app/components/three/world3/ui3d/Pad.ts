@@ -1,6 +1,4 @@
 import * as THREE from "three";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import gsap from "gsap";
 import { CONFIG, FACE_CAMERA_Y, PALETTE, type HexColor } from "../Config";
 import { applyLayerToObject, flatPlate, flatRing } from "../utils/shapes";
 import type { FlatLayerId } from "../utils/shapes";
@@ -8,7 +6,9 @@ import type { MaterialsApi, PadDef, TextApi, TextHandle } from "../types";
 
 // The one interaction language (§5.3): a flat rounded-rect pad outline on the
 // plates layer (idle: ink @ 0.35; active: ACCENT @ 1 + width 0.32 + paper fill
-// @ 0.55), an optional flat label, and a desktop keycap that pops up.
+// @ 0.55) and an optional flat label. No floating 3D "E" keycap: the HTML
+// prompt card names what is in range (DECISIONS.md, "Owner: desktop-first, no
+// on-screen controls").
 
 const P = CONFIG.pad;
 
@@ -102,118 +102,6 @@ export function buildPad(def: PadDef, deps: PadDeps, opts: PadOptions): PadVisua
             activeGeo.dispose();
             fillGeo.dispose();
             label?.dispose();
-            group.removeFromParent();
-        },
-    };
-}
-
-export interface KeycapOptions {
-    label?: string;
-    /**
-     * Under reduced motion the keycap snaps instead of tweening. Pass a getter
-     * (`() => ctx.runtime.reducedMotion`) so a runtime toggle (Menu or OS) is
-     * honoured; a boolean is read as a fixed value.
-     */
-    reducedMotion?: boolean | (() => boolean);
-}
-
-export interface Keycap {
-    /** Place it at the pad centre (faceCamera); it rises from y 0 to 2.2. */
-    group: THREE.Group;
-    readonly shown: boolean;
-    show(): void;
-    hide(): void;
-    /** Punch down to 1.6, then recover (on interact). */
-    punch(): void;
-    dispose(): void;
-}
-
-/** Desktop-only keycap: paper RoundedBox(1.4, 1.4, 0.5, 2, 0.2) with an ink "E". */
-export function buildKeycap(deps: PadDeps, opts: KeycapOptions = {}): Keycap {
-    const K = P.keycap;
-    const group = new THREE.Group();
-    group.name = "keycap";
-    group.rotation.y = FACE_CAMERA_Y;
-
-    const cap = new THREE.Group();
-    cap.position.y = K.restY;
-    cap.visible = false;
-    group.add(cap);
-
-    const geo = new RoundedBoxGeometry(K.size, K.size, K.depth, K.segments, K.radius);
-    const body = new THREE.Mesh(geo, deps.materials.lambert(PALETTE.paper));
-    // Never a shadow caster (§1.5 casters list): it rises over the pad label and
-    // would shade ground text (§1.2 sun-side strip rule).
-    body.castShadow = false;
-    body.position.y = K.size / 2;
-    body.raycast = () => {};
-    cap.add(body);
-
-    const letter = deps.text.upright({
-        text: opts.label ?? K.label,
-        font: "bold",
-        size: K.labelSize,
-        color: PALETTE.ink,
-        anchorX: "center",
-        anchorY: "middle",
-    });
-    letter.object.position.set(0, K.size / 2, K.depth / 2 + K.labelInset);
-    cap.add(letter.object);
-
-    let shown = false;
-    const kill = () => gsap.killTweensOf(cap.position);
-    const rm = () => (typeof opts.reducedMotion === "function" ? opts.reducedMotion() : !!opts.reducedMotion);
-
-    return {
-        group,
-        get shown() {
-            return shown;
-        },
-        show() {
-            if (shown) return;
-            shown = true;
-            kill();
-            cap.visible = true;
-            if (rm()) {
-                cap.position.y = K.raisedY;
-                return;
-            }
-            gsap.to(cap.position, { y: K.raisedY, duration: K.rise.duration, ease: K.rise.ease });
-        },
-        hide() {
-            if (!shown) return;
-            shown = false;
-            kill();
-            if (rm()) {
-                cap.position.y = K.restY;
-                cap.visible = false;
-                return;
-            }
-            gsap.to(cap.position, {
-                y: K.restY,
-                duration: K.drop.duration,
-                ease: K.drop.ease,
-                onComplete: () => {
-                    if (!shown) cap.visible = false;
-                },
-            });
-        },
-        punch() {
-            if (!shown) return;
-            kill();
-            if (rm()) {
-                // Reduced motion switched on mid-rise: settle at the raised pose.
-                cap.position.y = K.raisedY;
-                return;
-            }
-            gsap.timeline()
-                .to(cap.position, { y: K.punchY, duration: K.punch.duration, ease: "none" })
-                .to(cap.position, { y: K.raisedY, duration: K.punch.recover, ease: K.punch.recoverEase });
-        },
-        dispose() {
-            kill();
-            geo.dispose();
-            letter.dispose();
             group.removeFromParent();
         },
     };

@@ -19,7 +19,7 @@ import type {
     Word3D,
     Word3DOptions,
 } from "../types";
-import { CARD_STYLE, CONTROLS_ROWS, build, controlsCardLayout } from "./Welcome";
+import { build } from "./Welcome";
 
 type TextCall = { kind: "flat" | "upright" | "onPath"; opts: TextOpts & { angle?: number }; handle: TextHandle };
 
@@ -88,8 +88,6 @@ const rt = (x: number, z: number): RuntimeInfo => ({
 });
 
 const W = AREA_LAYOUT.welcome;
-/** Float slack for edge comparisons (the SPACE row sits exactly at minGap). */
-const FLOAT_EPS = 1e-9;
 const hero = AREA_BY_ID.welcome.title3D!;
 const RESET = CONFIG.physics.heroLetterResetDistance;
 
@@ -161,7 +159,11 @@ describe("areas/Welcome (§2.4)", () => {
             color: PALETTE.ink,
         });
         expect(greet.kind).toBe("flat");
-        expect(greet.opts).toMatchObject({ font: "medium", size: CONFIG.type.floorCaption.size, color: PALETTE.ink2 });
+        expect(greet.opts).toMatchObject({
+            font: CONFIG.type.greeting.font,
+            size: CONFIG.type.greeting.size,
+            color: PALETTE.ink2,
+        });
         for (const [t, p] of [
             [role, W.roleLine],
             [greet, W.greeting],
@@ -178,72 +180,13 @@ describe("areas/Welcome (§2.4)", () => {
         expect(Layout.pointInRect(AREA_BY_ID.welcome.rect, W.greeting.x, W.greeting.z)).toBe(true);
     });
 
-    it("controls card: paper plate + 4 keycap outlines, 8 desktopOnly SemiBold 0.8 ink2 labels", () => {
+    it("draws no controls card (owner: desktop-first, no on-screen controls)", () => {
         const { ctx, texts } = stubCtx();
-        const h = build(ctx);
-        expect(CONTROLS_ROWS).toHaveLength(W.controlsCard.rows);
-        const card = h.controls.group;
-        expect(card.position.x).toBe(W.controlsCard.x);
-        expect(card.position.z).toBe(W.controlsCard.z);
-        expect(card.rotation.y).toBeCloseTo(FACE_CAMERA_Y, 12);
-        const cardTexts = texts.filter((t) => t.opts.desktopOnly);
-        expect(cardTexts).toHaveLength(2 * W.controlsCard.rows);
-        expect(h.controls.texts).toHaveLength(cardTexts.length);
-        for (const t of cardTexts) {
-            expect(t.kind).toBe("flat");
-            expect(t.opts).toMatchObject({
-                font: CONFIG.type.floorDetail.font,
-                size: CONFIG.type.floorDetail.size,
-                color: PALETTE.ink2,
-            });
-            expect(t.handle.object.parent).toBe(card);
-        }
-        expect(cardTexts.map((t) => t.opts.text)).toEqual(CONTROLS_ROWS.flatMap((r) => [r.keys, r.action]));
-
-        // Plate on the plate layer, outlines just above it (padOnPlate), all inside the card.
-        const meshes = h.controls.chrome.children as THREE.Mesh[];
-        expect(meshes).toHaveLength(1 + W.controlsCard.rows);
-        card.updateMatrixWorld(true);
-        const plateBox = new THREE.Box3().setFromObject(meshes[0]);
-        expect(plateBox.max.y).toBeCloseTo(shapes.LAYERS.plate.y, 6);
-        for (const m of meshes.slice(1)) {
-            m.geometry.computeBoundingBox();
-            const b = m.geometry.boundingBox!.clone().translate(m.position);
-            expect(b.max.y).toBeCloseTo(shapes.LAYERS.padOnPlate.y, 6);
-            expect(b.min.x).toBeGreaterThanOrEqual(-W.controlsCard.w / 2);
-            expect(b.max.x).toBeLessThanOrEqual(W.controlsCard.w / 2);
-            expect(b.min.z).toBeGreaterThanOrEqual(-W.controlsCard.d / 2);
-            expect(b.max.z).toBeLessThanOrEqual(W.controlsCard.d / 2);
-            expect(m.renderOrder).toBe(shapes.LAYERS.padOnPlate.renderOrder);
-        }
-        // Rows stack down the screen (+S = local +Z) in reading order.
-        const keyZ = cardTexts.filter((_, i) => i % 2 === 0).map((t) => t.handle.object.position.z);
-        expect(keyZ).toEqual([...keyZ].sort((a, b) => a - b));
-    });
-
-    it("controls card rows: every keycap outline stays clear of its action text", () => {
-        const C = W.controlsCard;
-        const D = CONFIG.type.floorDetail;
-        const rows = controlsCardLayout(C, D.size, Layout.estimateTextWidth);
-        expect(rows.map((r) => r.keys)).toEqual(CONTROLS_ROWS.map((r) => r.keys));
-        for (const r of rows) {
-            // Both edges from the same conservative estimate the card is built with.
-            const keyRight = r.keyX + r.keyW / 2;
-            expect(r.actionLeft - keyRight).toBeGreaterThanOrEqual(CARD_STYLE.minGap - FLOAT_EPS);
-            expect(r.keyX - r.keyW / 2).toBeGreaterThanOrEqual(-C.w / 2);
-            expect(r.actionRight).toBeLessThanOrEqual(C.w / 2);
-        }
-        // The built card uses exactly this layout.
-        const { ctx, texts } = stubCtx();
-        const h = build(ctx);
-        const outlines = (h.controls.chrome.children as THREE.Mesh[]).slice(1);
-        rows.forEach((r, i) => {
-            expect(outlines[i].position.x).toBeCloseTo(r.keyX, 9);
-            expect(outlines[i].position.z).toBeCloseTo(r.z, 9);
-            const action = texts.find((t) => t.opts.text === r.action)!;
-            expect(action.opts.anchorX).toBe("right");
-            expect(action.handle.object.position.x).toBeCloseTo(r.actionRight, 9);
-        });
+        build(ctx);
+        expect(texts.some((t) => t.opts.desktopOnly)).toBe(false);
+        expect(ctx.group.getObjectByName("controls-card")).toBeUndefined();
+        // Plaza plate, hero word, role line, greeting and the two path labels only.
+        expect(ctx.group.children).toHaveLength(6);
     });
 
     it("a builder that throws frees the hero word, texts and geometries, then rethrows", () => {
@@ -253,22 +196,10 @@ describe("areas/Welcome (§2.4)", () => {
         expect(words[0].word.dispose).toHaveBeenCalledTimes(1);
         expect(texts.length).toBeGreaterThan(0);
         for (const t of texts) expect(t.handle.dispose).toHaveBeenCalledTimes(1);
-        // Plaza plate + card plate + one keycap outline per row.
-        expect(geoDispose).toHaveBeenCalledTimes(2 + W.controlsCard.rows);
+        // The plaza plate is the only geometry Welcome owns.
+        expect(geoDispose).toHaveBeenCalledTimes(1);
         geoDispose.mockRestore();
         expect(ctx.group.children).toHaveLength(0);
-    });
-
-    it("the card's plate and outlines follow the desktopOnly rule of its text", () => {
-        const shown = build(stubCtx({ desktopVisible: true }).ctx);
-        expect(shown.controls.chrome.visible).toBe(true);
-        const { ctx } = stubCtx({ desktopVisible: false });
-        const hidden = build(ctx);
-        expect(hidden.controls.chrome.visible).toBe(false);
-        // A runtime change (resize to landscape) is mirrored on the next update.
-        (hidden.controls.texts[0].mesh as unknown as { visible: boolean }).visible = true;
-        hidden.update!(1 / 60, 0, rt(0, 12));
-        expect(hidden.controls.chrome.visible).toBe(true);
     });
 
     it("plaza plate covers the rect on the plaza layer", () => {

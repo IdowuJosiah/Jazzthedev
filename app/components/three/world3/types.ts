@@ -104,7 +104,7 @@ export interface WorldInteractable {
     content?: InfoContent;
     /** Runs synchronously inside the key/click handler (popups need this). */
     onInteract?: () => void;
-    /** Visual highlight toggle (pad outline / keycap). */
+    /** Visual highlight toggle (pad outline + fill). */
     setActive?(on: boolean): void;
 }
 
@@ -317,8 +317,8 @@ export interface AreaContext {
     /**
      * Live runtime values (the same object update() receives), readable at any
      * time: build-time animations read `runtime.reducedMotion` when they run,
-     * e.g. `buildKeycap(deps, { reducedMotion: () => ctx.runtime.reducedMotion })`
-     * (Wave 2 prep, DECISIONS.md).
+     * e.g. `reducedMotion: () => ctx.runtime.reducedMotion` (Wave 2 prep,
+     * DECISIONS.md).
      */
     runtime: Readonly<RuntimeInfo>;
     def: AreaDef;

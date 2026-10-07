@@ -410,3 +410,115 @@ fixes. Later decisions override earlier ones and the spec.
 - In the browser (dev, `/field?v=3&debug`, 327 × 640 with a coarse pointer):
   the top bar measures as described above, there are no console errors, and a
   muted Start fetches the UI sounds and engine.wav but not music.ogg.
+
+## Wave 2a integration (Welcome + Hub + Paths + Scenery)
+The integrator wired the W2-1 (Welcome, Hub, Paths) and W2-6 (Scenery)
+streams into `/field?v=3`. Later decisions override earlier ones and the spec.
+
+### Wiring
+- **`areas/index.ts`** imports `./Welcome` and `./Hub`. Both register, so the
+  interim JAZZ, role line and hub markers are no longer built; the other seven
+  areas keep their interim 3D titles until their modules land. The Experience
+  routes `afterTeleport` / Travel / R to `areas.reset("welcome")`, and Welcome
+  owns the > 60-unit auto-reset.
+- **Boot order (§10)**: renderer → fonts ∥ Rapier → assets → environment → car,
+  camera, controls → areas (+ interim markers) → paths → scenery → warm-up
+  render. `planScenery()` (≈ 0.1 s of maths, memoised per seed) runs right
+  after the asset downloads start, so it overlaps the network wait, and the
+  plan is passed to Scenery as `deps.plan`.
+- **Build progress**: `CONFIG.loading.buildSteps` (environment 0.15, core
+  0.3, areas 0.6, paths 0.7, scenery 1) splits the 0.25 build weight, and
+  `buildWorld` is now async: it yields one macrotask after each step so the
+  loader bar can paint, and stops (returns null) when the Experience was
+  disposed or failed meanwhile.
+- **Paths**: `Paths.build({ materials, text }, { skipOwners: areas.builtIds })`,
+  so Welcome and Hub draw their own labels (culled with them) and Paths draws
+  only the unowned P5 / P6 labels.
+- **Paths and Scenery are optional**: a throw while building either one is
+  logged and skipped (`optional()` in Experience.ts). The world still boots,
+  the same rule as a failing area builder.
+- **Quality (§9.3)**: `applyQuality()` calls `scenery.setQuality(q)` (tier from
+  the Menu setting or profile, `sceneryScale` 0.7 after the adaptive
+  "scenery-30" step), in the §9.3 order shadow map → scenery −30% → tyre dust.
+  The `?debug` quality line now shows the scenery tier and scale.
+- **Teardown**: Paths and Scenery are disposed through `own()`. Scenery is
+  registered after the Environment, so it is disposed **before** it (its blob
+  ranges are hidden on a live Environment) and its colliders are removed
+  before Physics is freed.
+
+### Minimal edits to other streams' files
+- **Environment.ts**: `isDisposed()` (Scenery's teardown guard already checks
+  for it). Environment.test.ts checks it flips on dispose.
+- **Config.ts**:
+  - `CONFIG.type.greeting = { font: "medium", size: 0.9 }`; Welcome and
+    Layout's `GROUND_TEXTS` greeting footprint use it (no longer the borrowed
+    `floorCaption.size`).
+  - Scenery's stream-local tunables moved to `CONFIG.scenery` (values
+    unchanged): `procedural`, `bushClusterSpread`, `foliageDarkShare`,
+    `palmCrownReach`, `chunk`. Scenery.ts keeps the exported names
+    (`PROCEDURAL`, `BUSH_CLUSTER_SPREAD`, `FOLIAGE_DARK_SHARE`,
+    `PALM_CROWN_REACH`, `CHUNK`) as aliases of the Config entries. Hub's tree
+    comes from Scenery's `createSceneryTree`, so it reads the same entry.
+  - `CONFIG.loading.buildSteps` (above).
+
+### Accepted stream decisions
+- **Tile slab is unbevelled** (`Paths.TILE_SLAB = { bevel: 0, curveSegments: 4 }`):
+  76 triangles per tile, about 32k for all 426 tiles in one always-in-view
+  InstancedMesh (a 0.02 bevel on a 0.08 slab is invisible at this camera and
+  cost 236 per tile, about 100k). The single mesh stays (PathsHandle.tiles).
+- **Scenery judgement calls (W2-6)**, kept:
+  - the north strip (beyond the quay clearance, within 22 of the quay) keeps
+    the grove noise mask;
+  - at the SW / SE corners the south / east "low" rule wins over the west
+    "edge" rule;
+  - bush counts are individual bushes (clusters of 2–3 count as 2–3);
+  - bushes cast no shadows and get no low-profile blobs;
+  - the sun-side strip rule applies to props of every height;
+  - tall props test their crown / reach disc against ground-text footprints,
+    and their sun strip is lengthened to their shadow (height / tan 52°);
+  - only heavy models (> 500 triangles: palm.glb) are chunked into 48 × 48
+    cells; light kit models stay one InstancedMesh per variant;
+  - band extras ignore the tier but scale with the adaptive density.
+
+## Owner: desktop-first, no on-screen controls
+Owner direction (overrides §2.4, §5.3 and §6.2). Desktop shows no on-screen
+controls; mobile is not polished now.
+- **Welcome's in-world controls card is removed** (plate, keycap outlines and
+  the 8 desktopOnly texts), with `Layout.AREA_LAYOUT.welcome.controlsCard` and
+  its `GROUND_TEXTS` footprint. Welcome now builds the plaza, hero word, role
+  line, greeting and its two path labels only.
+- **The floating 3D "E" keycap is deleted**: `buildKeycap`, `Keycap`,
+  `KeycapOptions` and `CONFIG.pad.keycap` are gone (no area used them), and so
+  are their Pad tests. Pads keep the outline / fill highlight and the optional
+  flat label.
+- **HUD controls hint removed** (the 20 s bottom-left kbd row,
+  `CONFIG.ui.controlsHintMs`, the `showHint` prop and the `.w3-hint` CSS).
+- **Start card**: no keyboard-shortcut chip row (`START_CONTROLS` removed).
+  One short line instead (`startSubLine`): "All controls are in the menu
+  (Esc)." on desktop, "Left pad to drive · tap E to open" on touch.
+- **Kept**: the HTML prompt card naming what is in range (title + action with
+  a small E kbd chip), the top-right Classic site / Map / Sound / Menu
+  buttons, and the full list in Menu → Controls (`KbdRow` stays for it).
+- **Touch UI only on genuine touch devices**: `isTouch` is now
+  `matchMedia("(hover: none) and (pointer: coarse)")`
+  (`TouchControls.isTouchDevice`, `TOUCH_DEVICE_QUERY`), not
+  `pointer: coarse` or `maxTouchPoints`. Desktops and touchscreen laptops with a
+  mouse or trackpad never get the joystick, touch copy or touch-only text
+  rules. The render-profile `isMobile` fallback (detect-gpu timeout) still uses
+  the old coarse test; it only picks a profile.
+
+### Verification (Wave 2a integration)
+- `npx tsc --noEmit` clean; `npm run test` passes; ESLint clean on
+  `app/components/three/world3` and `app/field/v3`; `npm run build`
+  (Turbopack) compiles and prerenders every route; v2 files untouched.
+- Headless draw-call estimate (throwaway probe, deleted): real Nature Kit
+  GLBs, a palm stand-in with palm.glb's triangle count, the real
+  Environment / Welcome / Hub / Paths / Scenery, the default shot (d 38, and
+  56 at max zoom-out), 1440 × 900. Instanced meshes in the camera frustum:
+  36–40 draw calls and 73k–100k triangles over all tiers, of which 26–30
+  calls and 27k–53k triangles cast shadows. Add about 8 for the car,
+  1 for tyre dust, 4 hero letters, up to 7 interim title letters and 2–4
+  troika texts: about 55 in the colour pass and about 95 per frame with the
+  shadow pass, against the 180 budget. Troika texts built in total: 10
+  (Welcome 4, Hub 4, P5 / P6 labels 2). This is still to be confirmed with
+  `renderer.info` in `?debug` in a focused browser.

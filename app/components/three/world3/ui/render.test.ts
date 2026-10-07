@@ -8,7 +8,7 @@ import FailCard from "./FailCard";
 import Hud from "./Hud";
 import MapModal from "./MapModal";
 import { ContentPanel, MenuModal, MENU_TABS } from "./Panels";
-import { Loader, StartCard } from "./StartScreen";
+import { Loader, StartCard, startSubLine } from "./StartScreen";
 import TouchControls from "./TouchControls";
 
 // Server-render smoke tests: every overlay renders without a browser, with the
@@ -43,7 +43,13 @@ describe("overlays", () => {
         expect(firstFocusable).toContain('href="/"');
         expect(html).toContain("Skip to classic portfolio");
         expect(html).toContain("Drive through my work");
-        expect(html).toContain("<kbd");
+    });
+
+    it("start card on desktop has no keyboard-shortcut chip row, just one sub line", () => {
+        const html = renderToStaticMarkup(h(StartCard, { isTouch: false, onStart: noop }));
+        expect(html).not.toContain("<kbd");
+        expect(html).not.toContain("w3-kbd-row");
+        expect(html).toContain(startSubLine(false));
     });
 
     it("start card on touch uses touch copy", () => {
@@ -89,7 +95,6 @@ describe("HUD", () => {
         toast: { id: 1, text: "Projects · 4 projects" },
         muted: false,
         isTouch: false,
-        showHint: true,
         focusCanvas: noop,
         onOpenMap: noop,
         onToggleSound: noop,
@@ -105,6 +110,12 @@ describe("HUD", () => {
         expect(html).toContain("Frontend Projects");
         expect(html).toContain("Clay Studio Creations");
         expect(html).not.toMatch(/km\/h|speed/i);
+    });
+
+    it("shows no controls hint (owner: desktop-first, no on-screen controls)", () => {
+        const html = renderToStaticMarkup(h(Hud, { ...base, prompt: null }));
+        expect(html).not.toContain("w3-hint");
+        expect(html).not.toContain("<kbd");
     });
 
     it("prompt E is a kbd chip everywhere; on touch the only E button is the cluster's", () => {

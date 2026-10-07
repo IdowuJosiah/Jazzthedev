@@ -15,90 +15,19 @@ import type { AreaContext, AreaHandle, RuntimeInfo, TextHandle, Word3D } from ".
 //   the group is placed here and never moved. reset() sends the letters home
 //   (Travel, R, fall-off respawn, the Start drop); update() also does when the
 //   car goes from near to > 60 units away (§3.3 auto-reset).
-// - Role line (Inter Bold 1.1, ink) and greeting (Inter Medium 0.9, ink2, on
-//   the plaza), flat and faceCamera.
-// - Controls card (desktop only): a flush paper plate with four rows of Inter
-//   SemiBold 0.8 ink2 copy, each key set inside a rounded-rect keycap outline.
-//   The text is desktopOnly (TextApi hides it on touch / portrait); the plate
-//   and outlines follow the first key label's visibility every frame.
+// - Role line (Inter Bold 1.1, ink) and greeting (CONFIG.type.greeting, ink2,
+//   on the plaza), flat and faceCamera.
+// - No in-world controls card (owner direction, DECISIONS.md "Owner:
+//   desktop-first, no on-screen controls"); the controls live in Menu → Controls.
 // - Plaza plate (plaza layer) over the rect, radius 3.
 // - Path labels P1 CROSSROADS and P7 ABOUT & CONTACT (Paths.ts ownership).
 // ─────────────────────────────────────────────────────────────────────────
-
-/** Controls card copy (§2.4): the key(s) in a keycap outline, then the action. */
-export const CONTROLS_ROWS: readonly { keys: string; action: string }[] = [
-    { keys: "W A S D", action: "DRIVE" },
-    { keys: "SHIFT", action: "BOOST" },
-    { keys: "SPACE", action: "BRAKE / DRIFT" },
-    { keys: "E", action: "OPEN" },
-];
-
-/**
- * Controls card presentation (stream-local, like Pad.ts's ring maths): the
- * card's size and row count come from Layout; these only set the inner margins
- * and the keycap outline proportions. The 10-wide card is tight on the SPACE
- * row (keycap + "BRAKE / DRIFT" ≈ 9.6 of the conservative width estimate), so
- * the margins are small; `controlsCardLayout` keeps every row apart by `minGap`.
- */
-export const CARD_STYLE = {
-    /** Margin from the plate edge to the keycaps (left) and the actions (right). */
-    inset: 0.15,
-    /** Keycap outline height as a fraction of the row pitch. */
-    keyHeightFraction: 0.72,
-    /** Space between the key text and its outline, each side (estimate-based; real glyphs leave more). */
-    keyPadX: 0.08,
-    /** Keycap outline line width and corner radius. */
-    keyLineWidth: 0.06,
-    keyRadius: 0.18,
-    /** Least space between a keycap outline and its right-aligned action text. */
-    minGap: 0.1,
-} as const;
-
-/** One controls-card row in card-local units (+X across, +Z down the screen). */
-export interface ControlsRowLayout {
-    keys: string;
-    action: string;
-    z: number;
-    /** Keycap outline centre and outer width (the key text is centred in it). */
-    keyX: number;
-    keyW: number;
-    /** Right edge of the right-aligned action text, and its estimated left edge. */
-    actionRight: number;
-    actionLeft: number;
-}
-
-/**
- * Lays out the card rows from a text width estimate (Layout.estimateTextWidth:
- * conservative, so real text only leaves more room).
- */
-export function controlsCardLayout(
-    card: { w: number; d: number; rows: number },
-    size: number,
-    estimate: (text: string, size: number) => number
-): ControlsRowLayout[] {
-    const pitch = card.d / card.rows;
-    const keyLeft = -card.w / 2 + CARD_STYLE.inset;
-    const actionRight = card.w / 2 - CARD_STYLE.inset;
-    return CONTROLS_ROWS.slice(0, card.rows).map((row, i) => {
-        const keyW = estimate(row.keys, size) + 2 * CARD_STYLE.keyPadX;
-        return {
-            ...row,
-            z: (i - (card.rows - 1) / 2) * pitch,
-            keyX: keyLeft + keyW / 2,
-            keyW,
-            actionRight,
-            actionLeft: actionRight - estimate(row.action, size),
-        };
-    });
-}
 
 export interface WelcomeHandle extends AreaHandle {
     /** The hero word (null only if the AreaDef carries no title3D). */
     hero: Word3D | null;
     roleLine: TextHandle;
     greeting: TextHandle;
-    /** Controls card: plate + keycap outlines (`chrome`) and its desktopOnly texts. */
-    controls: { group: THREE.Group; chrome: THREE.Group; texts: TextHandle[] };
     pathLabels: TextHandle[];
 }
 
@@ -181,8 +110,8 @@ export function build(ctx: AreaContext): WelcomeHandle {
         const greeting = flatAt(
             text.flat({
                 text: meta.greeting,
-                font: "medium",
-                size: TY.floorCaption.size,
+                font: TY.greeting.font,
+                size: TY.greeting.size,
                 color: PALETTE.ink2,
                 anchorX: "center",
                 anchorY: "middle",
@@ -190,65 +119,6 @@ export function build(ctx: AreaContext): WelcomeHandle {
             W.greeting.x,
             W.greeting.z
         );
-
-        // ── Controls card (desktop only) ─────────────────────────────────
-        const C = W.controlsCard;
-        const card = new THREE.Group();
-        card.name = "controls-card";
-        card.position.set(C.x, 0, C.z);
-        card.rotation.y = FACE_CAMERA_Y; // local +X → R (rows read across), +Z → S (rows stack down)
-        group.add(card);
-        const chrome = new THREE.Group();
-        chrome.name = "controls-card-chrome";
-        card.add(chrome);
-
-        const plate = new THREE.Mesh(
-            geo(shapes.flatPlate(C.w, C.d, CONFIG.pad.cornerRadius, "plate")),
-            materials.lambert(PALETTE.paper, { layer: "plate" })
-        );
-        shapes.applyLayerToObject(plate, "plate");
-        plate.raycast = () => {};
-        chrome.add(plate);
-
-        const keyH = (C.d / C.rows) * CARD_STYLE.keyHeightFraction;
-        const outlineMat = materials.basic(PALETTE.ink2, { layer: "padOnPlate" });
-        const D = TY.floorDetail;
-        const cardTexts: TextHandle[] = [];
-        const cardText = (copy: string, anchorX: "center" | "right", x: number, z: number): TextHandle => {
-            const h = text.flat({
-                text: copy,
-                font: D.font,
-                size: D.size,
-                color: PALETTE.ink2,
-                anchorX,
-                anchorY: "middle",
-                desktopOnly: true,
-            });
-            texts.push(h);
-            h.object.position.set(x, 0, z);
-            card.add(h.object);
-            cardTexts.push(h);
-            return h;
-        };
-        for (const row of controlsCardLayout(C, D.size, ctx.layout.estimateTextWidth)) {
-            // The outline is drawn ON the paper plate: padOnPlate keeps it off the plate's plane.
-            const outline = new THREE.Mesh(
-                geo(shapes.flatRing(row.keyW, keyH, CARD_STYLE.keyRadius, CARD_STYLE.keyLineWidth, "padOnPlate")),
-                outlineMat
-            );
-            outline.position.set(row.keyX, 0, row.z);
-            shapes.applyLayerToObject(outline, "padOnPlate");
-            outline.raycast = () => {};
-            chrome.add(outline);
-            cardText(row.keys, "center", row.keyX, row.z);
-            cardText(row.action, "right", row.actionRight, row.z);
-        }
-        // The card is desktop-only as a whole: plate + outlines follow the text rule.
-        const syncCard = () => {
-            const shown = cardTexts.length > 0 ? cardTexts[0].mesh.visible : !ctx.runtime.isTouch;
-            chrome.visible = shown;
-        };
-        syncCard();
 
         // ── Welcome's path labels (P1 CROSSROADS, P7 ABOUT & CONTACT) ────
         const pathLabels = buildOwnedPathLabels(text, ctx.def.id);
@@ -265,12 +135,9 @@ export function build(ctx: AreaContext): WelcomeHandle {
             hero,
             roleLine,
             greeting,
-            controls: { group: card, chrome, texts: cardTexts },
             pathLabels,
             update(_dt: number, _t: number, rt: RuntimeInfo) {
-                if (disposed) return;
-                syncCard();
-                if (!hero || !title) return;
+                if (disposed || !hero || !title) return;
                 const nowFar = Math.hypot(rt.carPos.x - title.x, rt.carPos.z - title.z) > resetDistance;
                 if (nowFar && !far) hero.reset();
                 far = nowFar;

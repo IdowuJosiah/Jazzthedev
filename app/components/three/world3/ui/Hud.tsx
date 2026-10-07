@@ -7,16 +7,15 @@ import type { Toast } from "../State";
 import type { AreaId, Prompt } from "../types";
 import { areaCopy, meta } from "@/app/field/content/world";
 import { CLASSIC_SITE_URL } from "./FailCard";
-import { KbdRow, START_CONTROLS } from "./StartScreen";
 
 // ─────────────────────────────────────────────────────────────────────────
 // HUD (§6.2). Top-left: wordmark + area chip. Top-right, always visible:
 // Classic site (collapses to an icon at ≤ 640 px), Map, Sound, Menu. Bottom
-// centre: the prompt card (the accessible twin of the in-world keycap; on
-// touch the tappable E sits in the TouchControls cluster).
-// Toasts at the top centre for CONFIG.ui.toastMs; a controls hint for the
-// first CONFIG.ui.controlsHintMs (desktop only). No speedometer, no counter,
-// no always-on minimap. The aria-live Announcer lives here too.
+// centre: the prompt card naming what is in range (on touch the tappable E
+// sits in the TouchControls cluster). Toasts at the top centre for
+// CONFIG.ui.toastMs. No controls hint, no speedometer, no counter, no
+// always-on minimap (owner direction, DECISIONS.md "Owner: desktop-first, no
+// on-screen controls"). The aria-live Announcer lives here too.
 // ─────────────────────────────────────────────────────────────────────────
 
 /** "Press E to open Clay Studio Creations" (touch: "Tap E ..."); other actions name both. */
@@ -45,8 +44,6 @@ interface HudProps {
     toast: Toast | null;
     muted: boolean;
     isTouch: boolean;
-    /** Desktop controls hint (FieldExperience times it from Start). */
-    showHint: boolean;
     /** Focuses the world canvas. */
     focusCanvas: () => void;
     onOpenMap: () => void;
@@ -110,8 +107,6 @@ export default function Hud(p: HudProps) {
             <Toasts toast={p.toast} />
 
             {p.prompt && <PromptCard prompt={p.prompt} />}
-
-            {p.showHint && !p.isTouch && !p.prompt && <ControlsHint />}
         </div>
     );
 }
@@ -146,15 +141,6 @@ function Toasts({ toast }: { toast: Toast | null }) {
             <div key={toast.id} className="w3-toast">
                 {toast.text}
             </div>
-        </div>
-    );
-}
-
-/** Desktop-only controls hint (bottom left); hidden while a prompt card shows. */
-function ControlsHint() {
-    return (
-        <div className="w3-hint">
-            <KbdRow items={START_CONTROLS} label="Controls" />
         </div>
     );
 }
