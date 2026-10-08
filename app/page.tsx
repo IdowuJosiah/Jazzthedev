@@ -173,7 +173,7 @@ export default function Home() {
                       </p>
                   </div>
                   <div className="hero-third-line">
-                      I&apos;m a frontend developer based in Italy, I&apos;ll help you build beautiful websites your users will love.
+                      I&apos;m a frontend developer based in Lagos, I&apos;ll help you build beautiful websites your users will love.
                   </div>
                   <div className="hero-fourth-line">
                       <Link href="/contact" className="git">
