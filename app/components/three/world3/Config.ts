@@ -367,7 +367,7 @@ export const CONFIG = {
         blob: {
             color: PALETTE.blobShadow,
             textureSize: 128,
-            car: { width: 2.6, length: 4.6, opacity: 0.35, danfoOpacity: 0.45, liftFade: 3 },
+            car: { width: 2.5, length: 5.6, opacity: 0.35, danfoOpacity: 0.45, liftFade: 3 },
             /** Ball and dynamic letters. */
             round: { opacity: 0.3 },
             /** Low profiles: instanced blob under every static prop. */
@@ -434,11 +434,12 @@ export const CONFIG = {
         suspensionDamping: 3.2,
         suspensionTravel: 0.35,
         wheelRadius: 0.42,
-        chassisHalf: { x: 1.0, y: 0.35, z: 1.9 },
+        /** 1.9 × 4.8: the real Cybertruck's long, narrow footprint (owner decision). */
+        chassisHalf: { x: 0.95, y: 0.35, z: 2.4 },
         /** Chassis rigid body / collider (v2 Physics.createVehicle). */
         chassis: { linearDamping: 0.12, angularDamping: 0.6, friction: 0.8, restitution: 0.1 },
         /** Wheel connection points in chassis space: y offset, and inset from the chassis ends along z. */
-        wheelConnection: { y: -0.05, insetZ: 0.5 },
+        wheelConnection: { y: -0.05, insetZ: 0.85 },
         handling: {
             /** Engine output → Rapier engine force. */
             engineForceScale: 60,

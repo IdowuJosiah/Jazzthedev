@@ -26,9 +26,11 @@ import type { Disposal } from "../utils/disposal";
 // chassis' length and width, and the wheels sit on the physics wheel
 // connection points (x = ±chassisHalf.x, z = ±(chassisHalf.z − insetZ)) at the
 // physics radius. Heights are measured from the ground at rest (`groundY`).
-// The real truck is 5.9 : 2.2 : 1.8 (L : W : H); the physics chassis is 3.8
-// long and 2.0 wide with 0.84-diameter wheels, so the height (1.55) follows the
-// wheels and the real height/width ratio, giving a chunky "toy" Cybertruck.
+// The real truck is 5.7 : 2.0 : 1.8 (L : W : H, no mirrors); the physics
+// chassis is 4.8 long and 1.9 wide with 0.84-diameter wheels, so the height
+// (1.7) follows the wheels and the real height/width ratio. Like the real
+// truck, the apex sits ~42 % back from the nose and the long rear line falls
+// gently to a tailgate well above the beltline.
 // ─────────────────────────────────────────────────────────────────────────
 
 const V = CONFIG.vehicle;
@@ -60,13 +62,13 @@ export const TRUCK_SHAPE = Object.freeze({
     /** Nose top = beltline crease: above the tyre tops so the flares fit below it. */
     belt: 0.98,
     /** Roof apex height, and its z (+ = forward of mid-length). */
-    apex: 1.55,
-    apexZ: 0.12,
-    /** Tailgate top height (a little above the nose, like the real truck). */
-    tail: 1.04,
+    apex: 1.7,
+    apexZ: 0.16,
+    /** Tailgate top height (well above the nose, like the real truck's vault). */
+    tail: 1.24,
     /** Front face bottom, and the lower front chamfer's depth along z. */
     noseLow: 0.62,
-    frontChamfer: 0.14,
+    frontChamfer: 0.2,
     /** Tailgate bottom, and the lower rear chamfer's depth along z. */
     tailLow: 0.52,
     rearChamfer: 0.08,
