@@ -43,10 +43,10 @@ export const LAMP_OFFSETS: Readonly<Partial<Record<AreaId, XZ>>> = Object.freeze
     hub: { x: -6, z: -3 },
     /** East of the spawn lane, level with the hero word. */
     welcome: { x: 5, z: -3 },
-    /** North of P2, at the gallery's mouth. */
-    projects: { x: 2, z: -5 },
-    /** West of P4, beside the JOURNEY title. */
-    journey: { x: -6, z: 2 },
+    /** South of P2, at the gallery's mouth (north of it stands the PROJECTS title). */
+    projects: { x: 2, z: 5 },
+    /** East of P4's end, clear of the JOURNEY title (west). */
+    journey: { x: 6, z: 3 },
     /** North of P6, at the Eko arrival. */
     eko: { x: 2, z: -5 },
     /** North of P5, at the Music arrival. */

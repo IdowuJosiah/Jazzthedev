@@ -848,6 +848,14 @@ export class Experience {
     private async maybeDebug() {
         const w = this.w;
         if (!w || !new URLSearchParams(window.location.search).has("debug")) return;
+        // QA hook (?debug only): place the car anywhere, e.g. __world3.teleport(44, -64, Math.PI).
+        (window as unknown as { __world3?: { teleport(x: number, z: number, yaw?: number): void } }).__world3 = {
+            teleport: (x, z, yaw = 0) => {
+                w.vehicle.teleport(x, z, yaw);
+                w.camera.snapTo(x, z);
+            },
+        };
+        this.own(() => delete (window as unknown as { __world3?: unknown }).__world3);
         const { Debug } = await import("./Debug");
         if (this.disposed || !this.w) return;
         this.debug = new Debug({

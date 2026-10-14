@@ -522,3 +522,31 @@ controls; mobile is not polished now.
   shadow pass, against the 180 budget. Troika texts built in total: 10
   (Welcome 4, Hub 4, P5 / P6 labels 2). This is still to be confirmed with
   `renderer.info` in `?debug` in a focused browser.
+
+## Owner gate decisions
+
+- **Look: switches between day and night.** `DayNight.ts` follows the visitor's local clock by
+  default (day 06:00–18:30), with a HUD sun/moon button and a Settings "Time of day: Auto / Day /
+  Night" choice, persisted in localStorage; `?time=day|night` overrides it for a visit. The switch
+  eases over 2.5 s (instant under reduced motion). Night stays crisp: no bloom, no emissive glow,
+  no post-processing — lights, fog, water and the ground/plaza albedos blend to `LOOK.night`,
+  ground text swaps ink → paper (text on paper plates stays ink), eight warm lamp posts light up
+  (PointLights only at night; none on the low profiles) and the truck's headlight fades in.
+  Night programs are prewarmed during the warm-up render. Board screenshots stay unlit (bright)
+  at night on purpose: they read as lit screens, and the paper frames around them dim.
+- **Car: a red Tesla-Cybertruck-style truck.** Procedural (`models/Cybertruck.ts`), faceted,
+  no logos or brand text; `car.glb` is no longer loaded or required.
+- **Scenery: Kenney kit** (as built in Wave 2a).
+- **World name: "Jazz's World"** (`meta.worldName`, the Start card kicker).
+
+## Wave 2b integration
+
+- Every area module is registered (`areas/index.ts`); the interim markers no longer draw.
+- Experience builds lamps → coins → DayNight after the scenery; coins update only while
+  running and report to the store (`storeCollector`: glossary + toast).
+- PROJECTS title moved to (29, −66): at (29, −78) board 0 hid its right half from the gallery
+  camera. The Projects and Journey lamps moved clear of their titles.
+- The HUD wordmark turns paper at night (`.w3-root.is-night`).
+- `?debug` adds `window.__world3.teleport(x, z, yaw)` for QA screenshots.
+- Work method change (owner, 2026-10-14): usage limits kept killing parallel agent runs, so the
+  rest of the build is done sequentially in one session with a local checkpoint commit per step.

@@ -276,7 +276,11 @@ export interface AboutContent {
     bioShort: string;
     /** Portrait image on the About board. */
     portrait: string;
-    /** Optional avatar model; when the file is absent the portrait board is used. */
+    /**
+     * Optional avatar model (spec §8.3). Unset until the file exists in
+     * public/assets/models (e.g. "/assets/models/avatar.glb"), so no visit
+     * requests a guaranteed 404; without it the portrait board is used.
+     */
     avatarModel?: string;
 }
 
@@ -284,7 +288,6 @@ export const about: AboutContent = {
     bio: "I build digital products from both sides of the table: the frontend details users feel immediately, and the product decisions that keep teams moving with clarity. I grew from frontend developer to operations officer at SphiderAssWeb, shipped 30+ sites as a freelancer, led Eko as product manager, and today lead product and frontend for Health Connect.",
     bioShort: "Frontend developer and product lead. I build the details users feel and the decisions behind them.",
     portrait: "/assets/boards/profile.webp",
-    avatarModel: "/assets/models/avatar.glb",
 };
 
 export interface ContactLink {

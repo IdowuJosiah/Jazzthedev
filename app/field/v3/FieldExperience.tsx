@@ -140,7 +140,12 @@ export default function FieldExperience() {
     const onCloseMenu = useCallback(() => store.commands.closeMenu(), [store]);
     const onKeepWaiting = useCallback(() => store.set({ failReason: undefined }), [store]);
 
-    const rootClass = ["w3-root", isTouch ? "is-touch" : "", state.reducedMotion ? "is-reduced-motion" : ""]
+    const rootClass = [
+        "w3-root",
+        isTouch ? "is-touch" : "",
+        state.reducedMotion ? "is-reduced-motion" : "",
+        state.effectiveTime === "night" ? "is-night" : "",
+    ]
         .filter(Boolean)
         .join(" ");
 
