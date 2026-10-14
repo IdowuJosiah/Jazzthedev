@@ -7,11 +7,15 @@ import type { MaterialsApi, PhysicsApi } from "./types";
 import { Disposal } from "./utils/disposal";
 import { angleDelta } from "./utils/math";
 import { LAYERS } from "./utils/shapes";
+import { TRUCK_COLORS, WHEEL_NAMES } from "./models/Cybertruck";
 import {
     blobOpacity,
     driveCommand,
     FlipTimer,
+    HEADLIGHT,
+    headlightIntensity,
     NEUTRAL_INPUT,
+    rearBarColor,
     REST_HEIGHT,
     upY,
     Vehicle,
@@ -51,9 +55,10 @@ function makeWorld() {
     return { world, physics, snaps };
 }
 
-function makeVehicle(model: THREE.Object3D | null = null, spawn = { x: 0, z: 0, yaw: 0 }) {
+function makeVehicle(spawn = { x: 0, z: 0, yaw: 0 }) {
     const w = makeWorld();
-    const vehicle = new Vehicle({ physics: w.physics, materials, disposal: new Disposal(), model }, spawn);
+    const disposal = new Disposal();
+    const vehicle = new Vehicle({ physics: w.physics, materials, disposal }, spawn);
     const run = (steps: number, input: VehicleInput = NEUTRAL_INPUT) => {
         for (let i = 0; i < steps; i++) {
             vehicle.control(H, input);
@@ -62,32 +67,10 @@ function makeVehicle(model: THREE.Object3D | null = null, spawn = { x: 0, z: 0, 
             vehicle.syncVisual(H);
         }
     };
-    return { ...w, vehicle, run };
+    return { ...w, vehicle, run, disposal };
 }
 
-/** A stand-in for the Kenney car: a body box and four named wheel meshes (front at +Z, left at +X). */
-function fakeCarModel(): THREE.Object3D {
-    const root = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 2.66), new THREE.MeshLambertMaterial());
-    body.name = "body";
-    body.position.y = 0.5;
-    body.castShadow = true;
-    root.add(body);
-    const spots: [string, number, number][] = [
-        ["wheel-front-left", 0.3, 0.59],
-        ["wheel-front-right", -0.3, 0.59],
-        ["wheel-back-left", 0.3, -0.93],
-        ["wheel-back-right", -0.3, -0.93],
-    ];
-    for (const [name, x, z] of spots) {
-        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.3), new THREE.MeshLambertMaterial());
-        w.name = name;
-        w.position.set(x, 0.3, z);
-        w.castShadow = true;
-        root.add(w);
-    }
-    return root;
-}
+const hexOf = (m: THREE.Mesh) => "#" + (m.material as THREE.MeshBasicMaterial).color.getHexString().toUpperCase();
 
 const throttle = (t: number, extra: Partial<VehicleInput> = {}): VehicleInput => ({ ...NEUTRAL_INPUT, throttle: t, ...extra });
 
@@ -131,6 +114,22 @@ describe("driveCommand (pure brake / drive logic, §4.2 fix 4)", () => {
         expect(boosted.engineForce).toBeGreaterThan(0);
         expect(boosted.boosting).toBe(true);
         expect(driveCommand(throttle(0, { boost: true }), 0).boosting).toBe(false);
+    });
+
+    it("rear bar colour: dim tail light, bright brake red, warm-white reverse", () => {
+        expect(rearBarColor("off")).toBe(TRUCK_COLORS.rearDim);
+        expect(rearBarColor("brake")).toBe(PALETTE.brake);
+        expect(rearBarColor("reverse")).toBe(PALETTE.carLight);
+        expect(TRUCK_COLORS.rearDim).toBe("#8E1F17");
+    });
+
+    it("headlight intensity: 0 by day, full at night, linear between, clamped", () => {
+        expect(headlightIntensity(0)).toBe(0);
+        expect(headlightIntensity(1)).toBe(HEADLIGHT.intensity);
+        expect(headlightIntensity(0.5)).toBeCloseTo(HEADLIGHT.intensity / 2, 9);
+        expect(headlightIntensity(-1)).toBe(0);
+        expect(headlightIntensity(3)).toBe(HEADLIGHT.intensity);
+        expect(headlightIntensity(Number.NaN)).toBe(0);
     });
 
     it("handbrake brakes the rears harder and drops their grip", () => {
@@ -200,17 +199,37 @@ describe("Vehicle on Rapier", () => {
         expect(vehicle.rearGrounded).toBe(true);
     });
 
-    it("drives nose-first: throttle moves it along its +Z forward with positive speed", () => {
-        const { vehicle, run } = makeVehicle(fakeCarModel());
+    it("drives nose-first: throttle moves it along its +Z forward (the light-bar nose) with positive speed", () => {
+        const { vehicle, run } = makeVehicle();
         run(30);
         run(90, throttle(1));
         expect(vehicle.speed).toBeGreaterThan(3);
         expect(vehicle.body.linvel().z).toBeGreaterThan(3);
         expect(vehicle.light).toBe("off");
+        // The nose (front light bar) is at +Z: ahead of the chassis in the direction of travel.
+        const nose = vehicle.truck.frontBar.getWorldPosition(new THREE.Vector3());
+        const tail = vehicle.truck.rearBar.getWorldPosition(new THREE.Vector3());
+        expect(nose.z).toBeGreaterThan(vehicle.position.z);
+        expect(tail.z).toBeLessThan(vehicle.position.z);
+    });
+
+    it("visual wheels sit on the physics wheels at rest (connection point − suspension length)", () => {
+        const { vehicle, run } = makeVehicle();
+        run(180);
+        const c = vehicle.controller;
+        WHEEL_NAMES.forEach((name, i) => {
+            const w = vehicle.chassis.getObjectByName(name)!;
+            const p = c.wheelChassisConnectionPointCs(i)!;
+            const len = c.wheelSuspensionLength(i)!;
+            expect(w.position.x).toBeCloseTo(p.x, 6);
+            expect(w.position.z).toBeCloseTo(p.z, 6);
+            expect(Math.abs(w.position.y - (p.y - len))).toBeLessThan(0.03);
+            expect(c.wheelRadius(i)).toBeCloseTo(V.wheelRadius, 6);
+        });
     });
 
     it("reverses with negative speed, the reverse light and backward wheel spin", () => {
-        const { vehicle, run } = makeVehicle(fakeCarModel());
+        const { vehicle, run } = makeVehicle();
         run(30);
         run(90, throttle(-1));
         expect(vehicle.speed).toBeLessThan(-1);
@@ -221,7 +240,7 @@ describe("Vehicle on Rapier", () => {
         run(1, throttle(-1));
         expect(angleDelta(before, wheel.rotation.x)).toBeLessThan(0);
         // …and forward spin is positive.
-        const fwd = makeVehicle(fakeCarModel());
+        const fwd = makeVehicle();
         fwd.run(30);
         fwd.run(60, throttle(1));
         const w2 = fwd.vehicle.chassis.getObjectByName("wheel-back-left")!;
@@ -239,7 +258,7 @@ describe("Vehicle on Rapier", () => {
     });
 
     it("steers the front wheels only, about Y first (YXZ, no wobble), and turns right on +steer", () => {
-        const { vehicle, run } = makeVehicle(fakeCarModel());
+        const { vehicle, run } = makeVehicle();
         run(30);
         run(60, throttle(1));
         run(60, throttle(1, { steer: 1 }));
@@ -254,7 +273,7 @@ describe("Vehicle on Rapier", () => {
     });
 
     it("never casts a real shadow; the blob follows x/z/yaw at y 0.10", () => {
-        const { vehicle, run } = makeVehicle(fakeCarModel(), { x: 5, z: -7, yaw: 0.8 });
+        const { vehicle, run } = makeVehicle({ x: 5, z: -7, yaw: 0.8 });
         run(60);
         vehicle.chassis.traverse((o) => {
             if ((o as THREE.Mesh).isMesh) expect(o.castShadow).toBe(false);
@@ -265,43 +284,89 @@ describe("Vehicle on Rapier", () => {
         expect(angleDelta(vehicle.blob.rotation.y, 0.8)).toBeCloseTo(0, 2);
         expect((vehicle.blob.material as THREE.MeshBasicMaterial).opacity).toBeCloseTo(CONFIG.shadow.blob.car.opacity, 2);
         expect(vehicle.blob.castShadow).toBe(false);
+        expect(vehicle.headlight.castShadow).toBe(false);
     });
 
-    it("uses the GLB without flipping it, and falls back to a procedural body", () => {
-        const model = fakeCarModel();
-        const a = makeVehicle(model).vehicle;
-        expect(model.rotation.y).toBe(0);
-        expect(a.chassis.getObjectByName("car-model")).toBeTruthy();
-        const b = makeVehicle(null).vehicle;
-        expect(b.chassis.getObjectByName("car-model")).toBeUndefined();
-        let meshes = 0;
-        b.chassis.traverse((o) => {
-            if ((o as THREE.Mesh).isMesh) meshes++;
-        });
-        expect(meshes).toBeGreaterThan(4);
-        const noWheels = new THREE.Group();
-        noWheels.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 2)));
-        expect(makeVehicle(noWheels).vehicle.chassis.getObjectByName("car-model")).toBeUndefined();
+    it("builds the procedural Cybertruck (any legacy model dep is ignored)", () => {
+        const w = makeWorld();
+        const legacy = new THREE.Group();
+        legacy.name = "car-model";
+        const vehicle = new Vehicle({ physics: w.physics, materials, disposal: new Disposal(), model: legacy });
+        expect(vehicle.chassis.getObjectByName("cybertruck")).toBe(vehicle.truck.root);
+        expect(vehicle.chassis.getObjectByName("car-model")).toBeUndefined();
+        expect(hexOf(vehicle.truck.body)).toBe(TRUCK_COLORS.body.toUpperCase());
+        for (const name of WHEEL_NAMES) expect(vehicle.chassis.getObjectByName(name)).toBeTruthy();
     });
 
-    it("brake lamps sit on ink backings at the rear and switch material", () => {
-        const { vehicle, run } = makeVehicle(fakeCarModel());
-        const lamps: THREE.Mesh[] = [];
-        vehicle.chassis.traverse((o) => {
-            const m = o as THREE.Mesh;
-            if (m.isMesh && m.material instanceof THREE.MeshBasicMaterial) lamps.push(m);
-        });
-        expect(lamps).toHaveLength(2);
-        for (const l of lamps) expect(l.position.z).toBeLessThan(-V.chassisHalf.z * 0.9);
+    it("rear light bar: dim by default, bright red braking, warm white reversing", () => {
+        const { vehicle, run } = makeVehicle();
+        const bar = vehicle.truck.rearBar;
         run(30);
-        expect(lamps.every((l) => !l.visible)).toBe(true);
+        expect(vehicle.light).toBe("off");
+        expect(bar.visible).toBe(true);
+        expect(hexOf(bar)).toBe(TRUCK_COLORS.rearDim.toUpperCase());
         run(5, throttle(0, { handbrake: true }));
-        expect(lamps.every((l) => l.visible)).toBe(true);
-        expect((lamps[0].material as THREE.MeshBasicMaterial).color.getHexString()).toBe(PALETTE.brake.slice(1).toLowerCase());
+        expect(vehicle.light).toBe("brake");
+        expect(hexOf(bar)).toBe(PALETTE.brake.toUpperCase());
+        run(5);
+        run(90, throttle(-1));
+        expect(vehicle.light).toBe("reverse");
+        expect(hexOf(bar)).toBe(PALETTE.carLight.toUpperCase());
+        run(1, throttle(0));
+        expect(hexOf(bar)).toBe(TRUCK_COLORS.rearDim.toUpperCase());
+    });
+
+    it("headlight: a shadowless SpotLight off and hidden by day, full at night, aimed ahead of the nose", () => {
+        const { vehicle, run } = makeVehicle({ x: 3, z: 4, yaw: 0 });
+        const h = vehicle.headlight;
+        expect(h).toBeInstanceOf(THREE.SpotLight);
+        expect(h.parent).toBe(vehicle.chassis);
+        expect(h.target.parent).toBe(vehicle.chassis);
+        expect(h.castShadow).toBe(false);
+        expect(h.angle).toBe(HEADLIGHT.angle);
+        expect(h.penumbra).toBe(HEADLIGHT.penumbra);
+        expect(h.distance).toBe(HEADLIGHT.distance);
+        expect("#" + h.color.getHexString().toUpperCase()).toBe(HEADLIGHT.color.toUpperCase());
+        // Day by default.
+        expect(h.intensity).toBe(0);
+        expect(h.visible).toBe(false);
+        vehicle.setNightFactor(1);
+        expect(h.intensity).toBe(HEADLIGHT.intensity);
+        expect(h.visible).toBe(true);
+        expect(vehicle.nightFactor).toBe(1);
+        vehicle.setNightFactor(0.25);
+        expect(h.intensity).toBeCloseTo(HEADLIGHT.intensity * 0.25, 9);
+        expect(h.visible).toBe(true);
+        vehicle.setNightFactor(0);
+        expect(h.intensity).toBe(0);
+        expect(h.visible).toBe(false);
+        vehicle.setNightFactor(2);
+        expect(vehicle.nightFactor).toBe(1);
+        // From the front light bar, pointing forward and down to the ground ahead.
+        run(30);
+        vehicle.chassis.updateMatrixWorld(true);
+        const from = h.getWorldPosition(new THREE.Vector3());
+        const to = h.target.getWorldPosition(new THREE.Vector3());
+        expect(from.distanceTo(vehicle.truck.frontBar.getWorldPosition(new THREE.Vector3()))).toBeLessThan(0.05);
+        expect(to.z).toBeGreaterThan(from.z + HEADLIGHT.ahead * 0.9);
+        expect(to.y).toBeLessThan(from.y);
+        expect(to.y).toBeCloseTo(0, 1);
+    });
+
+    it("dispose removes the root and frees the truck geometries", () => {
+        const { vehicle, disposal } = makeVehicle();
+        const scene = new THREE.Scene();
+        scene.add(vehicle.root);
+        let freed = false;
+        vehicle.truck.body.geometry.addEventListener("dispose", () => (freed = true));
+        vehicle.dispose();
+        expect(vehicle.root.parent).toBeNull();
+        disposal.dispose();
+        expect(freed).toBe(true);
     });
 
     it("auto-flips after 1.5 s upside down: yaw kept, lifted 1.5, snapped", () => {
-        const { vehicle, snaps } = makeVehicle(null, { x: 0, z: 0, yaw: 0.6 });
+        const { vehicle, snaps } = makeVehicle({ x: 0, z: 0, yaw: 0.6 });
         const q = new THREE.Quaternion()
             .setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.6)
             .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI));

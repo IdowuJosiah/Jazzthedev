@@ -11,7 +11,8 @@ import { CONFIG, PALETTE } from "../Config";
 //           f = fract(d·0.35 − t·0.25)
 //           line = smoothstep(0.93 − fw, 0.93 + fw, f) · (1 − smoothstep(4, 16, d))
 //
-// No waves, no normal map. Every number comes from CONFIG.world.water.
+// No waves, no normal map. Every number comes from CONFIG.world.water; the four
+// colours start at the palette and follow the day / night blend (setColors).
 // ─────────────────────────────────────────────────────────────────────────
 
 const W = CONFIG.world.water;
@@ -28,10 +29,20 @@ export interface WaterUniforms {
     uWaterFoam: THREE.IUniform<THREE.Color>;
 }
 
+/** Linear colours for the four water uniforms (copied, never kept). */
+export interface WaterColors {
+    shallow: THREE.Color;
+    mid: THREE.Color;
+    deep: THREE.Color;
+    foam: THREE.Color;
+}
+
 export interface WaterPatch {
     readonly uniforms: WaterUniforms;
     /** Seconds; drives the contour-line drift. */
     setTime(t: number): void;
+    /** Day / night blend (DayNight via Environment.setLook): copies the colours into the uniforms. */
+    setColors(colors: WaterColors): void;
 }
 
 /** A GLSL float literal (always carries a decimal point). */
@@ -127,6 +138,12 @@ export function patchWaterMaterial(material: THREE.MeshBasicMaterial, shoreZ: nu
         uniforms,
         setTime(t: number) {
             uniforms.uWaterTime.value = t;
+        },
+        setColors(c: WaterColors) {
+            uniforms.uWaterShallow.value.copy(c.shallow);
+            uniforms.uWaterMid.value.copy(c.mid);
+            uniforms.uWaterDeep.value.copy(c.deep);
+            uniforms.uWaterFoam.value.copy(c.foam);
         },
     };
 }

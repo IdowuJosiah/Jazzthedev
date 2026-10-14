@@ -21,8 +21,10 @@ import type { AreaContext, AreaHandle, PadDef, RuntimeInfo, TextHandle, Word3D }
 //   If Assets provides `avatar.glb` (model("avatar") is non-null), the figure
 //   replaces the board automatically (§8.3): scaled to AVATAR.height, feet on
 //   the ground, faceCamera, a fixed cylinder collider. Its optional `Idle` clip
-//   loops and `Wave` plays once each time the car comes within AVATAR.waveDistance;
-//   both stay still under reduced motion (read live from the runtime).
+//   loops and `Wave` plays once each time the car comes within AVATAR.waveDistance,
+//   cross-faded both ways (a finished wave is clamped on its last frame, so the
+//   bind pose never shows); both stay still under reduced motion (read live
+//   from the runtime).
 // - Plaza plate over the rect (the bio sits "on the plaza", §2.4).
 // - Bio: `about.bioShort` flat on the plaza, Inter Medium 0.85, ink, maxWidth
 //   16, lineHeight 1.35 (≤ 3 lines; the full bio lives in the panel).
@@ -115,7 +117,9 @@ export function build(ctx: AreaContext): AboutHandle {
 
     // Frees everything built so far: on dispose, and when a later step throws
     // (Areas then only detaches the group, so nothing else would free these).
-    // The avatar clone shares Assets' geometry and materials: never disposed here.
+    // The avatar clone shares Assets' geometry and materials: never disposed
+    // here. Its skeletons are the clone's own (SkeletonUtils.clone rebinds each
+    // skinned mesh to new bones), so their bone textures are freed.
     const release = () => {
         released = true;
         for (const off of unregister) off();
@@ -127,6 +131,7 @@ export function build(ctx: AreaContext): AboutHandle {
             mixer.uncacheRoot(avatar);
         }
         mixer = null;
+        avatar?.traverse((o) => (o as THREE.SkinnedMesh).skeleton?.dispose());
         avatar = null;
         title?.dispose?.(); // Text3DSystem words carry dispose() (removes their bodies)
         title = null;
@@ -206,7 +211,20 @@ export function build(ctx: AreaContext): AboutHandle {
                 const m = new THREE.AnimationMixer(fig);
                 mixer = m;
                 if (idleClip) idleAction = m.clipAction(idleClip).play();
-                if (waveClip) waveAction = m.clipAction(waveClip).setLoop(THREE.LoopOnce, 1);
+                if (waveClip) {
+                    const w = m.clipAction(waveClip).setLoop(THREE.LoopOnce, 1);
+                    // A finished wave holds its last frame (still enabled, weight
+                    // intact) until it cross-fades out, so the blend never dips
+                    // toward the bind pose.
+                    w.clampWhenFinished = true;
+                    // Without an Idle clip the figure rests on Wave's first frame.
+                    if (!idleClip) w.play().paused = true;
+                    waveAction = w;
+                }
+                // Pose the figure on its rest frame now: under reduced motion the
+                // mixer never advances, and a rig's bind pose (often a T-pose)
+                // must never be what shows.
+                m.update(0);
             }
         } else {
             portrait = new THREE.Group();
@@ -267,7 +285,7 @@ export function build(ctx: AreaContext): AboutHandle {
                 ctx.physics.addFixedCuboid({ x: F.w / 2, y: totalH / 2, z: F.d / 2 }, { x: P.x, y: totalH / 2, z: P.z }, faceCamera);
         }
 
-        // ── Bio (flat, on the plaza) ─────────────────────────────────────
+        // ── Bio (flat, on the plaza; ground-text layer) ──────────────────
         const B = A.bio;
         const bio = text.flat({
             text: about.bioShort,
@@ -353,9 +371,19 @@ export function build(ctx: AreaContext): AboutHandle {
         const anim: THREE.AnimationMixer | null = mixer;
         const idleA = idleAction;
         const waveA = waveAction;
+        // Every hand-off is a cross-fade whose weights sum to 1: any shortfall
+        // would blend in the rig's bind pose (PropertyMixer fills the missing
+        // weight with the original state).
         const onFinished = (e: { action: THREE.AnimationAction }) => {
-            if (e.action !== waveA || !idleA) return;
-            idleA.reset().fadeIn(AVATAR.fade).play();
+            if (e.action !== waveA || !idleA) return; // no Idle: the clamped wave holds its last frame
+            idleA.reset().play();
+            waveA.crossFadeTo(idleA, AVATAR.fade, false);
+        };
+        const startWave = (wave: THREE.AnimationAction) => {
+            wave.reset().play(); // full weight, frame 0
+            // Fade from Idle only while it carries weight; otherwise the wave
+            // (restarted mid-cycle) already stands at full weight on its own.
+            if (idleA && idleA.enabled && idleA.getEffectiveWeight() > 0) idleA.crossFadeTo(wave, AVATAR.fade, false);
         };
         if (anim) anim.addEventListener("finished", onFinished);
         let near = false;
@@ -379,10 +407,7 @@ export function build(ctx: AreaContext): AboutHandle {
                 near = nowNear;
                 // Reduced motion: the figure holds its pose (no idle sway, no wave).
                 if (rt.reducedMotion) return;
-                if (entered && waveA) {
-                    idleA?.fadeOut(AVATAR.fade);
-                    waveA.reset().fadeIn(AVATAR.fade).play();
-                }
+                if (entered && waveA) startWave(waveA);
                 anim.update(dt);
             },
             dispose() {

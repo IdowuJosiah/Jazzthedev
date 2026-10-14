@@ -74,6 +74,8 @@ export const PALETTE = {
     imagePlaceholder: "#E9DCCB",
     /** Tyre dust puffs (W1-E, P1). */
     tyreDust: "#EFD9BC",
+    /** Red Tesla-Cybertruck-style truck body (owner decision; models/Cybertruck.ts). */
+    cyberRed: "#D23B2E",
 } as const satisfies Record<string, HexColor>;
 
 export type PaletteToken = keyof typeof PALETTE;
@@ -105,21 +107,45 @@ export const ACCENT_INK: Readonly<Record<AccentKey, HexColor>> = Object.freeze({
 });
 
 // ── Look presets (§1.7) ──────────────────────────────────────────────────
-export type LookId = "day" | "dusk";
+export type LookId = "day" | "dusk" | "night";
+
+/** Lagoon colours (unlit; shaders/water.ts). */
+export interface WaterLook {
+    shallow: HexColor;
+    mid: HexColor;
+    deep: HexColor;
+    foam: HexColor;
+}
 
 export interface LookPreset {
     /** scene.background, fog colour, renderer clear colour, loader background. */
     background: HexColor;
     hemisphere: { sky: HexColor; ground: HexColor; intensity: number };
+    /** The single shadow caster along CONFIG.lights.sunDirection (the moon at night). */
     sun: { color: HexColor; intensity: number };
     fill: { color: HexColor; intensity: number };
+    water: WaterLook;
+    /**
+     * Albedos of the surfaces ground text sits on. Day and dusk share the
+     * palette (§1.7); night darkens them so the paper-coloured night text and
+     * the paper plates read (DayNight remaps the shared palette materials).
+     */
+    albedo: { ground: HexColor; plaza: HexColor };
     /**
      * Debug-probe acceptance band for a sun-lit `paper` top, in LINEAR units.
      * `perChannel: true` → every channel must sit inside [min, max] (day).
-     * `perChannel: false` → only the highest channel is checked (dusk).
+     * `perChannel: false` → only the highest channel is checked (dusk, night).
      */
     probe: { min: number; max: number; perChannel: boolean };
 }
+
+const PALETTE_WATER: WaterLook = {
+    shallow: PALETTE.waterShallow,
+    mid: PALETTE.water,
+    deep: PALETTE.waterDeep,
+    foam: PALETTE.foam,
+};
+const PALETTE_ALBEDO = { ground: PALETTE.ground, plaza: PALETTE.plaza } as const;
 
 export const LOOK: Readonly<Record<LookId, LookPreset>> = Object.freeze({
     day: {
@@ -127,6 +153,8 @@ export const LOOK: Readonly<Record<LookId, LookPreset>> = Object.freeze({
         hemisphere: { sky: "#EEF2FF", ground: "#F5DCC4", intensity: 1.7 },
         sun: { color: "#FFF5EB", intensity: 1.2 },
         fill: { color: "#FFFFFF", intensity: 1.0 },
+        water: PALETTE_WATER,
+        albedo: PALETTE_ALBEDO,
         probe: { min: 0.88, max: 0.96, perChannel: true },
     },
     dusk: {
@@ -134,12 +162,51 @@ export const LOOK: Readonly<Record<LookId, LookPreset>> = Object.freeze({
         hemisphere: { sky: "#D9D3F5", ground: "#F2C29C", intensity: 1.45 },
         sun: { color: "#FFC08A", intensity: 1.5 },
         fill: { color: "#FFE4D0", intensity: 0.8 },
+        water: PALETTE_WATER,
+        albedo: PALETTE_ALBEDO,
         probe: { min: 0.8, max: 0.9, perChannel: false },
+    },
+    /**
+     * Night (owner: the world switches between day and night). Same pipeline as
+     * day: no emissives, no bloom, NoToneMapping. The cool moon is the `sun`
+     * light (same direction, so the shadow box maths is unchanged); the camera
+     * fill is raised so upright paper faces keep ink at ≥ 7:1.
+     *
+     * Calibrated with the §1.4 Lambert maths (see the CONFIG.lights comment):
+     *   paper top  #C0C7E3 (linear 0.528 / 0.570 / 0.770)  ink 9.4:1
+     *   paper top in moon shadow #ABB2CB                    ink 7.4:1
+     *   upright paper face (toward the camera) #AAB1CB      ink 7.4:1
+     *   ground (albedo #61626C) #474B62, in shadow #3E4257   night text #F3EEE6 7.4:1 / 8.5:1
+     *   plaza  (albedo #6A6C77) #4E536C, in shadow #444A60   night text 6.5:1 / 7.6:1
+     *   path tile #BDBAC9                                    ink 8.3:1
+     * The light colours are desaturated from the brief's (#6C7BB8 / #B9C7FF /
+     * #8090C0): with those, no intensity mix keeps ink on a moon-shadowed or
+     * upright paper face at 7:1.
+     */
+    night: {
+        background: "#1B2236",
+        hemisphere: { sky: "#B4BCDC", ground: "#2A2F45", intensity: 1.4 },
+        sun: { color: "#D6DCFF", intensity: 0.8 },
+        fill: { color: "#B8C2E2", intensity: 2.1 },
+        water: { shallow: "#4A7C86", mid: "#2C5670", deep: "#1E3B57", foam: "#B9C9D6" },
+        albedo: { ground: "#61626C", plaza: "#6A6C77" },
+        probe: { min: 0.72, max: 0.82, perChannel: false },
     },
 });
 
-/** The active look. Owner gate (§10): switching looks changes only this value. */
+/** The active (daytime) look. Owner gate (§10): switching looks changes only this value. */
 export const ACTIVE_LOOK: LookId = "day";
+
+// ── Day / night (owner: the world switches between day and night) ────────
+/** "auto" follows the visitor's local clock (CONFIG.dayNight.autoWindow). */
+export type TimeMode = "auto" | "day" | "night";
+export type EffectiveTime = "day" | "night";
+
+/** Clock time of day (local). */
+export interface ClockTime {
+    readonly h: number;
+    readonly m: number;
+}
 
 // ── Render profiles (§9.1) ───────────────────────────────────────────────
 export type RenderProfileId = "desktop-high" | "desktop-medium" | "desktop-low" | "mobile" | "mobile-low";
@@ -158,6 +225,35 @@ export interface RenderProfileSpec {
 // ── Quality / adaptive (§9.3) ────────────────────────────────────────────
 /** Menu Quality setting: affects shadows and scenery only, never DPR/MSAA. */
 export type QualitySetting = "auto" | "high" | "medium" | "low";
+
+// ── Pads (§5.3); hoisted so CONFIG.dayNight can name the pad materials ──
+const PAD = {
+    lineWidth: 0.22,
+    activeLineWidth: 0.32,
+    cornerRadius: 0.6,
+    curveSegments: 6,
+    idleOpacity: 0.35,
+    activeOpacity: 1,
+    fillOpacity: 0.55,
+} as const;
+
+/**
+ * Night colours of 3D-word and ground-text accents (CONFIG.dayNight.text):
+ * light tints of each ACCENT_INK hue, ≥ 4.6:1 on the lit night plaza
+ * (#4E536C) and ≥ 5.2:1 on the lit night ground (#474B62).
+ */
+const NIGHT_ACCENT = {
+    brand: "#FFB9AB",
+    projects: "#B4CAFF",
+    eko: "#C9C4FF",
+    music: "#FFB6D5",
+    journey: "#84DECA",
+} as const satisfies Partial<Record<AccentKey, HexColor>>;
+
+/** Night ink on the ground / plaza (paper #F3EEE6: 7.4:1 on the ground, 6.5:1 on the plaza). */
+const NIGHT_INK: HexColor = "#F3EEE6";
+/** Night ink2 (6.0:1 on the ground, 5.3:1 on the plaza). */
+const NIGHT_INK2: HexColor = "#DCD7CF";
 
 // ── The config tree ──────────────────────────────────────────────────────
 export const CONFIG = {
@@ -461,15 +557,7 @@ export const CONFIG = {
     },
 
     /** Pads (§5.3). */
-    pad: {
-        lineWidth: 0.22,
-        activeLineWidth: 0.32,
-        cornerRadius: 0.6,
-        curveSegments: 6,
-        idleOpacity: 0.35,
-        activeOpacity: 1,
-        fillOpacity: 0.55,
-    },
+    pad: PAD,
 
     /** Scenery scatter (§2.6). Counts per scenery tier; extras go in the bands. */
     scenery: {
@@ -582,6 +670,114 @@ export const CONFIG = {
         /** Attempts after the first failure for a required asset (car.glb, Rapier). */
         retries: 1,
         canvasFadeMs: 400,
+    },
+
+    /**
+     * Day / night switching (DayNight.ts). Blends LOOK[CONFIG.look] → LOOK.night
+     * (lights, background + fog, water, ground / plaza albedos), the pad
+     * materials on bare ground, the in-world text colours, the lamps and the
+     * headlights by one eased factor t ∈ [0, 1]. No emissives, no bloom, no
+     * post-processing: everything stays crisp.
+     */
+    dayNight: {
+        defaultMode: "auto" as TimeMode,
+        /** Eased (smoothstep) day ↔ night blend; instant under reduced motion. */
+        transitionSeconds: 2.5,
+        /** Auto mode: day from dayStart (inclusive) to dayEnd (exclusive), local time. */
+        autoWindow: { dayStart: { h: 6, m: 0 } as ClockTime, dayEnd: { h: 18, m: 30 } as ClockTime },
+        /** Auto mode re-checks the clock this often (wall-clock seconds). */
+        clockCheckSeconds: 60,
+        storageKey: "field-v3:time",
+        /**
+         * Shared palette Lamberts whose albedo follows LOOK[…].albedo: the
+         * MaterialsApi variants (cache keys) the ground and the plazas use
+         * (Environment: lambert(ground); Welcome / Hub / About: lambert(plaza,
+         * { layer: "plaza" })).
+         */
+        albedoMaterials: {
+            ground: [{}],
+            plaza: [{ layer: "plaza" }],
+        } as const,
+        /**
+         * Shared unlit pad materials of pads on bare ground / plaza (ui3d/Pad.ts,
+         * layer "plate"; pads on plates use "padOnPlate" and keep their colours).
+         * At night the idle ink outline turns paper (ink on the dark ground would
+         * vanish) and the active paper fill turns ink, so the paper night label
+         * on an active pad keeps ≈ 10:1.
+         */
+        padMaterials: [
+            { hex: PALETTE.ink, layer: "plate", opacity: PAD.idleOpacity, night: PALETTE.paper },
+            { hex: PALETTE.paper, layer: "plate", opacity: PAD.fillOpacity, night: PALETTE.ink },
+        ] as const,
+        /** Lamp posts (Lamps.ts): paper post, ink foot + cap, warm unlit globe, one PointLight each. */
+        lamps: {
+            foot: { radius: 0.26, height: 0.3 },
+            post: { radius: 0.11, height: 3.0 },
+            globe: { radius: 0.32, y: 3.25 },
+            cap: { radiusTop: 0.12, radiusBottom: 0.42, height: 0.22 },
+            radialSegments: 16,
+            globeSegments: { width: 20, height: 14 },
+            /** Globe colour at night (paper by day); unlit, so it never blooms or glows. */
+            globeNight: "#FFE7B0" as HexColor,
+            /**
+             * Warm pool. Calibrated so a paper top right under a lamp stays below
+             * 1.0 linear (r 0.95 at full night) and night text 6 units away keeps
+             * its ≥ 7:1 on the ground (the pool adds < 0.01 linear there).
+             */
+            light: { color: "#FFC98A" as HexColor, intensity: 14, distance: 18, decay: 2 },
+            /** Collider: the foot's radius, the full lamp height (stops the car, never rolls it). */
+            colliderRadius: 0.26,
+            /** Lamps.ts places at most this many (Hub + seven area arrivals). */
+            maxLamps: 8,
+            /** Low-profile blob under each lamp (footprint, Environment.addPropBlobs). */
+            blobSize: 0.9,
+        },
+        /**
+         * Vehicle headlight (the vehicle owns it; DayNight calls its
+         * setNightFactor(t)). Mirrors Vehicle.ts HEADLIGHT (one shadowless
+         * SpotLight from the front bar, aimed `ahead` units in front of the nose).
+         */
+        headlights: {
+            color: PALETTE.carLight,
+            intensity: 14,
+            distance: 40,
+            angle: 0.5,
+            penumbra: 0.6,
+            decay: 1,
+            ahead: 10,
+            castShadow: false,
+        },
+        /**
+         * Night text colours, keyed by the day colour (case-insensitive).
+         * `ground`: flat text on the ground / plaza (layers "groundText",
+         * "plaza") swaps by this table; text on paper plates, tiles and upright
+         * boards ("plate", "padOnPlate", "tileText", upright) keeps its day colour
+         * (ink on paper). ACCENT_INK.play is ink, so it maps to paper.
+         */
+        text: {
+            ground: Object.freeze({
+                [PALETTE.ink]: NIGHT_INK,
+                [PALETTE.ink2]: NIGHT_INK2,
+                [ACCENT_INK.brand]: NIGHT_ACCENT.brand,
+                [ACCENT_INK.projects]: NIGHT_ACCENT.projects,
+                [ACCENT_INK.eko]: NIGHT_ACCENT.eko,
+                [ACCENT_INK.music]: NIGHT_ACCENT.music,
+                [ACCENT_INK.journey]: NIGHT_ACCENT.journey,
+            }) as Readonly<Record<string, HexColor>>,
+            /**
+             * 3D words (lit geometry on the night ground): the ink words (JAZZ,
+             * PLAY) turn paper; accent titles keep their accent hue as its light
+             * tint (the ink-dark accents measure ≈ 1:1 against the lit night ground).
+             */
+            word3d: Object.freeze({
+                [PALETTE.ink]: PALETTE.paper,
+                [ACCENT_INK.brand]: NIGHT_ACCENT.brand,
+                [ACCENT_INK.projects]: NIGHT_ACCENT.projects,
+                [ACCENT_INK.eko]: NIGHT_ACCENT.eko,
+                [ACCENT_INK.music]: NIGHT_ACCENT.music,
+                [ACCENT_INK.journey]: NIGHT_ACCENT.journey,
+            }) as Readonly<Record<string, HexColor>>,
+        },
     },
 
     ui: {

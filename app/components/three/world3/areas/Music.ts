@@ -5,7 +5,7 @@ import { areaCopy, musicPillars, type InfoContent } from "@/app/field/content/wo
 import { ACCENT, CONFIG, FACE_CAMERA_Y, PALETTE } from "../Config";
 import { registerArea } from "../Areas";
 import { buildPad, type PadVisual } from "../ui3d/Pad";
-import { damp } from "../utils/math";
+import { clamp, damp } from "../utils/math";
 import type { AreaContext, AreaHandle, RuntimeInfo, TextHandle, Word3D } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -15,15 +15,18 @@ import type { AreaContext, AreaHandle, RuntimeInfo, TextHandle, Word3D } from ".
 // - 3D title `MUSIC`: static Bricolage letters in ACCENT_INK.music (cap 2.4);
 //   Areas arms the word (fixed colliders) right after this builder returns.
 // - Stage: an ink RoundedBox (18 along R × 1 × 8 along S), faceCamera, with
-//   one fixed collider.
+//   one fixed collider (the speakers on it get one each too).
 // - Vinyl: an ink disc on the stage top with an ACCENT.music label disc. It
 //   turns about Y at 0.6 rad/s and stands still under reduced motion (read
 //   live from the runtime). A paper bar across the label makes the turn
-//   visible on an otherwise rotationally symmetric disc.
-// - Two stone speakers on the stage top.
-// - Nine EQ bars (ACCENT.music, one InstancedMesh) on the stage top: driven
-//   by `audio.getBands(9)` while sound is on and the music plays, else (and
-//   under reduced motion) they hold the static heights 1 2 3 4 3 2 3 2 1.
+//   visible on an otherwise rotationally symmetric disc. Label and bar are
+//   thin solids stacked on the disc (no coplanar decals, so no z-fighting).
+// - Two stone speakers on the stage top, each with an ink woofer and tweeter
+//   on its camera-facing front.
+// - Nine EQ bars (ACCENT.music, ONE InstancedMesh) on the stage top: driven
+//   by `audio.getBands(9)` while sound is on and the music plays; otherwise
+//   (muted, before the music starts, and under reduced motion) they hold the
+//   static heights 1 2 3 4 3 2 3 2 1.
 // - Four upright paper record sleeves (one per musicPillars entry) with an
 //   ACCENT.music strip along the top of the front face and the pillar title
 //   (Inter Bold 0.7, ink, upright). Each has a thin fixed collider and a pad
@@ -35,10 +38,19 @@ import type { AreaContext, AreaHandle, RuntimeInfo, TextHandle, Word3D } from ".
 const EQ_MIN_HEIGHT = 0.4;
 /** EQ bar height smoothing (damp lambda, 1/s). */
 const EQ_LAMBDA = 18;
-/** Height of the vinyl label disc and its bar above the vinyl top (no z-fight). */
-const VINYL_DECAL_LIFT = 0.004;
-/** The paper bar across the vinyl label: width, and length as a fraction of the label diameter. */
-const VINYL_MARK = { w: 0.22, lengthFraction: 0.8 } as const;
+/** A smoothed bar this close to its target snaps onto it (the bars then stop rewriting). */
+const EQ_SNAP = 1e-3;
+/** Thickness of the vinyl's label disc, stacked on the vinyl top. */
+const VINYL_LABEL_THICKNESS = 0.03;
+/** The paper bar across the label: width, thickness, and length as a fraction of the label diameter. */
+const VINYL_MARK = { w: 0.22, thickness: 0.02, lengthFraction: 0.8 } as const;
+/** Speaker cones (ink discs half sunk into the front face): centre height from the box centre, radius. */
+const SPEAKER_CONES = [
+    { y: -0.7, r: 0.8 },
+    { y: 1.05, r: 0.45 },
+] as const;
+/** Cone disc thickness and radial segments. */
+const SPEAKER_CONE = { thickness: 0.12, segments: 32 } as const;
 /** Front-face decals (strip, title) sit this far in front of the sleeve face. */
 const SLEEVE_DECAL_LIFT = 0.005;
 /** Prompt card action (§5.3). */
@@ -65,8 +77,10 @@ export function musicPillarContent(i: number): InfoContent {
 }
 
 /**
- * Target EQ bar heights: the bands (each in [0, 1]) mapped onto
- * [EQ_MIN_HEIGHT, max static height], or the static heights when `bands` is null.
+ * Target EQ bar heights: the bands (each clamped to [0, 1]; missing or
+ * non-finite bands count as 0) mapped onto
+ * [EQ_MIN_HEIGHT, the tallest static height], or the static heights when
+ * `bands` is null.
  */
 export function eqTargets(
     bands: ArrayLike<number> | null,
@@ -75,8 +89,14 @@ export function eqTargets(
 ): number[] {
     const max = Math.max(...staticHeights);
     for (let i = 0; i < staticHeights.length; i++) {
-        const b = bands ? Math.min(1, Math.max(0, bands[i] ?? 0)) : null;
-        out[i] = b === null ? staticHeights[i] : EQ_MIN_HEIGHT + b * (max - EQ_MIN_HEIGHT);
+        if (!bands) {
+            out[i] = staticHeights[i];
+            continue;
+        }
+        // A missing or non-finite band (NaN would hide the bar) reads as silence.
+        const v = bands[i];
+        const b = Number.isFinite(v) ? clamp(v, 0, 1) : 0;
+        out[i] = EQ_MIN_HEIGHT + b * (max - EQ_MIN_HEIGHT);
     }
     return out;
 }
@@ -132,7 +152,7 @@ export function build(ctx: AreaContext): MusicHandle {
         texts.length = 0;
         for (const g of geometries) g.dispose();
         geometries.length = 0;
-        eq?.dispose(); // frees the instance buffers (geometry / material are shared)
+        eq?.dispose(); // frees the instance buffers (geometry above, material shared)
         eq = null;
         group.clear();
     };
@@ -177,39 +197,53 @@ export function build(ctx: AreaContext): MusicHandle {
         vinyl.position.set(V.x, stageTop, V.z);
         group.add(vinyl);
         const discGeo = geo(new THREE.CylinderGeometry(V.radius, V.radius, V.height, V.segments));
-        discGeo.translate(0, V.height / 2, 0);
+        discGeo.translate(0, V.height / 2, 0); // base on the stage top
         const disc = new THREE.Mesh(discGeo, materials.lambert(PALETTE.ink));
         disc.name = "vinyl-disc";
-        disc.castShadow = true;
-        disc.receiveShadow = true;
-        disc.raycast = () => {};
-        const labelGeo = geo(new THREE.CircleGeometry(V.labelRadius, V.segments));
-        labelGeo.rotateX(-Math.PI / 2);
+        const labelGeo = geo(
+            new THREE.CylinderGeometry(V.labelRadius, V.labelRadius, VINYL_LABEL_THICKNESS, V.segments)
+        );
+        labelGeo.translate(0, V.height + VINYL_LABEL_THICKNESS / 2, 0);
         const label = new THREE.Mesh(labelGeo, materials.lambert(ACCENT.music));
         label.name = "vinyl-label";
-        label.position.y = V.height + VINYL_DECAL_LIFT;
-        label.receiveShadow = true;
-        label.raycast = () => {};
-        const markGeo = geo(new THREE.PlaneGeometry(V.labelRadius * 2 * VINYL_MARK.lengthFraction, VINYL_MARK.w));
-        markGeo.rotateX(-Math.PI / 2);
+        const markGeo = geo(
+            new THREE.BoxGeometry(V.labelRadius * 2 * VINYL_MARK.lengthFraction, VINYL_MARK.thickness, VINYL_MARK.w)
+        );
+        markGeo.translate(0, V.height + VINYL_LABEL_THICKNESS + VINYL_MARK.thickness / 2, 0);
         const mark = new THREE.Mesh(markGeo, materials.lambert(PALETTE.paper));
         mark.name = "vinyl-mark";
-        mark.position.y = V.height + 2 * VINYL_DECAL_LIFT;
-        mark.receiveShadow = true;
-        mark.raycast = () => {};
-        vinyl.add(disc, label, mark);
-
-        // ── Speakers ─────────────────────────────────────────────────────
-        const spGeo = geo(new THREE.BoxGeometry(M.speaker.w, M.speaker.h, M.speaker.d));
-        const spMat = materials.lambert(PALETTE.stone);
-        const speakers = M.speakers.map((p, i) => {
-            const m = new THREE.Mesh(spGeo, spMat);
-            m.name = `music-speaker-${i}`;
-            m.position.set(p.x, stageTop + M.speaker.h / 2, p.z);
-            m.rotation.y = FACE_CAMERA_Y;
+        for (const m of [disc, label, mark]) {
             m.castShadow = true;
             m.receiveShadow = true;
             m.raycast = () => {};
+        }
+        vinyl.add(disc, label, mark);
+
+        // ── Speakers (stone boxes, ink cones on the camera-facing front) ─
+        const SP = M.speaker;
+        const spGeo = geo(new THREE.BoxGeometry(SP.w, SP.h, SP.d));
+        const spMat = materials.lambert(PALETTE.stone);
+        // Unit-radius disc facing +Z, centred on the front face (half sunk).
+        const coneGeo = geo(new THREE.CylinderGeometry(1, 1, SPEAKER_CONE.thickness, SPEAKER_CONE.segments));
+        coneGeo.rotateX(Math.PI / 2);
+        const coneMat = materials.lambert(PALETTE.ink);
+        const speakers = M.speakers.map((p, i) => {
+            const m = new THREE.Mesh(spGeo, spMat);
+            m.name = `music-speaker-${i}`;
+            m.position.set(p.x, stageTop + SP.h / 2, p.z);
+            m.rotation.y = FACE_CAMERA_Y;
+            for (const c of SPEAKER_CONES) {
+                const cone = new THREE.Mesh(coneGeo, coneMat);
+                cone.name = "speaker-cone";
+                cone.position.set(0, c.y, SP.d / 2);
+                cone.scale.set(c.r, c.r, 1);
+                m.add(cone);
+            }
+            m.traverse((o) => {
+                o.castShadow = true;
+                o.receiveShadow = true;
+                o.raycast = () => {};
+            });
             group.add(m);
             return m;
         });
@@ -225,6 +259,7 @@ export function build(ctx: AreaContext): MusicHandle {
         bars.raycast = () => {};
         group.add(bars);
         const statics: readonly number[] = M.eqStaticHeights;
+        const tallest = Math.max(...statics);
         const heights = [...statics];
         const targets = [...statics];
         const tmpM = new THREE.Matrix4();
@@ -239,7 +274,7 @@ export function build(ctx: AreaContext): MusicHandle {
             bars.instanceMatrix.needsUpdate = true;
         };
         // Bounds once at the tallest pose, so culling never clips a driven bar.
-        writeBars(statics.map(() => Math.max(...statics)));
+        writeBars(statics.map(() => tallest));
         bars.computeBoundingBox();
         bars.computeBoundingSphere();
         writeBars(heights);
@@ -309,6 +344,16 @@ export function build(ctx: AreaContext): MusicHandle {
         bodies.push(
             ctx.physics.addFixedCuboid({ x: st.w / 2, y: st.h / 2, z: st.d / 2 }, { x: st.x, y: st.h / 2, z: st.z }, quat)
         );
+        // The speakers stand on the stage: solid, so a car that lands up there stops.
+        for (const p of M.speakers) {
+            bodies.push(
+                ctx.physics.addFixedCuboid(
+                    { x: SP.w / 2, y: SP.h / 2, z: SP.d / 2 },
+                    { x: p.x, y: stageTop + SP.h / 2, z: p.z },
+                    quat
+                )
+            );
+        }
         for (const p of M.sleeves) {
             bodies.push(
                 ctx.physics.addFixedCuboid({ x: SL.w / 2, y: SL.h / 2, z: SL.d / 2 }, { x: p.x, y: SL.h / 2, z: p.z }, quat)
@@ -337,7 +382,8 @@ export function build(ctx: AreaContext): MusicHandle {
                 eqTargets(bands, statics, targets);
                 let changed = false;
                 for (let i = 0; i < heights.length; i++) {
-                    const next = still ? targets[i] : damp(heights[i], targets[i], EQ_LAMBDA, dt);
+                    let next = still ? targets[i] : damp(heights[i], targets[i], EQ_LAMBDA, dt);
+                    if (Math.abs(next - targets[i]) < EQ_SNAP) next = targets[i];
                     if (next !== heights[i]) {
                         heights[i] = next;
                         changed = true;

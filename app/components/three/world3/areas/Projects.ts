@@ -6,6 +6,7 @@ import { ACCENT, CONFIG, FACE_CAMERA_Y, PALETTE } from "../Config";
 import { registerArea } from "../Areas";
 import { boardUrl } from "../Assets";
 import { estimateTextWidth, type AREA_LAYOUT } from "../Layout";
+import { buildOwnedPathLabels } from "../Paths";
 import { buildPad, type PadVisual } from "../ui3d/Pad";
 import { clamp } from "../utils/math";
 import type { AreaContext, AreaHandle, PadDef, RuntimeInfo, TextHandle, Word3D } from "../types";
@@ -28,6 +29,7 @@ import type { AreaContext, AreaHandle, PadDef, RuntimeInfo, TextHandle, Word3D }
 // - Pads at board + S·12 (Pad.ts outline / fill + flat label, no keycap). E
 //   opens the project's content panel (image, pitch, description, tags,
 //   Visit site).
+// - Any path label Paths.ts assigns to this area (none with today's Layout).
 // The gallery camera shot / zone is the Experience's (AreaDef.cameraZone).
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -47,6 +49,8 @@ const FIT_EPSILON = 1e-3;
 const PROMPT_ACTION = "Open project";
 const LINK_VISIT = "Visit site";
 const LINK_CODE = "View code";
+/** Content errors (an over-long board title) are reported in development only. */
+const DEV = process.env.NODE_ENV !== "production";
 
 // ── Pure helpers (unit-tested) ───────────────────────────────────────────
 /** The project's full panel content (Tier C, §3.1): the board copy is decorative. */
@@ -148,6 +152,8 @@ export interface ProjectBoard {
 export interface ProjectsHandle extends AreaHandle {
     title: Word3D | null;
     boards: ProjectBoard[];
+    /** Path labels owned by this area (Paths.ts `labelsOwnedBy("projects")`). */
+    pathLabels: TextHandle[];
 }
 
 interface BoardState {
@@ -169,6 +175,7 @@ export function build(ctx: AreaContext): ProjectsHandle {
     const unsubscribe: (() => void)[] = [];
     const unregister: (() => void)[] = [];
     const states: BoardState[] = [];
+    const pathLabels: TextHandle[] = [];
     let title: Word3D | null = null;
     let disposed = false;
 
@@ -194,6 +201,7 @@ export function build(ctx: AreaContext): ProjectsHandle {
         pads.length = 0;
         for (const h of texts) h.dispose();
         texts.length = 0;
+        pathLabels.length = 0;
         for (const m of ownMaterials) m.dispose();
         ownMaterials.length = 0;
         for (const g of geometries) g.dispose();
@@ -231,6 +239,45 @@ export function build(ctx: AreaContext): ProjectsHandle {
         s.fade = 0;
     };
 
+    /**
+     * Title auto-fit (§3.3) with troika's real metrics; the width estimate only
+     * seeds the size. TextApi already started the first layout, so a later
+     * `sync(cb)` would be a no-op (troika calls back only when something
+     * changed): listen for every finished layout instead. Each pass rescales
+     * to fit `maxWidth`; once it is stable, a title still too wide at the
+     * minimum size wraps at `maxWidth` rather than leave the frame. That wrap
+     * grows down over the pitch line, so it is a content error: shorten the
+     * title (the content tests keep today's four inside the minimum size).
+     */
+    const autoFitTitle = (h: TextHandle) => {
+        const tm = h.mesh;
+        let capped = false;
+        const onLayout = () => {
+            const info = tm.textRenderInfo;
+            if (disposed || capped || !info) return;
+            const width = info.blockBounds[2] - info.blockBounds[0];
+            const fitted = fitTitleSize(width, tm.fontSize);
+            if (Math.abs(fitted - tm.fontSize) > FIT_EPSILON) {
+                tm.fontSize = fitted;
+                tm.sync();
+            } else if (width > TY.boardTitle.maxWidth + FIT_EPSILON) {
+                capped = true;
+                if (DEV) {
+                    console.warn(
+                        `[world3/projects] board title too long even at ${TY.boardTitle.minSize}; it wraps over the pitch: "${tm.text}"`
+                    );
+                }
+                tm.maxWidth = TY.boardTitle.maxWidth;
+                tm.sync();
+            }
+        };
+        // "synccomplete" is troika's own event; three's Object3D event map lacks it.
+        const events = tm as unknown as THREE.EventDispatcher<{ synccomplete: object }>;
+        events.addEventListener("synccomplete", onLayout);
+        unsubscribe.push(() => events.removeEventListener("synccomplete", onLayout));
+        onLayout(); // the first layout may already be done (cached glyphs)
+    };
+
     try {
         // ── 3D title (static, ACCENT_INK.projects) ───────────────────────
         const t3 = ctx.def.title3D;
@@ -245,6 +292,15 @@ export function build(ctx: AreaContext): ProjectsHandle {
             title.group.position.set(t3.x, 0, t3.z);
             title.group.rotation.y = FACE_CAMERA_Y;
             group.add(title.group); // placed once; Areas arms it when build() returns
+        }
+
+        // ── Path labels this area owns (Paths.ts ownership; none today: P2's
+        // PROJECTS label belongs to the hub). Paths skips every built area's
+        // labels, so an owner that didn't draw them would lose them.
+        for (const h of buildOwnedPathLabels(text, ctx.def.id)) {
+            texts.push(h);
+            pathLabels.push(h);
+            group.add(h.object);
         }
 
         // ── Shared board geometry (one copy for every board) ─────────────
@@ -341,19 +397,7 @@ export function build(ctx: AreaContext): ProjectsHandle {
                 strip.tagsTop
             );
 
-            // Auto-fit with troika's real metrics (the estimate above only seeds
-            // it), then cap the width so an over-long title can never leave the frame.
-            const tm = titleText.mesh;
-            tm.sync(() => {
-                if (disposed) return;
-                const info = tm.textRenderInfo;
-                if (info) {
-                    const fitted = fitTitleSize(info.blockBounds[2] - info.blockBounds[0], tm.fontSize);
-                    if (Math.abs(fitted - tm.fontSize) > FIT_EPSILON) tm.fontSize = fitted;
-                }
-                tm.maxWidth = TY.boardTitle.maxWidth;
-                tm.sync();
-            });
+            autoFitTitle(titleText);
 
             // Pad at board + S·12 (Layout PADS), outline / fill + flat label.
             const padSpot = projectPads[i];
@@ -419,6 +463,7 @@ export function build(ctx: AreaContext): ProjectsHandle {
             group,
             title,
             boards: states.map((s) => s.board),
+            pathLabels,
             update(dt: number, _t: number, rt: RuntimeInfo) {
                 if (disposed) return;
                 for (const s of states) {

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type RAPIER from "@dimforge/rapier3d-compat";
 import { CONFIG, LOOK, PALETTE, type LookId, type Vec3Like } from "./Config";
+import { createBlendedLook, type BlendedLook } from "./DayNight";
 import { BOUNDS, JETTY, QUAY_Z, rectBounds } from "./Layout";
 import type { CameraShot, CameraState, MaterialsApi, PhysicsApi, RenderProfile } from "./types";
 import { Disposal } from "./utils/disposal";
@@ -16,8 +17,13 @@ import { patchWaterMaterial, type WaterPatch } from "./shaders/water";
 // distance-scaled linear fog, scene.background, and the instanced blob
 // shadows that stand in for the shadow map on the low profiles.
 //
+// Day / night: DayNight hands a blended look to setLook() whenever its factor
+// changes (lights, background + fog, water colours). The sun light doubles as
+// the moon: same direction, so the shadow box maths never changes.
+//
 //   const env = new Environment({ scene, physics, materials, profile, renderer });
 //   env.update(dt, t, cameraState);   // every frame, after the camera
+//   env.setLook(blended);             // DayNight, when t changes
 //   env.addPropBlobs([...]);          // static props (only drawn without a shadow map)
 //   env.dispose();
 // ─────────────────────────────────────────────────────────────────────────
@@ -604,17 +610,28 @@ export class Environment {
 
     /** Switches the look preset at runtime (?debug); the Config value stays the default. */
     applyLook(id: LookId): void {
-        const look = LOOK[id];
-        this.background.set(look.background);
+        this.setLook(createBlendedLook(LOOK[id]));
+    }
+
+    /**
+     * Applies a (blended) look: background + fog colour, the three lights'
+     * colours and intensities, and the water colours. Colours are copied, so
+     * the caller may reuse `look` (DayNight passes the same object every time).
+     * Light directions and the shadow box are untouched.
+     */
+    setLook(look: Readonly<BlendedLook>): void {
+        if (this.disposed) return;
+        this.background.copy(look.background);
         this.deps.scene.background = this.background;
-        this.fog.color.copy(this.background);
-        this.hemi.color.set(look.hemisphere.sky);
-        this.hemi.groundColor.set(look.hemisphere.ground);
+        this.fog.color.copy(look.background);
+        this.hemi.color.copy(look.hemisphere.sky);
+        this.hemi.groundColor.copy(look.hemisphere.ground);
         this.hemi.intensity = look.hemisphere.intensity;
-        this.sun.color.set(look.sun.color);
+        this.sun.color.copy(look.sun.color);
         this.sun.intensity = look.sun.intensity;
-        this.fill.color.set(look.fill.color);
+        this.fill.color.copy(look.fill.color);
         this.fill.intensity = look.fill.intensity;
+        this.water.setColors(look.water);
     }
 
     /** Current shadow box (for ?debug): half extents and the focus-relative centre. */

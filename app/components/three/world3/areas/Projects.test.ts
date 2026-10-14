@@ -17,6 +17,7 @@ import {
     type Footprint,
 } from "../Layout";
 import { registeredAreaIds } from "../Areas";
+import { labelsOwnedBy } from "../Paths";
 import * as shapes from "../utils/shapes";
 import { Disposal } from "../utils/disposal";
 import type {
@@ -39,17 +40,84 @@ const N = frontendProjects.length;
 
 type TextCall = { kind: "flat" | "upright" | "onPath"; opts: TextOpts; handle: TextHandle };
 
-interface StubMesh {
-    fontSize: number;
-    maxWidth: number;
-    textRenderInfo: { blockBounds: [number, number, number, number] } | null;
-    sync: ReturnType<typeof vi.fn>;
-}
-
-/** em width troika "measures" per character in the stub (title auto-fit). */
+/** em width the fake troika "measures" per character (title auto-fit). */
 const STUB_EM_PER_CHAR = 0.62;
 
-function stubCtx(fail: { collider?: number; pad?: boolean } = {}) {
+/**
+ * Fake troika Text with the real sync semantics that matter for auto-fit:
+ * - fontSize / maxWidth / text setters mark the mesh dirty;
+ * - sync(cb) does nothing (and never calls cb) unless dirty;
+ * - layout is asynchronous (queued until `flushLayouts()`), then dispatches
+ *   "synccomplete" and calls cb;
+ * - a line wider than maxWidth wraps (block width capped at maxWidth).
+ */
+class FakeTroika extends THREE.EventDispatcher<{ synccomplete: object }> {
+    textRenderInfo: { blockBounds: [number, number, number, number] } | null = null;
+    syncs = 0;
+    private dirty = true;
+    private _fontSize: number;
+    private _maxWidth: number;
+
+    constructor(
+        private queue: FakeTroika[] | null,
+        readonly text: string,
+        fontSize: number,
+        maxWidth: number
+    ) {
+        super();
+        this._fontSize = fontSize;
+        this._maxWidth = maxWidth;
+    }
+
+    get fontSize() {
+        return this._fontSize;
+    }
+    set fontSize(v: number) {
+        if (v !== this._fontSize) this.dirty = true;
+        this._fontSize = v;
+    }
+    get maxWidth() {
+        return this._maxWidth;
+    }
+    set maxWidth(v: number) {
+        if (v !== this._maxWidth) this.dirty = true;
+        this._maxWidth = v;
+    }
+
+    /** Line width at the current size (unwrapped). */
+    get naturalWidth() {
+        return Array.from(this.text).length * STUB_EM_PER_CHAR * this._fontSize;
+    }
+
+    private callbacks: (() => void)[] = [];
+    sync(cb?: () => void) {
+        if (!this.dirty) return;
+        this.dirty = false;
+        this.syncs++;
+        if (cb) this.callbacks.push(cb);
+        // No queue: typesetting completes synchronously (cached glyphs).
+        if (!this.queue) this.complete();
+        else if (!this.queue.includes(this)) this.queue.push(this);
+    }
+
+    /** Listeners for "synccomplete" (three's hasEventListener needs the exact function). */
+    get layoutListeners(): number {
+        const map = (this as unknown as { _listeners?: Record<string, unknown[]> })._listeners;
+        return map?.synccomplete?.length ?? 0;
+    }
+
+    /** Completes the pending layout (worker reply). */
+    complete() {
+        const w = Math.min(this.naturalWidth, this._maxWidth);
+        this.textRenderInfo = { blockBounds: [0, -this._fontSize, w, 0] };
+        this.dispatchEvent({ type: "synccomplete" });
+        const cbs = this.callbacks.splice(0);
+        for (const cb of cbs) cb();
+    }
+}
+
+function stubCtx(fail: { collider?: number; pad?: boolean; immediateLayout?: boolean } = {}) {
+    const layoutQueue: FakeTroika[] = [];
     const texts: TextCall[] = [];
     const words: { text: string; opts: Word3DOptions; word: Word3D & { dispose: ReturnType<typeof vi.fn> } }[] = [];
     const bodies: { half: unknown; pos: unknown; quat: unknown; body: object }[] = [];
@@ -66,16 +134,8 @@ function stubCtx(fail: { collider?: number; pad?: boolean } = {}) {
         (kind: TextCall["kind"]) =>
         (o: TextOpts): TextHandle => {
             if (fail.pad && kind === "flat") throw new Error("pad label failed");
-            const mesh: StubMesh = {
-                fontSize: o.size,
-                maxWidth: o.maxWidth ?? Infinity,
-                textRenderInfo: null,
-                sync: vi.fn((cb?: () => void) => {
-                    const w = Array.from(o.text).length * STUB_EM_PER_CHAR * mesh.fontSize;
-                    mesh.textRenderInfo = { blockBounds: [0, -mesh.fontSize, w, 0] };
-                    cb?.();
-                }),
-            };
+            const mesh = new FakeTroika(fail.immediateLayout ? null : layoutQueue, o.text, o.size, o.maxWidth ?? Infinity);
+            mesh.sync(); // like utils/text.ts make(): the first layout starts at creation
             const handle = {
                 object: new THREE.Group(),
                 mesh,
@@ -149,8 +209,16 @@ function stubCtx(fail: { collider?: number; pad?: boolean } = {}) {
         for (const cb of [...listeners]) cb(url, tex);
         return tex;
     };
+    /** Completes every pending troika layout, including ones they trigger. */
+    const flushLayouts = () => {
+        for (let guard = 0; layoutQueue.length > 0; guard++) {
+            if (guard > 100) throw new Error("layout loop");
+            layoutQueue.shift()!.complete();
+        }
+    };
     return {
         ctx,
+        flushLayouts,
         texts,
         words,
         bodies,
@@ -449,8 +517,9 @@ describe("areas/Projects (§2.4, §5.1)", () => {
         });
 
         it("text strip: title (auto-fit), pitch and tags, upright, left-aligned at Layout textX", () => {
-            const { ctx, texts } = stubCtx();
+            const { ctx, texts, flushLayouts } = stubCtx();
             const h = build(ctx);
+            flushLayouts();
             const up = uprights(texts);
             expect(up).toHaveLength(3 * N);
             expect(texts.filter((t) => t.kind === "onPath")).toHaveLength(0);
@@ -482,19 +551,104 @@ describe("areas/Projects (§2.4, §5.1)", () => {
                 expect(pitch.handle.object.position.y).toBeCloseTo(strip.pitchTop, 9);
                 expect(tags.handle.object.position.y).toBeCloseTo(strip.tagsTop, 9);
 
-                // Auto-fit with the measured width: fits 9.6, within [0.7, 0.85], then capped.
-                const m = title.handle.mesh as unknown as StubMesh;
-                const measured = Array.from(p.title).length * STUB_EM_PER_CHAR * m.fontSize;
+                // Auto-fit with the measured width: fits 9.6 on one line, within [0.7, 0.85].
+                const m = title.handle.mesh as unknown as FakeTroika;
                 expect(m.fontSize).toBeGreaterThanOrEqual(TY.boardTitle.minSize);
                 expect(m.fontSize).toBeLessThanOrEqual(TY.boardTitle.size);
-                expect(measured).toBeLessThanOrEqual(TY.boardTitle.maxWidth + 1e-9);
-                expect(m.maxWidth).toBe(TY.boardTitle.maxWidth);
+                expect(m.naturalWidth).toBeLessThanOrEqual(TY.boardTitle.maxWidth + 1e-6);
+                // Every real title fits at ≥ 0.7, so none is wrapped.
+                expect(m.maxWidth).toBe(Infinity);
             });
-            // The long Clay Studio Creations title shrinks; a short one keeps 0.85.
+            // With the stub metrics (0.62 em/char) a long title shrinks to exactly maxWidth and a
+            // short one keeps 0.85. Real Inter Bold is narrower: all four titles stay at 0.85.
+            const fake = (b: (typeof h.boards)[number]) => b.title.mesh as unknown as FakeTroika;
             const clay = h.boards.find((b) => b.project.title === "Clay Studio Creations")!;
-            expect((clay.title.mesh as unknown as StubMesh).fontSize).toBeLessThan(TY.boardTitle.size);
+            expect(fake(clay).fontSize).toBeLessThan(TY.boardTitle.size);
+            expect(fake(clay).naturalWidth).toBeCloseTo(TY.boardTitle.maxWidth, 6);
             const short = h.boards.find((b) => b.project.title === "Mara Mania")!;
-            expect((short.title.mesh as unknown as StubMesh).fontSize).toBe(TY.boardTitle.size);
+            expect(fake(short).fontSize).toBe(TY.boardTitle.size);
+        });
+
+        it("auto-fit runs on troika's synccomplete (TextApi already synced, so sync(cb) would never call back)", () => {
+            const { ctx, flushLayouts } = stubCtx();
+            const h = build(ctx);
+            const clay = h.boards.find((b) => b.project.title === "Clay Studio Creations")!;
+            const m = clay.title.mesh as unknown as FakeTroika;
+            // Before the worker replies: only the estimate-seeded size, nothing measured.
+            const seeded = m.fontSize;
+            expect(seeded).toBe(
+                fitTitleSize(estimateTextWidth(clay.project.title, TY.boardTitle.size), TY.boardTitle.size)
+            );
+            expect(m.textRenderInfo).toBeNull();
+            flushLayouts();
+            expect(m.fontSize).not.toBe(seeded);
+            expect(m.naturalWidth).toBeCloseTo(TY.boardTitle.maxWidth, 6);
+            // Converged: one refit layout after the first, then no more.
+            expect(m.syncs).toBe(2);
+        });
+
+        it("a layout already finished before build() listens (synchronous typesetting) is fitted too", () => {
+            const { ctx } = stubCtx({ immediateLayout: true });
+            const h = build(ctx);
+            const clay = h.boards.find((b) => b.project.title === "Clay Studio Creations")!;
+            const m = clay.title.mesh as unknown as FakeTroika;
+            expect(m.naturalWidth).toBeCloseTo(TY.boardTitle.maxWidth, 6);
+        });
+
+        it("dispose removes the auto-fit listener (a late layout changes nothing)", () => {
+            const { ctx, flushLayouts } = stubCtx();
+            const h = build(ctx);
+            const clay = h.boards.find((b) => b.project.title === "Clay Studio Creations")!;
+            const m = clay.title.mesh as unknown as FakeTroika;
+            const seeded = m.fontSize;
+            h.dispose!();
+            flushLayouts();
+            expect(m.fontSize).toBe(seeded);
+            expect(m.layoutListeners).toBe(0);
+        });
+
+        it("a title still too wide at 0.7 wraps at maxWidth 9.6 and warns once (a content error)", () => {
+            const p = frontendProjects[0];
+            const original = p.title;
+            p.title = "W".repeat(30);
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            try {
+                const { ctx, flushLayouts } = stubCtx();
+                const h = build(ctx);
+                flushLayouts();
+                const m = h.boards[0].title.mesh as unknown as FakeTroika;
+                expect(m.fontSize).toBe(TY.boardTitle.minSize);
+                expect(m.maxWidth).toBe(TY.boardTitle.maxWidth);
+                expect(m.textRenderInfo!.blockBounds[2]).toBeLessThanOrEqual(TY.boardTitle.maxWidth);
+                const titleWarns = warn.mock.calls.filter((c) => String(c[0]).includes("board title too long"));
+                expect(titleWarns).toHaveLength(1);
+                expect(String(titleWarns[0][0])).toContain(p.title);
+            } finally {
+                warn.mockRestore();
+                p.title = original;
+            }
+        });
+
+        it("today's titles all fit: no over-long title warning", () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+            try {
+                const { ctx, flushLayouts } = stubCtx();
+                build(ctx);
+                flushLayouts();
+                expect(warn.mock.calls.filter((c) => String(c[0]).includes("board title too long"))).toHaveLength(0);
+            } finally {
+                warn.mockRestore();
+            }
+        });
+
+        it("builds the path labels Paths.ts assigns to projects (none today; the hub owns P2's)", () => {
+            const { ctx, texts } = stubCtx();
+            const h = build(ctx);
+            const owned = labelsOwnedBy("projects");
+            expect(owned).toHaveLength(0);
+            expect(labelsOwnedBy("hub").map((l) => l.text)).toContain("PROJECTS");
+            expect(h.pathLabels).toHaveLength(owned.length);
+            expect(texts.filter((t) => t.kind === "onPath")).toHaveLength(owned.length);
         });
 
         it("pads at board + S·12 (Pad.ts outline + flat label) open the project's content panel", () => {

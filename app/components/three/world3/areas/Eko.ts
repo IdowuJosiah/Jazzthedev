@@ -2,11 +2,11 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import type RAPIER from "@dimforge/rapier3d-compat";
 import { areaCopy, ekoMilestones, type InfoContent } from "@/app/field/content/world";
-import { ACCENT, CONFIG, FACE_CAMERA_Y, PALETTE } from "../Config";
+import { ACCENT, ACCENT_INK, CONFIG, FACE_CAMERA_Y, PALETTE } from "../Config";
 import { registerArea } from "../Areas";
 import { boardUrl } from "../Assets";
 import { buildPad, type PadVisual } from "../ui3d/Pad";
-import type { AreaContext, AreaHandle, RuntimeInfo, TextHandle, Word3D } from "../types";
+import type { AreaContext, AreaHandle, RuntimeInfo, ShapesApi, TextHandle, Word3D } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Eko, the product case study (§2.4, §5.2, §5.3). Everything comes from
@@ -15,14 +15,18 @@ import type { AreaContext, AreaHandle, RuntimeInfo, TextHandle, Word3D } from ".
 // - 3D title `EKO`: static Bricolage letters in ACCENT_INK.eko (cap 2.4);
 //   Areas arms the word (fixed colliders) right after this builder returns.
 // - Five flush paper milestone tiles (plate layer), faceCamera, in a row along
-//   R. Each carries its number `01`–`05` (Bricolage SDF 2.4, ACCENT.eko) and
-//   its title (Inter Bold 0.8, ink) as flat text on the padOnPlate layer, so
-//   the copy sits above the plate and the look system knows it is on paper.
+//   R. Each carries its number `01`–`05` (Bricolage SDF 2.4, ACCENT_INK.eko:
+//   text on night-lit paper needs the text-safe accent, see DECISIONS) and
+//   its title (Inter Bold 0.8, ink) as flat text on the padOnPlate layer: the
+//   copy sits above the plate, and the look system knows it is on paper.
 // - The hero phone: an ink rounded slab standing on a paper plinth, with a
-//   screen plane in front of its face. The screen shows the placeholder colour
-//   until the image arrives (lazy, §5.1): `eko-phone.webp` when it exists,
-//   else the Eko board image letterboxed (contained) on a paper screen. The
-//   image fades in over the boards' 0.6 s (instantly under reduced motion).
+//   rounded screen in front of its face (its corners follow the body's). The
+//   screen shows the placeholder colour until the image arrives (lazy, §5.1:
+//   requested once the car is within the boards' lazy-load distance):
+//   `eko-phone.webp` once the owner supplies it (HAS_PHONE_SHOT), else the Eko
+//   board image contained on the screen as a rounded card with ink bars, like a
+//   landscape clip on a phone. The image fades in over the boards' 0.6 s
+//   (instantly under reduced motion).
 //   Fixed colliders: one for the plinth and one for the phone body.
 // - One pad (Pad.ts outline / fill + flat label, no keycap) in front of the
 //   phone that opens the Eko panel: the five milestones and the eeko.site link.
@@ -30,11 +34,20 @@ import type { AreaContext, AreaHandle, RuntimeInfo, TextHandle, Word3D } from ".
 
 /** The Eko board image (scripts/boards: eko.webp, 16:9); also the panel image. */
 export const EKO_BOARD = "eko";
+/** The portrait phone screenshot (board name, §8.1: owner-supplied, 720×1500). */
+export const PHONE_SHOT = "eko-phone";
 /**
- * Phone screen images in order of preference (board names, §5.1): the portrait
- * phone screenshot when scripts/boards produced one, else the board image.
+ * Whether public/assets/boards/eko-phone.webp exists. It cannot be made from
+ * the landscape eekoo.png, so it stays false (and is never requested: no 404)
+ * until the owner supplies a screenshot and scripts/boards emits it.
  */
-export const PHONE_SCREEN_SOURCES = ["eko-phone", EKO_BOARD] as const;
+export const HAS_PHONE_SHOT = false;
+
+/** Phone screen images in order of preference: the phone shot when it exists, else the board image. */
+export const phoneScreenSources = (hasPhoneShot: boolean = HAS_PHONE_SHOT): readonly string[] =>
+    hasPhoneShot ? [PHONE_SHOT, EKO_BOARD] : [EKO_BOARD];
+
+export const PHONE_SCREEN_SOURCES = phoneScreenSources();
 
 // ── Stream-local presentation constants (no Config slot) ─────────────────
 /** Milestone tile corner radius. */
@@ -45,9 +58,9 @@ const TILE_NUMERAL_OFFSET = 1.3;
 const TILE_TITLE_OFFSET = 1.6;
 /** Title margin from each side of the tile (maxWidth = tile.w − 2·margin). */
 const TILE_TITLE_MARGIN = 0.6;
-/** Letterboxed image sits this many screen insets in front of the face (the screen itself is at one). */
+/** The image sits this many screen insets in front of the face (the screen itself sits at one). */
 const IMAGE_INSET_STEPS = 2;
-/** Size equality tolerance when deciding whether an image letterboxes. */
+/** Size tolerance when deciding whether an image letterboxes. */
 const FIT_EPSILON = 1e-3;
 /** Prompt card action (§5.3). */
 const PROMPT_ACTION = "Open case study";
@@ -58,6 +71,19 @@ const hexToNumber = (hex: string): number => parseInt(hex.slice(1), 16);
 const faceCameraQuat = (): THREE.Quaternion =>
     new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), FACE_CAMERA_Y);
 
+/**
+ * An upright rounded-rect plane (XY, facing +Z) with UVs spanning 0..1 over
+ * its bounds, so an image maps onto it like onto a PlaneGeometry.
+ */
+export function roundedPlane(shapes: ShapesApi, w: number, h: number, r: number): THREE.ShapeGeometry {
+    const g = new THREE.ShapeGeometry(shapes.roundedRectShape(w, h, r), CONFIG.pad.curveSegments);
+    const pos = g.getAttribute("position");
+    const uv = g.getAttribute("uv");
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / h + 0.5);
+    uv.needsUpdate = true;
+    return g;
+}
+
 /** Largest w × h with the image's aspect that fits inside box w × h ("contain"). */
 export function containSize(imageW: number, imageH: number, boxW: number, boxH: number): { w: number; h: number } {
     if (!(imageW > 0) || !(imageH > 0)) return { w: boxW, h: boxH };
@@ -67,9 +93,9 @@ export function containSize(imageW: number, imageH: number, boxW: number, boxH: 
 
 /** The panel the Eko pad opens: the five milestones and the eeko.site link. */
 export function ekoPanelContent(): InfoContent {
-    const links = ekoMilestones
-        .filter((m) => m.liveUrl)
-        .map((m) => ({ label: `Visit ${new URL(m.liveUrl!).host}`, url: m.liveUrl! }));
+    const links = ekoMilestones.flatMap((m) =>
+        m.liveUrl ? [{ label: `Visit ${new URL(m.liveUrl).host}`, url: m.liveUrl }] : []
+    );
     return {
         title: areaCopy.eko.name,
         sub: areaCopy.eko.blurb,
@@ -101,7 +127,16 @@ export interface EkoHandle extends AreaHandle {
     readonly screenSource: string | null;
 }
 
+export interface EkoOptions {
+    /** Screen image sources in order of preference (tests inject the phone-shot order). */
+    screenSources?: readonly string[];
+}
+
 export function build(ctx: AreaContext): EkoHandle {
+    return buildEko(ctx);
+}
+
+export function buildEko(ctx: AreaContext, { screenSources = PHONE_SCREEN_SOURCES }: EkoOptions = {}): EkoHandle {
     const { group, materials, shapes, text } = ctx;
     const E = ctx.layout.AREA_LAYOUT.eko;
     const BOARD = ctx.layout.AREA_LAYOUT.projects.board;
@@ -137,7 +172,7 @@ export function build(ctx: AreaContext): EkoHandle {
         texts.length = 0;
         for (const g of geometries) g.dispose();
         geometries.length = 0;
-        // The texture is owned by Assets; only our material is freed.
+        // The texture is owned by Assets; only our own material is freed.
         imageMaterial?.dispose();
         imageMaterial = null;
         group.clear();
@@ -182,11 +217,12 @@ export function build(ctx: AreaContext): EkoHandle {
             tile.add(plate);
             tiles.push(plate);
 
+            // Copy on paper: the padOnPlate layer sits just above the plate.
             const numeral = text.flat({
                 text: milestoneNumber(k),
                 font: TY.numerals.font,
                 size: E.tile.numeralSize,
-                color: ACCENT.eko,
+                color: ACCENT_INK.eko,
                 anchorX: "center",
                 anchorY: "middle",
                 layer: "padOnPlate",
@@ -247,16 +283,24 @@ export function build(ctx: AreaContext): EkoHandle {
         phone.add(body);
 
         const S = P.screen;
-        const screen = new THREE.Mesh(
-            geo(new THREE.PlaneGeometry(S.w, S.h)),
-            materials.basic(PALETTE.imagePlaceholder)
+        // Inset by the side bezel, so the screen corners run parallel to the body's.
+        const screenRadius = Math.max(0, B.radius - (B.w - S.w) / 2);
+        const placeholder = materials.basic(PALETTE.imagePlaceholder);
+        // Basic placeholder until an image arrives; lit ink bars when it letterboxes.
+        const screen = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
+            geo(roundedPlane(shapes, S.w, S.h, screenRadius)),
+            placeholder
         );
         screen.name = "eko-phone-screen";
         screen.position.set(0, B.h / 2, B.depth / 2 + S.inset);
         screen.raycast = () => {};
         phone.add(screen);
 
-        const image = new THREE.Mesh(geo(new THREE.PlaneGeometry(1, 1)));
+        // Rebuilt at the contained image size (same corner radius) once a texture arrives.
+        const image = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(
+            geo(roundedPlane(shapes, S.w, S.h, screenRadius)),
+            placeholder
+        );
         image.name = "eko-phone-image";
         image.position.set(0, B.h / 2, B.depth / 2 + S.inset * IMAGE_INSET_STEPS);
         image.visible = false;
@@ -281,7 +325,6 @@ export function build(ctx: AreaContext): EkoHandle {
 
         // ── Lazy screen image (§5.1): primary source, then the fallback ──
         const loader = ctx.assets.boards;
-        loader.register(PHONE_SCREEN_SOURCES[0], P.position.x, P.position.z);
         let requested = false;
         let screenSource: string | null = null;
         let fade = 1;
@@ -289,7 +332,10 @@ export function build(ctx: AreaContext): EkoHandle {
         const show = (source: string, texture: THREE.Texture) => {
             const img = texture.image as { width?: number; height?: number } | null | undefined;
             const size = containSize(img?.width ?? S.w, img?.height ?? S.h, S.w, S.h);
-            image.scale.set(size.w, size.h, 1);
+            const old = image.geometry;
+            image.geometry = geo(roundedPlane(shapes, size.w, size.h, screenRadius));
+            geometries.splice(geometries.indexOf(old), 1);
+            old.dispose();
             const instant = ctx.runtime.reducedMotion;
             imageMaterial = new THREE.MeshBasicMaterial({
                 map: texture,
@@ -300,14 +346,15 @@ export function build(ctx: AreaContext): EkoHandle {
             image.material = imageMaterial;
             image.visible = true;
             fade = instant ? 1 : 0;
-            // Letterboxed: the bars are a paper screen, not the placeholder.
+            // Letterboxed: ink bars (a landscape clip on a phone), not a blank
+            // paper screen. Lambert, so they follow the look like the body does.
             const letterboxed = size.w < S.w - FIT_EPSILON || size.h < S.h - FIT_EPSILON;
-            if (letterboxed) screen.material = materials.basic(PALETTE.paper);
+            if (letterboxed) screen.material = materials.lambert(PALETTE.ink);
             screenSource = source;
         };
 
         const loadScreen = async () => {
-            for (const source of PHONE_SCREEN_SOURCES) {
+            for (const source of screenSources) {
                 const texture = await loader.request(source);
                 if (disposed) return;
                 if (texture) {
@@ -350,6 +397,8 @@ export function build(ctx: AreaContext): EkoHandle {
             },
             update(dt: number, _t: number, rt: RuntimeInfo) {
                 if (disposed) return;
+                // The spawn lies beyond the lazy-load distance and Areas skips
+                // culled areas, so nothing loads before the car drives (or travels) here.
                 if (!requested) {
                     const d = Math.hypot(rt.carPos.x - P.position.x, rt.carPos.z - P.position.z);
                     if (d <= BOARD.lazyLoadDistance) {

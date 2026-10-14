@@ -2,8 +2,9 @@ import * as THREE from "three";
 import { FontLoader, type Font, type FontData } from "three/addons/loaders/FontLoader.js";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 import type RAPIER from "@dimforge/rapier3d-compat";
-import { CONFIG, type Vec3Like } from "../Config";
+import { CONFIG, type HexColor, type Vec3Like } from "../Config";
 import type { Letter3D, MaterialsApi, PhysicsApi, QuatLike, Text3DApi, Word3D, Word3DOptions } from "../types";
+import { NightTints, nightTable } from "./text";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Tier-A text (§3.3): extruded Bricolage ExtraBold letters (FontLoader +
@@ -33,10 +34,21 @@ import type { Letter3D, MaterialsApi, PhysicsApi, QuatLike, Text3DApi, Word3D, W
 // and never move it afterwards; dev builds warn once if it moves. Call reset()
 // right after placing an area's words to arm them deterministically, without
 // relying on a render before the first physics step.
+//
+// DAY / NIGHT: a word whose colour has a night twin (CONFIG.dayNight.text.word3d:
+// ink → paper, accent ink → its light tint) uses a Lambert of its own per colour
+// (a clone of the palette one, so the shared palette material never changes),
+// recoloured by setNightFactor(t). Other colours keep the shared material.
 // ─────────────────────────────────────────────────────────────────────────
 
 const TY = CONFIG.type;
 const LETTER = CONFIG.physics.dynamicLetter;
+const WORD_NIGHT = nightTable(CONFIG.dayNight.text.word3d);
+
+/** A 3D word's night colour (CONFIG.dayNight.text.word3d; unknown colours keep their day colour). */
+export function nightWordColor(day: HexColor): HexColor {
+    return WORD_NIGHT.get(day.toUpperCase()) ?? day;
+}
 
 /** Glyph used when a character is missing from the typeface (three's own fallback). */
 const MISSING_GLYPH = "?";
@@ -241,9 +253,12 @@ export interface Text3DDeps {
     physics: PhysicsApi & DynamicLetterFactory;
 }
 
-/** Text3DApi plus teardown of the shared letter geometries. */
+/** Text3DApi plus the day / night hook and teardown of the shared letter geometries. */
 export interface Text3DSystem extends Text3DApi {
     word(text: string, opts: Word3DOptions): Word3D & { dispose(): void };
+    /** Day / night (DayNight): 0 = day colours, 1 = night colours. */
+    setNightFactor(t: number): void;
+    readonly nightFactor: number;
     dispose(): void;
 }
 
@@ -272,6 +287,29 @@ export function createText3D(deps: Text3DDeps): Text3DSystem {
     const data = deps.font.data as unknown as TypefaceData;
     const geometries = new Map<string, LetterGeometry>();
     const words = new Set<{ dispose(): void }>();
+    // One night-tinted Lambert per day colour that has a night twin.
+    const tinted = new Map<string, THREE.MeshLambertMaterial>();
+    const tints = new NightTints<THREE.MeshLambertMaterial>(
+        (day) => nightWordColor(day),
+        (material, blended, dayHex) => {
+            if (blended) material.color.copy(blended);
+            else material.color.set(dayHex);
+        }
+    );
+
+    /** The word material: the shared palette Lambert, or this system's tinted clone of it. */
+    const wordMaterial = (color: HexColor): THREE.MeshLambertMaterial => {
+        if (nightWordColor(color).toUpperCase() === color.toUpperCase()) return deps.materials.lambert(color);
+        const key = color.toUpperCase();
+        let m = tinted.get(key);
+        if (!m) {
+            m = deps.materials.lambert(color).clone();
+            m.name = `word3d-night|${key}`;
+            tinted.set(key, m);
+            tints.set(m, color);
+        }
+        return m;
+    };
 
     const letterGeometry = (ch: string, o: LetterGeometryOptions): LetterGeometry => {
         const key = `${ch}|${o.size}|${o.depth}|${o.curveSegments}`;
@@ -286,7 +324,7 @@ export function createText3D(deps: Text3DDeps): Text3DSystem {
     const word = (text: string, opts: Word3DOptions): Word3D & { dispose(): void } => {
         const size = sizeForCap(data, opts.cap);
         const layout = layoutWord(data, text, size);
-        const material = deps.materials.lambert(opts.color);
+        const material = wordMaterial(opts.color);
         const group = new THREE.Group();
         group.name = `word3d:${text}`;
         const records: LetterRecord[] = [];
@@ -442,10 +480,19 @@ export function createText3D(deps: Text3DDeps): Text3DSystem {
 
     return {
         word,
+        setNightFactor(t: number) {
+            tints.setNightFactor(t);
+        },
+        get nightFactor() {
+            return tints.t;
+        },
         dispose() {
             for (const w of Array.from(words)) w.dispose();
             for (const g of geometries.values()) g.geometry.dispose();
             geometries.clear();
+            tints.clear();
+            for (const m of tinted.values()) m.dispose();
+            tinted.clear();
         },
     };
 }

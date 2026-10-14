@@ -8,8 +8,8 @@ import {
     Assets,
     BOARD_LOAD_DISTANCE,
     BoardTextures,
-    CAR_COLORMAP_CELLS,
     MODEL_URLS,
+    SIZE_ESTIMATE,
     NATURE_DIR,
     NATURE_KINDS,
     NATURE_MATERIAL_TOKENS,
@@ -19,17 +19,13 @@ import {
     UnknownNatureMaterialError,
     applyTokenRemap,
     boardUrl,
-    carRepaintCells,
     convertStandardToLambert,
     findStandardMaterials,
     natureKind,
     natureToken,
     normalizeNature,
-    paintColormapCells,
-    prepareCar,
     prepareNature,
     preparePalm,
-    repaintCarColormap,
     toLambert,
 } from "./Assets";
 import { Materials, hasOccluder } from "./Materials";
@@ -182,109 +178,6 @@ describe("GLB → Lambert conversion (§1.3)", () => {
     });
 });
 
-/** A recording stand-in for a 2D canvas (no DOM in node). */
-function fakeCanvas() {
-    const fills: { style: string; x: number; y: number; w: number; h: number }[] = [];
-    const draws: unknown[][] = [];
-    const ctx = {
-        fillStyle: "" as string,
-        fillRect(x: number, y: number, w: number, h: number) {
-            fills.push({ style: ctx.fillStyle, x, y, w, h });
-        },
-        drawImage(...args: unknown[]) {
-            draws.push(args);
-        },
-    };
-    const canvas = { width: 0, height: 0, getContext: () => ctx } as unknown as HTMLCanvasElement;
-    return { canvas, fills, draws };
-}
-
-describe("car colormap repaint (§4.2)", () => {
-    it("car.glb is one double-sided colormap material on body + 4 wheels, with a 512² PNG atlas", () => {
-        const file = publicFile(MODEL_URLS.car);
-        const j = glbJson(file);
-        expect(j.materials?.map((m) => m.name)).toEqual(["colormap"]);
-        expect(new Set(j.nodes?.map((n) => n.name))).toEqual(
-            new Set(["body", "wheel-back-left", "wheel-back-right", "wheel-front-left", "wheel-front-right"])
-        );
-        const img = j.images![0];
-        expect(img.mimeType).toBe("image/png");
-        const bv = j.bufferViews![img.bufferView!];
-        const b = readFileSync(file);
-        const len = b.readUInt32LE(12);
-        const bin = 20 + len + 8; // JSON chunk, then BIN chunk header
-        const png = b.subarray(bin + (bv.byteOffset ?? 0), bin + (bv.byteOffset ?? 0) + bv.byteLength);
-        // IHDR width / height (big-endian) at bytes 16 / 20.
-        expect(png.readUInt32BE(16)).toBe(CONFIG.vehicle.colormap.size);
-        expect(png.readUInt32BE(20)).toBe(CONFIG.vehicle.colormap.size);
-    });
-
-    it("fills the six palette cells; body follows the paint option", () => {
-        const brand = carRepaintCells("brand");
-        expect(brand).toHaveLength(6);
-        const at = (cells: typeof brand, col: number, row: number) => cells.find((c) => c.col === col && c.row === row)?.hex;
-        expect(at(brand, 7, 1)).toBe(PALETTE.carBody);
-        expect(at(carRepaintCells("danfo"), 7, 1)).toBe(PALETTE.carDanfo);
-        expect(at(brand, 3, 2)).toBe(PALETTE.carTrim);
-        expect(at(brand, 2, 2)).toBe(PALETTE.carTyre);
-        expect(at(brand, 4, 1)).toBe(PALETTE.carRim);
-        expect(at(brand, 6, 2)).toBe(PALETTE.carLight);
-        expect(at(brand, 0, 3)).toBe(PALETTE.carLight);
-        expect(CAR_COLORMAP_CELLS.light).toHaveLength(2);
-
-        const { canvas, fills } = fakeCanvas();
-        paintColormapCells(canvas.getContext("2d")!, brand);
-        const { cellW, cellH } = CONFIG.vehicle.colormap;
-        expect(fills[0]).toEqual({ style: PALETTE.carBody, x: 7 * cellW, y: 1 * cellH, w: cellW, h: cellH });
-        for (const f of fills) {
-            expect(f.x + f.w).toBeLessThanOrEqual(CONFIG.vehicle.colormap.size);
-            expect(f.y + f.h).toBeLessThanOrEqual(CONFIG.vehicle.colormap.size);
-        }
-    });
-
-    it("draws the original first, then returns a nearest / no-mip / flipY-false sRGB CanvasTexture", () => {
-        const fake = fakeCanvas();
-        const image = { width: 512, height: 512 } as unknown as CanvasImageSource;
-        const tex = repaintCarColormap(image, "brand", () => fake.canvas);
-        expect(fake.draws).toHaveLength(1);
-        expect(fake.draws[0][0]).toBe(image);
-        expect(fake.fills).toHaveLength(6);
-        expect(tex).toBeInstanceOf(THREE.CanvasTexture);
-        expect(tex.flipY).toBe(false);
-        expect(tex.colorSpace).toBe(THREE.SRGBColorSpace);
-        expect(tex.magFilter).toBe(THREE.NearestFilter);
-        expect(tex.minFilter).toBe(THREE.NearestFilter);
-        expect(tex.generateMipmaps).toBe(false);
-    });
-
-    it("prepareCar: one double-sided Lambert with the repainted map on every mesh, castShadow false", () => {
-        const colormap = new THREE.Texture({ width: 512, height: 512 } as unknown as HTMLImageElement);
-        colormap.wrapS = THREE.RepeatWrapping;
-        const src = new THREE.MeshStandardMaterial({ map: colormap, side: THREE.DoubleSide });
-        const root = new THREE.Group();
-        const geo = new THREE.BoxGeometry();
-        for (const name of ["body", "wheel-front-left", "wheel-front-right", "wheel-back-left", "wheel-back-right"]) {
-            const m = new THREE.Mesh(geo, src);
-            m.name = name;
-            m.castShadow = true;
-            root.add(m);
-        }
-        const fake = fakeCanvas();
-        const car = prepareCar(root, "brand", () => fake.canvas);
-        expect(findStandardMaterials(root)).toHaveLength(0);
-        expect(car.material).toBeInstanceOf(THREE.MeshLambertMaterial);
-        expect(car.material.side).toBe(THREE.DoubleSide);
-        expect(car.material.map).toBe(car.texture);
-        expect(car.texture!.wrapS).toBe(THREE.RepeatWrapping);
-        expect(car.material.color.getHex()).toBe(0xffffff);
-        root.traverse((o) => {
-            if (!(o as THREE.Mesh).isMesh) return;
-            expect((o as THREE.Mesh).material).toBe(car.material);
-            expect(o.castShadow).toBe(false);
-        });
-    });
-});
-
 describe("ProgressAggregator", () => {
     it("is byte-weighted and monotonic, and failed items complete", () => {
         const seen: number[] = [];
@@ -406,7 +299,8 @@ describe("Assets.load", () => {
             await expect(a.load()).resolves.toBeUndefined();
             expect(a.model("nature/tree_oak")).toBeNull();
             expect(a.model("nature/tree_default")).not.toBeNull();
-            expect(a.model("car")).not.toBeNull();
+            expect(a.model("palm")).not.toBeNull();
+            expect(a.model("car")).toBeNull();
             expect(err).toHaveBeenCalledTimes(1);
             expect(String(err.mock.calls[0][0])).toContain("tree_oak");
         } finally {
@@ -415,12 +309,22 @@ describe("Assets.load", () => {
         }
     });
 
-    it("rejects only when the required car.glb fails", async () => {
+    it("no required model: car.glb is never requested and load() resolves when every model fails", async () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
         try {
-            const a = new Assets({ materials: new Materials(), avatarUrl: null, loadNature: false });
-            internals(a).fetchGLTF = async () => ({ ok: false, error: new Error("404") });
-            await expect(a.load()).rejects.toThrow(/required/);
+            expect(Object.keys(MODEL_URLS)).not.toContain("car");
+            expect(Object.keys(SIZE_ESTIMATE)).not.toContain("car");
+            const a = new Assets({ materials: new Materials(), loadNature: true });
+            const requested: string[] = [];
+            internals(a).fetchGLTF = async (url) => {
+                requested.push(url);
+                return { ok: false, error: new Error("404") };
+            };
+            await expect(a.load()).resolves.toBeUndefined();
+            expect(requested.some((u) => u.includes("car"))).toBe(false);
+            expect(requested).toContain(MODEL_URLS.palm);
+            expect(a.model("car")).toBeNull();
+            expect(a.model("palm")).toBeNull();
         } finally {
             warn.mockRestore();
         }

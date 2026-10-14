@@ -1005,18 +1005,22 @@
 }
 
 /*
- * Narrow top bar. At ≤ 640 px the right cluster is 4 × 44 + 3 × 8 = 200 px on
- * coarse pointers; the longest chip ("Frontend Projects") is about 160 px, the
- * wordmark plus its gap 57 px, and the gutters 32 + 8. The full row needs about
- * 457 px, so below 480 px the wordmark goes and the chip keeps the space.
+ * Narrow top bar. At ≤ 640 px the right cluster (Classic, Day / night, Map,
+ * Sound, Menu) is 5 × 44 + 4 × 8 = 252 px on coarse pointers; the longest chip
+ * ("Frontend Projects") is about 160 px, the wordmark plus its gap 57 px, and
+ * the gutters 32 + 8. The full row needs about 509 px, so below 520 px the
+ * wordmark goes and the chip keeps the space.
  */
-@media (max-width: 480px) {
+@media (max-width: 520px) {
     .w3-wordmark {
         display: none;
     }
 }
-/* Too narrow even for an ellipsized chip; the aria-live Announcer still says "Entered …". */
-@media (max-width: 299px) {
+/*
+ * Too narrow for a useful chip: below 360 px it would get under 68 px
+ * (360 − 32 − 252 − 8); the aria-live Announcer still says "Entered …".
+ */
+@media (max-width: 359px) {
     .w3-area-chip {
         display: none;
     }

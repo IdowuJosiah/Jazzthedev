@@ -1,27 +1,28 @@
 import * as THREE from "three";
 import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
-import { CONFIG, PALETTE, type HexColor, type PaletteToken } from "./Config";
+import { CONFIG, PALETTE, type PaletteToken } from "./Config";
 import { applyOccluder, type Materials } from "./Materials";
 import type { AssetsApi, ModelName } from "./types";
 import type { Disposal } from "./utils/disposal";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Assets (W1-D). Loads the GLB models with real byte progress, converts every
-// MeshStandardMaterial to Lambert (§1.3), repaints the car's Kenney colormap
-// into the palette (§4.2), recolours the Nature Kit subset into palette tokens
-// (§2.6; unknown material names THROW), and serves board / portrait textures
-// (sRGB, mipmapped, anisotropic) with a distance-gated lazy loader (§5.1).
+// MeshStandardMaterial to Lambert (§1.3), recolours the Nature Kit subset into
+// palette tokens (§2.6; unknown material names THROW), and serves board /
+// portrait textures (sRGB, mipmapped, anisotropic) with a distance-gated lazy
+// loader (§5.1).
 //
-// Required: car.glb (retried once, then load() rejects → "asset" failure card).
-// Optional: palm, avatar, Nature Kit, board images → null / placeholder. An
-// optional model that loads but fails preparation (e.g. an unmapped Nature Kit
+// The car is the procedural Cybertruck (models/Cybertruck.ts, owner decision):
+// car.glb is no longer loaded or repainted, so no model is required and a
+// missing GLB never raises the "asset" failure card. Every model is optional:
+// palm, avatar, Nature Kit, board images → null / placeholder. An optional
+// model that loads but fails preparation (e.g. an unmapped Nature Kit
 // material) is logged with console.error and skipped; it never fails load().
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Model URLs (public/assets/models). */
 export const MODEL_URLS = {
-    car: "/assets/models/car.glb",
     palm: "/assets/models/palm.glb",
     avatar: "/assets/models/avatar.glb",
 } as const;
@@ -116,8 +117,6 @@ export const BOARD_LOAD_DISTANCE = 120;
 /** Directory + extension used when a board is requested by bare name ("clay"). */
 export const BOARD_DIR = "/assets/boards/";
 export const BOARD_EXT = ".webp";
-/** Attempts after the first failure for required assets (§6.2: retry once). */
-export const REQUIRED_RETRIES = CONFIG.loading.retries;
 /**
  * Progress weights (bytes) used until a response reports its real size; close
  * to the shipped files so the bar moves evenly from the start. The avatar is
@@ -126,96 +125,10 @@ export const REQUIRED_RETRIES = CONFIG.loading.retries;
  * bar holds, never drops, until it catches up).
  */
 export const SIZE_ESTIMATE = {
-    car: 183_000,
     palm: 112_000,
     avatar: 4_000,
     nature: 8_000,
 } as const;
-
-// ── Car colormap repaint (§4.2) ──────────────────────────────────────────
-export interface ColormapCell {
-    col: number;
-    row: number;
-    hex: HexColor;
-}
-
-/**
- * Kenney car colormap cells (col, row) on the 8 × 4 grid, verified from the
- * UVs (§4.2): body paint (7,1), dark trim (3,2), tyre (2,2), rim (4,1), lights
- * (6,2) and (0,3).
- */
-export const CAR_COLORMAP_CELLS = Object.freeze({
-    body: [{ col: 7, row: 1 }],
-    trim: [{ col: 3, row: 2 }],
-    tyre: [{ col: 2, row: 2 }],
-    rim: [{ col: 4, row: 1 }],
-    light: [
-        { col: 6, row: 2 },
-        { col: 0, row: 3 },
-    ],
-} as const);
-
-export type CarPaint = "brand" | "danfo";
-
-/** The fills for a paint option, in draw order. */
-export function carRepaintCells(paint: CarPaint): ColormapCell[] {
-    const C = CAR_COLORMAP_CELLS;
-    const fills: [readonly { col: number; row: number }[], HexColor][] = [
-        [C.body, CONFIG.vehicle.paints[paint]],
-        [C.trim, PALETTE.carTrim],
-        [C.tyre, PALETTE.carTyre],
-        [C.rim, PALETTE.carRim],
-        [C.light, PALETTE.carLight],
-    ];
-    return fills.flatMap(([cells, hex]) => cells.map((c) => ({ col: c.col, row: c.row, hex })));
-}
-
-/** Fills each cell's full 64×128 rect on a 2D context. */
-export function paintColormapCells(
-    g: { fillStyle: string | CanvasGradient | CanvasPattern; fillRect(x: number, y: number, w: number, h: number): void },
-    cells: readonly ColormapCell[]
-): void {
-    const { cellW, cellH } = CONFIG.vehicle.colormap;
-    for (const c of cells) {
-        g.fillStyle = c.hex;
-        g.fillRect(c.col * cellW, c.row * cellH, cellW, cellH);
-    }
-}
-
-export type CanvasFactory = (w: number, h: number) => HTMLCanvasElement;
-
-const defaultCanvas: CanvasFactory = (w, h) => {
-    const c = document.createElement("canvas");
-    c.width = w;
-    c.height = h;
-    return c;
-};
-
-/**
- * Draws the original colormap into a 512² canvas, fills the palette cells and
- * returns a nearest-filtered, non-mipmapped sRGB CanvasTexture (flipY false,
- * glTF UV convention).
- */
-export function repaintCarColormap(
-    image: CanvasImageSource | null,
-    paint: CarPaint,
-    createCanvas: CanvasFactory = defaultCanvas
-): THREE.CanvasTexture {
-    const size = CONFIG.vehicle.colormap.size;
-    const canvas = createCanvas(size, size);
-    const g = canvas.getContext("2d");
-    if (!g) throw new Error("[world3] 2D canvas unavailable for the car repaint");
-    if (image) g.drawImage(image, 0, 0, size, size);
-    paintColormapCells(g, carRepaintCells(paint));
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.flipY = false;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.generateMipmaps = false;
-    tex.name = "car-colormap-palette";
-    return tex;
-}
 
 // ── GLB → Lambert conversion (§1.3) ──────────────────────────────────────
 const isStandard = (m: THREE.Material): m is THREE.MeshStandardMaterial =>
@@ -299,65 +212,6 @@ const setShadows = (root: THREE.Object3D, cast: boolean, receive: boolean) =>
     });
 
 // ── Per-model preparation (exported for tests) ───────────────────────────
-/** White material colour: a textured material shows its map unchanged. */
-const MAP_PASSTHROUGH = 0xffffff;
-
-export interface PreparedCar {
-    root: THREE.Object3D;
-    material: THREE.MeshLambertMaterial;
-    texture: THREE.CanvasTexture | null;
-}
-
-/**
- * Car (§4.2): one double-sided Lambert with the repainted colormap on the body
- * and all four wheels; castShadow false on every mesh (blob shadow only).
- */
-export function prepareCar(root: THREE.Object3D, paint: CarPaint, createCanvas?: CanvasFactory): PreparedCar {
-    let srcMap: THREE.Texture | null = null;
-    const sources = new Set<THREE.Material>();
-    root.traverse((o) => {
-        const mesh = o as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        for (const m of meshMaterials(mesh)) {
-            sources.add(m);
-            const mapped = (m as THREE.MeshStandardMaterial).map;
-            if (!srcMap && mapped) srcMap = mapped;
-        }
-    });
-    const original = srcMap as THREE.Texture | null;
-    const image = (original?.image ?? null) as CanvasImageSource | null;
-    let texture: THREE.CanvasTexture | null = null;
-    if (image) {
-        texture = repaintCarColormap(image, paint, createCanvas);
-        texture.wrapS = original!.wrapS;
-        texture.wrapT = original!.wrapT;
-        texture.channel = original!.channel;
-    } else {
-        console.warn("[world3] car.glb has no colormap image; drawing the car flat in its paint colour");
-    }
-    const material = new THREE.MeshLambertMaterial({
-        map: texture,
-        // The map carries the colour; a white multiplier keeps it exact.
-        color: texture ? MAP_PASSTHROUGH : CONFIG.vehicle.paints[paint],
-        side: THREE.DoubleSide,
-    });
-    material.name = "car-palette";
-    root.traverse((o) => {
-        const mesh = o as THREE.Mesh;
-        if (mesh.isMesh) mesh.material = material;
-    });
-    setShadows(root, false, true);
-    // The repaint copied the pixels: free the source texture, its decoded
-    // ImageBitmap (GLTFLoader's default where supported) and the GLB materials.
-    original?.dispose();
-    (image as Partial<ImageBitmap> | null)?.close?.();
-    for (const m of sources) {
-        for (const t of materialTextures(m)) if (t !== original) t.dispose();
-        m.dispose();
-    }
-    return { root, material, texture };
-}
-
 /** Palm (§2.6): Lambert + its original atlas, with the scenery occluder dither. */
 export function preparePalm(root: THREE.Object3D): THREE.MeshLambertMaterial[] {
     const mats = convertStandardToLambert(root);
@@ -621,7 +475,6 @@ export interface AssetsOptions {
     renderer?: THREE.WebGLRenderer | null;
     /** If given, Assets.dispose() is registered on it. */
     disposal?: Disposal;
-    paint?: CarPaint;
     /** Load the Nature Kit (CONFIG.scenery.source === "kit"). */
     loadNature?: boolean;
     /** Optional avatar (§8.3); absent file → model("avatar") is null. */
@@ -654,26 +507,15 @@ export class Assets implements AssetsApi {
 
     /**
      * Loads every model in parallel, reporting byte progress in [0, 1]
-     * (monotonic). Rejects only when the required car.glb fails after one
-     * retry. Optional models that fail to load or prepare (including an
-     * UnknownNatureMaterialError, which `npm run test` already catches at build
-     * time) are skipped, so model() returns null and Scenery falls back.
+     * (monotonic). Every model is optional: one that fails to load or prepare
+     * (including an UnknownNatureMaterialError, which `npm run test` already
+     * catches at build time) is skipped, so model() returns null and its
+     * consumer falls back. load() rejects only on an unexpected programming
+     * error, never on a missing or broken file. model("car") is always null.
      */
     async load(onProgress?: (fraction: number) => void): Promise<void> {
         const progress = new ProgressAggregator(onProgress);
-        const paint = this.opts.paint ?? CONFIG.vehicle.paint;
         const jobs: Promise<void>[] = [];
-
-        progress.add("car", SIZE_ESTIMATE.car);
-        jobs.push(
-            this.fetchGLTF(MODEL_URLS.car, "car", progress, REQUIRED_RETRIES).then((r) => {
-                if (!r.ok) throw new Error(`[world3] required asset failed: ${MODEL_URLS.car}`, { cause: r.error });
-                const car = prepareCar(r.gltf.scene, paint);
-                this.own(car.material);
-                if (car.texture) this.own(car.texture);
-                this.keep("car", r.gltf);
-            })
-        );
 
         progress.add("palm", SIZE_ESTIMATE.palm);
         jobs.push(

@@ -15,35 +15,54 @@ import type { AreaContext, AreaHandle, PadDef, TextHandle, TextOpts, Word3D } fr
 //   title scale), faceCamera. Areas arms it (fixed colliders) when build() returns.
 // - Six milestone plates (flush paper, 9×4.6, faceCamera) beside the trail:
 //   the year in Bricolage 1.5 (ACCENT_INK.journey) and the title in Inter Bold
-//   0.8 (ink, maxWidth 8). The plate is also the pad: it opens that stop's panel.
+//   0.8 (ink, maxWidth 8 capped by the copy inset). The plate is also the pad:
+//   it opens that stop's panel.
 // - Three skill plates (10×6) on the west side: the category in Inter Bold 0.9
 //   (ink) and the proof line in Inter Medium 0.8 (ink2). The plate is also the
 //   pad: each opens the full skills list.
 // - The flat `NOW` end marker (Bricolage 1.8, ink) on the trail tiles.
 //
+// Plate copy is a two-part block: the heading hangs from the plate's far edge
+// (anchorY "top-cap") and the body stands on its near edge (anchorY
+// "bottom-baseline"), both at the same inset. The inset is measured from the
+// active pad outline (drawn inside the plate edge), not from the plate edge,
+// so descenders never touch the accent ring when the pad lights. troika lays
+// text out asynchronously, so the line counts are unknown at build; anchoring
+// the two parts to opposite edges keeps equal optical margins and never
+// overlaps for the current copy (≤ 2 heading lines + ≤ 3 body lines).
+//
 // Layers (§2.5, DECISIONS.md "padOnPlate"): plates on "plate", their pad
 // outline / fill on "padOnPlate", and the plate copy on "padOnPlate" too, so
-// the look system can tell copy ON a plate from copy on the ground. The copy
-// draws after the active pad fill (renderOrder of the ground-text layer), so
-// the fill never veils it. NOW sits on the tiles ("tileText", y 0.10).
-// No keycaps (DECISIONS.md, "Owner: desktop-first, no on-screen controls").
+// the look system can tell copy ON a plate (paper underneath) from copy on the
+// ground. The copy draws after the active pad fill (the ground-text
+// renderOrder), so the fill never veils it. NOW sits on the tiles ("tileText",
+// y 0.10). No keycaps (DECISIONS.md, "Owner: desktop-first, no on-screen controls").
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Layer of the copy printed on a plate (above the plate and its pad outline). */
-const PLATE_TEXT_LAYER: FlatLayerId = "padOnPlate";
+export const PLATE_TEXT_LAYER: FlatLayerId = "padOnPlate";
 /** Plate copy draws after the active pad fill (padOnPlate renderOrder 1). */
-const PLATE_TEXT_RENDER_ORDER = LAYERS.groundText.renderOrder;
+export const PLATE_TEXT_RENDER_ORDER = LAYERS.groundText.renderOrder;
+/** Clear space between the plate copy and the inner edge of the active pad outline. */
+const PLATE_COPY_PAD = 0.4;
+/** Copy inset from every plate edge: the active outline (inset into the plate) plus clear space. */
+export const PLATE_COPY_INSET = CONFIG.pad.activeLineWidth + PLATE_COPY_PAD;
 /** Line height of the wrapped plate copy (titles, categories, proof lines). */
-const PLATE_LINE_HEIGHT = 1.15;
+export const PLATE_LINE_HEIGHT = 1.15;
+/** The end-of-trail marker's word. */
+export const NOW_TEXT = "NOW";
 const PROMPT_MILESTONE = "Open milestone";
 const PROMPT_SKILLS = "Open skills";
 const SKILLS_TITLE = "Skills";
+/** Separator between a skill set's skills in the panel. */
+const SKILL_SEPARATOR = " · ";
 
 export interface PlateBuild {
     /** Plate root: at the plate centre, rotated faceCamera (local +X → R, +Z → S). */
     group: THREE.Group;
     plate: THREE.Mesh;
     pad: PadVisual;
+    /** [heading, body]: year + title, or category + proof. */
     texts: TextHandle[];
 }
 
@@ -57,12 +76,18 @@ export interface JourneyHandle extends AreaHandle {
 /** "#12A387" → 0x12a387 (InfoContent.accent is numeric). */
 const hexNumber = (hex: string): number => parseInt(hex.slice(1), 16);
 
+/** The content panel of one journey stop. */
+export function milestoneContent(i: number, accent: number): InfoContent {
+    const stop = journeyStops[i];
+    return { title: stop.title, sub: stop.year, body: stop.body, accent };
+}
+
 /** The full skills list every skill plate opens (§5.3). */
 export function skillsContent(accent: number): InfoContent {
     return {
         title: SKILLS_TITLE,
         sub: areaCopy.journey.name,
-        sections: skillTotems.map((s) => ({ heading: s.category, text: `${s.proof} ${s.skills.join(" · ")}` })),
+        sections: skillTotems.map((s) => ({ heading: s.category, text: `${s.proof} ${s.skills.join(SKILL_SEPARATOR)}` })),
         accent,
     };
 }
@@ -148,8 +173,9 @@ export function build(ctx: AreaContext): JourneyHandle {
         // ── Milestone plates (year + title), each its own pad ────────────
         const MP = J.milestonePlate;
         const radius = CONFIG.pad.cornerRadius;
-        // Copy inset from the plate edge: the margin the title's maxWidth leaves.
-        const inset = (MP.w - MP.titleMaxWidth) / 2;
+        const inset = PLATE_COPY_INSET;
+        // Layout's titleMaxWidth (8) would reach into the active outline; the inset wins.
+        const titleMaxWidth = Math.min(MP.titleMaxWidth, MP.w - 2 * inset);
         const milestoneGeo = shapes.flatPlate(MP.w, MP.d, radius, "plate");
         geometries.push(milestoneGeo);
         const milestones: PlateBuild[] = [];
@@ -157,6 +183,7 @@ export function build(ctx: AreaContext): JourneyHandle {
             const stop = journeyStops[i];
             const pad = padDef(`milestone-${i}`);
             const { root, plate, visual } = plateWithPad(pad, milestoneGeo, `milestone-${i}`);
+            // ACCENT_INK on paper at ≥ 1.5 units (Config: ACCENT_INK rule).
             const year = plateText(
                 root,
                 {
@@ -165,7 +192,7 @@ export function build(ctx: AreaContext): JourneyHandle {
                     size: TY.numerals.min,
                     color: def.accentInk,
                     anchorX: "left",
-                    anchorY: "top",
+                    anchorY: "top-cap",
                 },
                 -MP.w / 2 + inset,
                 -MP.d / 2 + inset
@@ -177,20 +204,19 @@ export function build(ctx: AreaContext): JourneyHandle {
                     font: "bold",
                     size: TY.minFlatSize,
                     color: PALETTE.ink,
-                    maxWidth: MP.titleMaxWidth,
+                    maxWidth: titleMaxWidth,
                     anchorX: "left",
-                    anchorY: "bottom",
+                    anchorY: "bottom-baseline",
                 },
                 -MP.w / 2 + inset,
                 MP.d / 2 - inset
             );
-            const content: InfoContent = { title: stop.title, sub: stop.year, body: stop.body, accent };
             unregister.push(
                 ctx.addInteractable({
                     pad,
                     prompt: { title: stop.title, action: PROMPT_MILESTONE },
                     areaId: def.id,
-                    content,
+                    content: milestoneContent(i, accent),
                     setActive: (on) => visual.setActive(on),
                 })
             );
@@ -202,12 +228,12 @@ export function build(ctx: AreaContext): JourneyHandle {
         const skillGeo = shapes.flatPlate(SP.w, SP.d, radius, "plate");
         geometries.push(skillGeo);
         const skillsPanel = skillsContent(accent);
+        const skillMaxWidth = SP.w - 2 * inset;
         const skills: PlateBuild[] = [];
         J.skills.forEach((_, i) => {
             const totem = skillTotems[i];
             const pad = padDef(`skill-${i}`);
             const { root, plate, visual } = plateWithPad(pad, skillGeo, `skill-${i}`);
-            const maxWidth = SP.w - 2 * inset;
             const category = plateText(
                 root,
                 {
@@ -215,9 +241,9 @@ export function build(ctx: AreaContext): JourneyHandle {
                     font: TY.floorCaption.font,
                     size: TY.floorCaption.size,
                     color: PALETTE.ink,
-                    maxWidth,
+                    maxWidth: skillMaxWidth,
                     anchorX: "left",
-                    anchorY: "top",
+                    anchorY: "top-cap",
                 },
                 -SP.w / 2 + inset,
                 -SP.d / 2 + inset
@@ -230,9 +256,9 @@ export function build(ctx: AreaContext): JourneyHandle {
                     font: "medium",
                     size: TY.minFlatSize,
                     color: PALETTE.ink2,
-                    maxWidth,
+                    maxWidth: skillMaxWidth,
                     anchorX: "left",
-                    anchorY: "bottom",
+                    anchorY: "bottom-baseline",
                 },
                 -SP.w / 2 + inset,
                 SP.d / 2 - inset
@@ -251,7 +277,7 @@ export function build(ctx: AreaContext): JourneyHandle {
 
         // ── NOW end marker (flat, on the trail tiles) ────────────────────
         const now = text.flat({
-            text: "NOW",
+            text: NOW_TEXT,
             font: TY.numerals.font,
             size: J.now.size,
             color: PALETTE.ink,

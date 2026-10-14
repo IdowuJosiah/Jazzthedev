@@ -6,6 +6,7 @@ import { ACCENT, CONFIG, FACE_CAMERA_Y, PALETTE } from "../Config";
 import { registerArea } from "../Areas";
 import { buildOwnedPathLabels } from "../Paths";
 import { buildPad, type PadVisual } from "../ui3d/Pad";
+import type { BrickSpot } from "../Layout";
 import type { AreaContext, AreaHandle, PadDef, Prompt, QuatLike, TextHandle, Vec3Like, Word3D } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ import type { AreaContext, AreaHandle, PadDef, Prompt, QuatLike, TextHandle, Vec
 // - Bowling lane: a flush plaza strip on the plates layer, the ink ball
 //   (r 1.3, mass 140) and 10 Lathe pins (paper with a brand band, cylinder
 //   colliders r 0.42, mass 8) in the Layout triangle (apex east).
-// - Brick wall: running bond, 26 full + 6 half bricks (32 bodies) along R,
+// - Brick wall: running bond, 28 full + 4 half bricks (32 bodies) along R,
 //   front facing the camera.
 // - RESET pad: its interaction calls commands.resetPlayground() (→ Areas →
 //   reset() here); reset() puts the bricks, pins, ball and PLAY home and
@@ -31,27 +32,33 @@ import type { AreaContext, AreaHandle, PadDef, Prompt, QuatLike, TextHandle, Vec
 // Repeated props are instanced (§9.2): one InstancedMesh per brick size and
 // per pin part. Each body is linked to an unparented proxy Object3D (the
 // physics interpolation writes its world pose there) and update() copies the
-// proxies into the instance matrices. The ball is a plain linked mesh.
+// proxies into the instance matrices, only while a family is awake (plus one
+// settling frame), refitting its bounding sphere so frustum and shadow
+// culling stay correct as the props move. The ball is a plain linked mesh.
 //
 // Impact sounds: every body here registers an impact family (CONFIG.physics.
-// dynamicDefaults: bricks / pins "wood", ball "heavy"). The Experience routes
-// physics.onImpact → audio.playImpact for every prop in the world, so this
-// area does not subscribe again (a second subscription would double each hit).
-// Nothing here animates on its own, so reduced motion has nothing to stop.
+// dynamicDefaults: bricks / pins "wood", ball "heavy"; letters "heavy"). The
+// Experience routes physics.onImpact → audio.playImpact once for the whole
+// world, so this area does not subscribe again (a second subscription would
+// play each hit twice). Nothing here animates on its own, so reduced motion
+// has nothing to stop.
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Prompt card for the reset pad (`E  Playground — Reset`). */
 const RESET_PROMPT: Prompt = { title: "Playground", action: "Reset" };
 /** Lane strip corner radius. */
 const LANE_CORNER = 0.5;
+/** The lane's material variant: the one DayNight remaps for the plazas (night albedo). */
+export const LANE_MATERIAL = CONFIG.dayNight.albedoMaterials.plaza[0];
 /** Ball tessellation. */
 const BALL_SEGMENTS = { width: 32, height: 16 } as const;
 /** Lathe segments around a pin. */
 const PIN_RADIAL_SEGMENTS = 20;
 /**
  * Pin silhouette as (radius / pin radius, height / pin height), bottom to top:
- * flat base, belly, neck, head, rounded top. The band (brand red) runs over
- * the neck, between profile points PIN_BAND[0] and PIN_BAND[1].
+ * flat base, belly, neck, head, rounded top. The widest point is exactly the
+ * collider radius. The band (brand red) runs over the neck, between profile
+ * points PIN_BAND[0] and PIN_BAND[1].
  */
 const PIN_PROFILE: readonly (readonly [number, number])[] = [
     [0, 0],
@@ -78,7 +85,7 @@ const PIN_BAND = [7, 9] as const;
  * between chevrons and `lift` the offset above the slope (plus the plate
  * layer's polygonOffset) so they never z-fight with the ramp face.
  */
-const CHEVRON = { depth: 1.5, halfSpan: 2.6, thickness: 0.65, spacing: 2.6, lift: 0.012 } as const;
+export const CHEVRON = { depth: 1.5, halfSpan: 2.6, thickness: 0.65, spacing: 2.6, lift: 0.012 } as const;
 
 const UP = new THREE.Vector3(0, 1, 0);
 const ONE = new THREE.Vector3(1, 1, 1);
@@ -93,10 +100,12 @@ export interface PlaygroundProp {
     home: { position: THREE.Vector3; quaternion: THREE.Quaternion };
 }
 
-/** An instanced prop family: proxies[i] drives instance i of every mesh. */
+/** An instanced prop family: props[i] drives instance i of every mesh. */
 interface InstancedFamily {
     meshes: THREE.InstancedMesh[];
     props: PlaygroundProp[];
+    /** Any body awake at the last sync (one more sync lands the settled pose). */
+    wasAwake: boolean;
 }
 
 export interface PlaygroundHandle extends AreaHandle {
@@ -108,10 +117,15 @@ export interface PlaygroundHandle extends AreaHandle {
     pins: PlaygroundProp[];
     bricks: PlaygroundProp[];
     /** Full-brick, half-brick, pin-body and pin-band instanced meshes. */
-    instanced: { fullBricks: THREE.InstancedMesh; halfBricks: THREE.InstancedMesh; pinBodies: THREE.InstancedMesh; pinBands: THREE.InstancedMesh };
+    instanced: {
+        fullBricks: THREE.InstancedMesh;
+        halfBricks: THREE.InstancedMesh;
+        pinBodies: THREE.InstancedMesh;
+        pinBands: THREE.InstancedMesh;
+    };
     resetPad: PadVisual;
     pathLabels: TextHandle[];
-    /** Copies the interpolated body poses into the instance matrices (update() calls it). */
+    /** Copies every interpolated body pose into the instance matrices now (update() does it while awake). */
     syncInstances(): void;
 }
 
@@ -226,7 +240,7 @@ export function build(ctx: AreaContext): PlaygroundHandle {
         bodies.push(b);
         return b;
     };
-    const noRaycast = (o: THREE.Object3D) => {
+    const noRaycast = <O extends THREE.Object3D>(o: O): O => {
         o.raycast = () => {};
         return o;
     };
@@ -271,13 +285,12 @@ export function build(ctx: AreaContext): PlaygroundHandle {
             };
         };
 
-        /** An instanced mesh (cast + receive, never frustum-culled: its instances move). */
+        /** An instanced mesh (casts + receives; its bounding sphere is refit on every sync). */
         const instanced = (g: THREE.BufferGeometry, m: THREE.Material, count: number, name: string) => {
             const mesh = new THREE.InstancedMesh(g, m, count);
             mesh.name = name;
             mesh.castShadow = true;
             mesh.receiveShadow = true;
-            mesh.frustumCulled = false;
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             noRaycast(mesh);
             instancedMeshes.push(mesh);
@@ -327,10 +340,13 @@ export function build(ctx: AreaContext): PlaygroundHandle {
         );
 
         // ── Bowling lane strip (plates layer) ────────────────────────────
+        // The geometry sits at the plate height; the material is the shared
+        // plaza variant (DayNight's CONFIG.dayNight.albedoMaterials.plaza), so
+        // the strip darkens with the plazas at night instead of glaring.
         const L = PG.lane;
         const lane = new THREE.Mesh(
             geo(shapes.flatPlate(Math.abs(L.toX - L.fromX), L.width, LANE_CORNER, "plate")),
-            materials.lambert(PALETTE.plaza, { layer: "plate" })
+            materials.lambert(PALETTE.plaza, LANE_MATERIAL)
         );
         lane.name = "bowling-lane";
         lane.position.set((L.fromX + L.toX) / 2, 0, L.z);
@@ -365,13 +381,12 @@ export function build(ctx: AreaContext): PlaygroundHandle {
                     new THREE.Object3D()
                 )
             ),
+            wasAwake: true,
         };
 
         // ── Brick wall (running bond, faceCamera) ────────────────────────
         const W = PG.wall;
-        const fullSpots = PG.bricks.filter((b) => !b.half);
-        const halfSpots = PG.bricks.filter((b) => b.half);
-        const brickFamily = (spots: typeof fullSpots, w: number, mass: number, name: string): InstancedFamily => ({
+        const brickFamily = (spots: readonly BrickSpot[], w: number, mass: number, name: string): InstancedFamily => ({
             meshes: [
                 instanced(
                     geo(new RoundedBoxGeometry(w, W.brick.h, W.brick.d, W.segments, W.radius)),
@@ -392,9 +407,10 @@ export function build(ctx: AreaContext): PlaygroundHandle {
                     new THREE.Object3D()
                 )
             ),
+            wasAwake: true,
         });
-        const fullBricks = brickFamily(fullSpots, W.brick.w, W.mass, "bricks-full");
-        const halfBricks = brickFamily(halfSpots, W.halfBrickW, W.halfMass, "bricks-half");
+        const fullBricks = brickFamily(PG.bricks.filter((b) => !b.half), W.brick.w, W.mass, "bricks-full");
+        const halfBricks = brickFamily(PG.bricks.filter((b) => b.half), W.halfBrickW, W.halfMass, "bricks-half");
         const families = [pinFamily, fullBricks, halfBricks];
 
         // ── RESET pad ────────────────────────────────────────────────────
@@ -424,20 +440,30 @@ export function build(ctx: AreaContext): PlaygroundHandle {
         // ── Instance sync + reset ────────────────────────────────────────
         const tmpM = new THREE.Matrix4();
         const toLocal = new THREE.Matrix4();
-        const syncInstances = () => {
-            for (const f of families) {
-                const parent = f.meshes[0].parent;
-                if (parent) {
-                    parent.updateWorldMatrix(true, false);
-                    toLocal.copy(parent.matrixWorld).invert();
-                } else toLocal.identity();
-                f.props.forEach((p, i) => {
-                    tmpM.compose(p.object.position, p.object.quaternion, ONE).premultiply(toLocal);
-                    for (const m of f.meshes) m.setMatrixAt(i, tmpM);
-                });
-                for (const m of f.meshes) m.instanceMatrix.needsUpdate = true;
+        const writeFamily = (f: InstancedFamily) => {
+            const parent = f.meshes[0].parent;
+            if (parent) {
+                parent.updateWorldMatrix(true, false);
+                toLocal.copy(parent.matrixWorld).invert();
+            } else toLocal.identity();
+            f.props.forEach((p, i) => {
+                tmpM.compose(p.object.position, p.object.quaternion, ONE).premultiply(toLocal);
+                for (const m of f.meshes) m.setMatrixAt(i, tmpM);
+            });
+            for (const m of f.meshes) {
+                m.instanceMatrix.needsUpdate = true;
+                m.computeBoundingSphere(); // the props moved: keep frustum / shadow culling right
             }
         };
+        /** Writes a family while any of its bodies is awake, plus once after they all fall asleep. */
+        const syncFamilies = (force: boolean) => {
+            for (const f of families) {
+                const awake = f.props.some((p) => !p.body.isSleeping());
+                if (force || awake || f.wasAwake) writeFamily(f);
+                f.wasAwake = awake;
+            }
+        };
+        const syncInstances = () => syncFamilies(true);
 
         const allProps = [ball, ...pinFamily.props, ...fullBricks.props, ...halfBricks.props];
         const resetProps = () => {
@@ -469,9 +495,11 @@ export function build(ctx: AreaContext): PlaygroundHandle {
             },
             resetPad,
             pathLabels: [...texts],
-            syncInstances,
-            update() {
+            syncInstances() {
                 if (!disposed) syncInstances();
+            },
+            update() {
+                if (!disposed) syncFamilies(false);
             },
             reset() {
                 if (disposed) return;

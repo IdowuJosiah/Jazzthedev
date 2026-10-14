@@ -22,6 +22,11 @@ import type { FontId, TextApi, TextHandle, TextOpts } from "../types";
 // - troika's font loader only logs a failed font and never calls back, so
 //   preloadAll() first fetches every WOFF itself (retry once, §6.2) and rejects
 //   with a FontLoadError; a timeout backstops the troika preload itself.
+// - Day / night: every Text is registered with its day colour and the surface
+//   its layer implies (textSurface). setNightFactor(t) (DayNight) blends the
+//   text on the ground / plaza toward CONFIG.dayNight.text.ground; text on
+//   paper (plates, tiles, upright boards) keeps its ink. Still unlit, SDF and
+//   crisp: only troika's colour uniform changes. Disposed text unregisters.
 // ─────────────────────────────────────────────────────────────────────────
 
 const T = CONFIG.text;
@@ -128,6 +133,113 @@ const asciiPrintable = (): string =>
 /** desktopOnly rule: hidden on touch devices and portrait screens. */
 export function desktopOnlyVisible(isTouch: boolean, aspect: number): boolean {
     return !isTouch && aspect >= T.desktopOnlyMinAspect;
+}
+
+// ── Night colours (DayNight) ─────────────────────────────────────────────
+/** What a text sits on: the (dark at night) ground / plaza, or paper (plates, tiles, boards). */
+export type TextSurface = "ground" | "paper";
+
+/**
+ * The surface a text's layer implies: flat text on the "groundText" or
+ * "plaza" layer lies on the ground / a plaza; "plate", "padOnPlate" and
+ * "tileText" copy and upright text (layer null) sit on paper.
+ */
+export function textSurface(layer: FlatLayerId | null): TextSurface {
+    return layer === "groundText" || layer === "plaza" ? "ground" : "paper";
+}
+
+/** A colour table keyed by upper-cased hex (day colours are matched case-insensitively). */
+export function nightTable(table: Readonly<Record<string, HexColor>>): ReadonlyMap<string, HexColor> {
+    return new Map(Object.entries(table).map(([k, v]) => [k.toUpperCase(), v]));
+}
+
+const GROUND_NIGHT = nightTable(CONFIG.dayNight.text.ground);
+
+/** A text's night colour: ground text by CONFIG.dayNight.text.ground (unknown colours keep), paper keeps. */
+export function nightTextColor(day: HexColor, surface: TextSurface): HexColor {
+    if (surface !== "ground") return day;
+    return GROUND_NIGHT.get(day.toUpperCase()) ?? day;
+}
+
+interface TintEntry {
+    dayHex: HexColor;
+    day: THREE.Color;
+    night: THREE.Color;
+    out: THREE.Color;
+    swaps: boolean;
+}
+
+/**
+ * Night-factor colour registry (text, 3D words). Each target's colour is
+ * mix(day, night(day), t) in linear space; targets whose night colour equals
+ * the day colour get the day colour as given. New targets start at the current
+ * factor, so text built after nightfall is already night-coloured.
+ */
+export class NightTints<K> {
+    private entries = new Map<K, TintEntry>();
+    private factor = 0;
+
+    /**
+     * @param nightOf the night colour of a target's day colour
+     * @param apply   writes a colour into the target: `blended` (linear, reused —
+     *                copy it) for swapping targets, `dayHex` for the others
+     */
+    constructor(
+        private nightOf: (day: HexColor, key: K) => HexColor,
+        private apply: (key: K, blended: THREE.Color | null, dayHex: HexColor) => void
+    ) {}
+
+    /** The current night factor, 0 (day) … 1 (night). */
+    get t(): number {
+        return this.factor;
+    }
+
+    get size(): number {
+        return this.entries.size;
+    }
+
+    has(key: K): boolean {
+        return this.entries.has(key);
+    }
+
+    /** Registers (or re-colours) a target and applies the current factor. */
+    set(key: K, day: HexColor): void {
+        const night = this.nightOf(day, key);
+        let e = this.entries.get(key);
+        if (!e) {
+            e = { dayHex: day, day: new THREE.Color(), night: new THREE.Color(), out: new THREE.Color(), swaps: false };
+            this.entries.set(key, e);
+        }
+        e.dayHex = day;
+        e.day.set(day);
+        e.night.set(night);
+        e.swaps = night.toUpperCase() !== day.toUpperCase();
+        this.write(key, e);
+    }
+
+    delete(key: K): void {
+        this.entries.delete(key);
+    }
+
+    clear(): void {
+        this.entries.clear();
+    }
+
+    /** Re-colours every swapping target (clamped to [0, 1]; non-finite → 0). */
+    setNightFactor(t: number): void {
+        const next = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0;
+        if (next === this.factor) return;
+        this.factor = next;
+        for (const [key, e] of this.entries) if (e.swaps) this.write(key, e);
+    }
+
+    private write(key: K, e: TintEntry): void {
+        if (!e.swaps || this.factor === 0) {
+            this.apply(key, null, e.dayHex);
+            return;
+        }
+        this.apply(key, e.out.lerpColors(e.day, e.night, this.factor), e.dayHex);
+    }
 }
 
 // ── troika setup ─────────────────────────────────────────────────────────
@@ -252,8 +364,16 @@ export interface TextSystem extends TextApi {
     setViewport(v: Partial<TextViewport>): void;
     /** Live troika Text meshes (budget §9.2: ≤ CONFIG.text.maxMeshes). */
     readonly count: number;
+    /** Day / night (DayNight): 0 = day colours, 1 = night colours on the ground / plaza. */
+    setNightFactor(t: number): void;
+    readonly nightFactor: number;
     dispose(): void;
 }
+
+/** troika colour input: the day hex, or the blended colour as a number (troika re-sets it only on change). */
+const applyTextColor = (mesh: Text, blended: THREE.Color | null, dayHex: HexColor) => {
+    mesh.color = blended ? blended.getHex() : dayHex;
+};
 
 const browserViewport = (): TextViewport => {
     if (typeof window === "undefined") return { isTouch: false, aspect: 1 };
@@ -275,6 +395,8 @@ export function createTextApi(opts: TextSystemOptions = {}): TextSystem {
     const materials = new Map<string, THREE.MeshBasicMaterial>();
     const live = new Set<Text>();
     const desktopOnly = new Set<Text>();
+    const surfaces = new Map<Text, TextSurface>();
+    const tints = new NightTints<Text>((day, mesh) => nightTextColor(day, surfaces.get(mesh) ?? "paper"), applyTextColor);
 
     const baseMaterial = (layer: FlatLayerId | null): THREE.MeshBasicMaterial => {
         const key = layer ?? "upright";
@@ -319,7 +441,9 @@ export function createTextApi(opts: TextSystemOptions = {}): TextSystem {
         const letterSpacing = o.letterSpacing ?? 0;
         setContent(mesh, font, o.text, letterSpacing);
         mesh.fontSize = o.size;
-        mesh.color = o.color;
+        // Day colour, or its night blend when built after nightfall.
+        surfaces.set(mesh, textSurface(layerId));
+        tints.set(mesh, o.color);
         mesh.maxWidth = o.maxWidth ?? Infinity;
         mesh.anchorX = o.anchorX ?? "center";
         mesh.anchorY = o.anchorY ?? "middle";
@@ -360,13 +484,16 @@ export function createTextApi(opts: TextSystemOptions = {}): TextSystem {
             },
             setColor(hex: HexColor) {
                 if (disposed) return;
-                mesh.color = hex;
+                // The new day colour; the night blend follows it.
+                tints.set(mesh, hex);
             },
             dispose() {
                 if (disposed) return;
                 disposed = true;
                 live.delete(mesh);
                 desktopOnly.delete(mesh);
+                tints.delete(mesh);
+                surfaces.delete(mesh);
                 mesh.removeFromParent();
                 object.removeFromParent();
                 // troika's dispose() frees only the geometry; the derived SDF
@@ -393,6 +520,12 @@ export function createTextApi(opts: TextSystemOptions = {}): TextSystem {
         get count() {
             return live.size;
         },
+        setNightFactor(t: number) {
+            tints.setNightFactor(t);
+        },
+        get nightFactor() {
+            return tints.t;
+        },
         dispose() {
             if (watch) window.removeEventListener("resize", onResize);
             for (const t of live) {
@@ -401,6 +534,8 @@ export function createTextApi(opts: TextSystemOptions = {}): TextSystem {
             }
             live.clear();
             desktopOnly.clear();
+            tints.clear();
+            surfaces.clear();
             for (const m of materials.values()) m.dispose();
             materials.clear();
         },

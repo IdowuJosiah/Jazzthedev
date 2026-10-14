@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { LuArrowUpRight, LuCamera, LuRotateCcw, LuX } from "react-icons/lu";
-import { ACCENT, ACCENT_INK, type AccentKey, type HexColor, type QualitySetting } from "../Config";
+import { ACCENT, ACCENT_INK, type AccentKey, type HexColor, type QualitySetting, type TimeMode } from "../Config";
 import { AREA_BY_ID } from "../Layout";
 import type { WorldCommandSet, WorldState } from "../State";
 import type { AreaId, MenuTab } from "../types";
@@ -231,6 +231,12 @@ const QUALITY_OPTIONS: readonly { id: QualitySetting; label: string }[] = [
     { id: "low", label: "Low" },
 ];
 
+export const TIME_OPTIONS: readonly { id: TimeMode; label: string }[] = [
+    { id: "auto", label: "Auto" },
+    { id: "day", label: "Day" },
+    { id: "night", label: "Night" },
+];
+
 const DESKTOP_CONTROLS = [
     { keys: "WASD", action: "Drive (arrow keys too)" },
     { keys: "Shift", action: "Boost" },
@@ -429,8 +435,33 @@ function SettingsTab({
     onClose: () => void;
 }) {
     const qualityName = useId();
+    const timeName = useId();
     return (
         <>
+            <fieldset className="w3-fieldset">
+                <legend className="w3-legend w3-small">
+                    <strong>Time of day</strong>{" "}
+                    <span className="w3-muted">
+                        {state.timeMode === "auto"
+                            ? `(follows your clock: ${state.effectiveTime === "night" ? "night" : "day"} now)`
+                            : "(Auto follows your clock)"}
+                    </span>
+                </legend>
+                <div className="w3-segmented">
+                    {TIME_OPTIONS.map((o) => (
+                        <label key={o.id} className="w3-option">
+                            <input
+                                type="radio"
+                                name={timeName}
+                                value={o.id}
+                                checked={state.timeMode === o.id}
+                                onChange={() => commands.setTimeMode(o.id)}
+                            />
+                            <span>{o.label}</span>
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
             <fieldset className="w3-fieldset">
                 <legend className="w3-legend w3-small">
                     <strong>Quality</strong> <span className="w3-muted">(shadows and scenery only)</span>

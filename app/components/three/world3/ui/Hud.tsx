@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
-import { LuArrowUpRight, LuCamera, LuMap, LuMenu, LuVolume2, LuVolumeX, LuX } from "react-icons/lu";
+import { LuArrowUpRight, LuCamera, LuMap, LuMenu, LuMoon, LuSun, LuVolume2, LuVolumeX, LuX } from "react-icons/lu";
+import type { EffectiveTime } from "../Config";
 import { AREA_BY_ID } from "../Layout";
 import type { Toast } from "../State";
 import type { AreaId, Prompt } from "../types";
@@ -10,7 +11,8 @@ import { CLASSIC_SITE_URL } from "./FailCard";
 
 // ─────────────────────────────────────────────────────────────────────────
 // HUD (§6.2). Top-left: wordmark + area chip. Top-right, always visible:
-// Classic site (collapses to an icon at ≤ 640 px), Map, Sound, Menu. Bottom
+// Classic site (collapses to an icon at ≤ 640 px), Day / night, Map, Sound,
+// Menu. Bottom
 // centre: the prompt card naming what is in range (on touch the tappable E
 // sits in the TouchControls cluster). Toasts at the top centre for
 // CONFIG.ui.toastMs. No controls hint, no speedometer, no counter, no
@@ -27,6 +29,11 @@ export function promptAnnouncement(prompt: Prompt, isTouch: boolean): string {
 
 export function areaAnnouncement(id: AreaId): string {
     return `Entered ${areaCopy[id].name}`;
+}
+
+/** The day / night button's label: it names what a click switches to. */
+export function timeToggleLabel(effective: EffectiveTime): string {
+    return effective === "night" ? "Switch to day" : "Switch to night";
 }
 
 /**
@@ -49,6 +56,10 @@ interface HudProps {
     onOpenMap: () => void;
     onToggleSound: () => void;
     onOpenMenu: () => void;
+    /** What the world shows; the button offers the other (default "day"). */
+    effectiveTime?: EffectiveTime;
+    /** Day / night button (sets the mode explicitly); the button shows only when wired. */
+    onToggleTime?: () => void;
 }
 
 export default function Hud(p: HudProps) {
@@ -71,6 +82,13 @@ export default function Hud(p: HudProps) {
                         <span className="w3-classic-text">Classic site</span>
                         <LuArrowUpRight size={20} aria-hidden="true" />
                     </a>
+                    {p.onToggleTime && (
+                        <TimeButton
+                            effective={p.effectiveTime ?? "day"}
+                            onToggle={p.onToggleTime}
+                            focusCanvas={p.focusCanvas}
+                        />
+                    )}
                     <button
                         type="button"
                         className="w3-iconbtn"
@@ -108,6 +126,32 @@ export default function Hud(p: HudProps) {
 
             {p.prompt && <PromptCard prompt={p.prompt} />}
         </div>
+    );
+}
+
+/** Sun by night, moon by day: the icon shows where a click takes the world. */
+function TimeButton({
+    effective,
+    onToggle,
+    focusCanvas,
+}: {
+    effective: EffectiveTime;
+    onToggle: () => void;
+    focusCanvas: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            className="w3-iconbtn"
+            aria-label={timeToggleLabel(effective)}
+            title={timeToggleLabel(effective)}
+            onClick={(e) => {
+                onToggle();
+                refocusAfterPointer(e, focusCanvas);
+            }}
+        >
+            {effective === "night" ? <LuSun size={20} aria-hidden="true" /> : <LuMoon size={20} aria-hidden="true" />}
+        </button>
     );
 }
 

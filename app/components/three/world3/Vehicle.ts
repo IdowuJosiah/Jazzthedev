@@ -2,20 +2,25 @@ import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { CONFIG, PALETTE, type HexColor } from "./Config";
 import { nearestArea, SPAWN } from "./Layout";
+import { buildCybertruck, TRUCK_COLORS, type Cybertruck } from "./models/Cybertruck";
 import type { AreaId, MaterialsApi, PhysicsApi } from "./types";
 import type { Disposal } from "./utils/disposal";
 import { clamp, damp, smoothstep, TAU } from "./utils/math";
 import { applyLayerToMaterial, applyLayerToObject, LAYERS } from "./utils/shapes";
 
 // ─────────────────────────────────────────────────────────────────────────
-// Vehicle (§4.2): Rapier DynamicRayCastVehicleController + the Kenney car.glb
-// (body + 4 `wheel-*` nodes, already facing +Z, so no model flip).
+// Vehicle (§4.2): Rapier DynamicRayCastVehicleController + the procedural red
+// Cybertruck-style truck (models/Cybertruck.ts; owner decision, replaces the
+// Kenney car.glb). The truck faces +Z and is built in chassis space, wheels
+// on the physics wheel connection points.
 //
 // Timing: `control(h, input)` runs once per FIXED substep (it is the physics
 // `beforeEachStep` callback) and calls `updateVehicle(h)`. `syncVisual(dt)`
 // runs once per frame AFTER `physics.interpolate(alpha)` has placed the chassis
-// group, and drives wheels, lights, the blob shadow, auto-flip and the fall-off
-// respawn. The car casts no real shadow: only the blob (§1.5).
+// group, and drives wheels, the rear light bar, the blob shadow, auto-flip and
+// the fall-off respawn. `setNightFactor(t)` fades the headlight (a SpotLight
+// from the front light bar) in at night. The truck casts no real shadow: only
+// the blob (§1.5); the headlight casts none either.
 // ─────────────────────────────────────────────────────────────────────────
 
 const V = CONFIG.vehicle;
@@ -24,33 +29,23 @@ const V = CONFIG.vehicle;
 // ── Stream-local geometry / presentation constants ──────────────────────
 /** Throttle / steer dead zone. */
 const INPUT_EPSILON = 0.01;
-/** The model is scaled so its length is the chassis length × this. */
-const MODEL_LENGTH_FACTOR = 1.02;
-/** Brake/reverse lamps on the model's rear face: x as a fraction of the half width, y of the height. */
-const LAMP_PLACEMENT = { xFraction: 0.62, yFraction: 0.5 } as const;
 /** Teleport / respawn: chassis placed this far above its resting height so it settles. */
 const TELEPORT_LIFT = 0.4;
-/** Procedural fallback body profile (side view, fractions of chassis half length / units). */
-const FALLBACK = {
-    bevel: 0.06,
-    wheelWidth: 0.34,
-    rimRadiusFraction: 0.55,
-    rimWidth: 0.36,
-    wheelSegments: 18,
-    rimSegments: 12,
-    cabin: { w: 1.5, h: 0.5, d: 1.7, z: -0.25 },
-    /** Side profile (x along the length as a fraction of the half length, y in chassis half heights). */
-    profile: [
-        [-1, 0],
-        [0.72, 0],
-        [1, 1.2],
-        [0.1, 1.66],
-        [-0.55, 1.77],
-        [-1, 1],
-    ] as const,
-    /** Cabin base height, in chassis half heights. */
-    cabinBase: 1.6,
-} as const;
+/**
+ * Night headlight: ONE SpotLight from the front light bar, aimed at the ground
+ * `ahead` units in front of the nose. Linear decay (1) keeps the pool even
+ * from 2 to 10 units ahead without a hot spot at the bumper; `intensity` is the
+ * full-night value (NoToneMapping: re-probe before raising it). No shadows.
+ */
+export const HEADLIGHT = Object.freeze({
+    color: PALETTE.carLight,
+    intensity: 14,
+    distance: 40,
+    angle: 0.5,
+    penumbra: 0.6,
+    decay: 1,
+    ahead: 10,
+});
 /** Blob alpha map: rounded-rect SDF (half size, corner radius, in [−1, 1] uv) with a smoothstep falloff. */
 const BLOB_MAP = { halfSize: 0.62, cornerRadius: 0.4, fadeInner: -0.6, fadeOuter: 0.38 } as const;
 
@@ -72,6 +67,18 @@ export const NEUTRAL_INPUT: Readonly<VehicleInput> = Object.freeze({
 });
 
 export type LightState = "off" | "brake" | "reverse";
+
+/** Rear light bar colour: dim tail light, bright brake red, or warm-white reverse. */
+export function rearBarColor(light: LightState): HexColor {
+    if (light === "brake") return TRUCK_COLORS.rearBrake;
+    if (light === "reverse") return TRUCK_COLORS.rearReverse;
+    return TRUCK_COLORS.rearDim;
+}
+
+/** Headlight intensity for a night factor t (0 = day → off, 1 = full night), clamped. */
+export function headlightIntensity(t: number): number {
+    return HEADLIGHT.intensity * clamp(Number.isFinite(t) ? t : 0, 0, 1);
+}
 
 export interface DriveCommand {
     /** Engine force per wheel (Rapier units; negative = reverse). */
@@ -218,8 +225,11 @@ export interface VehicleDeps {
     physics: PhysicsApi;
     materials: MaterialsApi;
     disposal: Disposal;
-    /** `assets.model("car")` (Lambert, repainted); null → procedural fallback body. */
-    model: THREE.Object3D | null;
+    /**
+     * @deprecated Ignored: the truck is procedural (models/Cybertruck.ts) and
+     * Assets no longer loads car.glb. Kept optional so existing callers compile.
+     */
+    model?: THREE.Object3D | null;
     /**
      * Shared blob alpha map (§1.5: the car and the low-profile prop blobs use the
      * same texture): `env.blobTexture("rect")`, owned by Environment. Without it
@@ -234,15 +244,16 @@ export interface VehiclePose {
     yaw: number;
 }
 
-/** Wheel order matches the controller: FL, FR, RL, RR. */
-const WHEEL_NODE_NAMES = ["wheel-front-left", "wheel-front-right", "wheel-back-left", "wheel-back-right"] as const;
-
 export class Vehicle {
     /** Add to the scene. Holds the chassis (physics-linked) and the blob shadow. */
     readonly root = new THREE.Group();
     /** The interpolated chassis visual (linked to the body via physics.link). */
     readonly chassis = new THREE.Group();
     readonly blob: THREE.Mesh;
+    /** The truck model (meshes under `chassis`). */
+    readonly truck: Cybertruck;
+    /** Night headlight (child of `chassis`, target ahead of the nose); off and hidden by day. */
+    readonly headlight: THREE.SpotLight;
     readonly body: RAPIER.RigidBody;
     readonly controller: RAPIER.DynamicRayCastVehicleController;
 
@@ -265,9 +276,8 @@ export class Vehicle {
     private wheelSpin = 0;
     private steer = 0;
     private flip = new FlipTimer();
-    private lamps: THREE.Mesh[] = [];
-    private brakeMat: THREE.MeshBasicMaterial;
-    private reverseMat: THREE.MeshBasicMaterial;
+    private rearBarMats: Readonly<Record<LightState, THREE.MeshBasicMaterial>>;
+    private night = 0;
     private blobMat: THREE.MeshBasicMaterial;
     private blobBaseOpacity: number;
     private teleportListeners = new Set<(areaId: AreaId | null) => void>();
@@ -308,18 +318,22 @@ export class Vehicle {
         this.controller.setIndexForwardAxis = V.forwardAxis;
         this.addWheels();
 
-        const rearZ = this.buildBody(deps.model);
-        this.buildLamps(rearZ);
+        this.truck = buildCybertruck({ materials: this.materials, disposal: this.disposal, groundY: -REST_HEIGHT });
+        this.chassis.add(this.truck.root);
+        this.wheels = this.truck.wheels;
+        this.rearBarMats = Object.freeze({
+            off: this.materials.basic(rearBarColor("off")),
+            brake: this.materials.basic(rearBarColor("brake")),
+            reverse: this.materials.basic(rearBarColor("reverse")),
+        });
+        this.headlight = this.buildHeadlight();
         this.chassis.traverse((o) => {
             const m = o as THREE.Mesh;
             if (m.isMesh) m.castShadow = false;
         });
 
-        const paintKey = V.paint;
-        const B = CONFIG.shadow.blob;
-        this.blobBaseOpacity = paintKey === "danfo" ? B.car.danfoOpacity : B.car.opacity;
-        this.brakeMat = this.materials.basic(PALETTE.brake);
-        this.reverseMat = this.materials.basic(PALETTE.carLight);
+        // The red truck reads like the "brand" paint against the ground (§4.2 contrast note).
+        this.blobBaseOpacity = CONFIG.shadow.blob.car.opacity;
         const blob = this.buildBlob(deps.blobTexture);
         this.blob = blob.mesh;
         this.blobMat = blob.material;
@@ -358,120 +372,19 @@ export class Vehicle {
         this._rearLocal[1].set(-cx, -REST_HEIGHT, -cz);
     }
 
-    /** Builds the GLB (or procedural) body; returns the rear face z in chassis space. */
-    private buildBody(model: THREE.Object3D | null): number {
-        if (model) {
-            const wheels = WHEEL_NODE_NAMES.map((n) => model.getObjectByName(n));
-            if (wheels.every((w): w is THREE.Object3D => !!w)) return this.buildFromModel(model, wheels);
-            console.warn("[world3] car.glb is missing wheel nodes; using the procedural car");
-        }
-        return this.buildProcedural();
-    }
-
-    /** Kenney car.glb: already faces +Z (no rotation). Scaled to the chassis length, wheels on the ground. */
-    private buildFromModel(model: THREE.Object3D, wheels: THREE.Object3D[]): number {
-        const pivot = new THREE.Group();
-        pivot.name = "car-model";
-        pivot.add(model);
-
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const centre = box.getCenter(new THREE.Vector3());
-        const scale = (V.chassisHalf.z * 2 * MODEL_LENGTH_FACTOR) / Math.max(size.z, 1e-3);
-        pivot.scale.setScalar(scale);
-        // Centre on x/z; the model's lowest point (tyre bottoms) sits on the ground at rest.
-        pivot.position.set(-centre.x * scale, -REST_HEIGHT - box.min.y * scale, -centre.z * scale);
-
-        for (const w of wheels) w.rotation.order = "YXZ";
-        this.wheels = wheels;
-        this.chassis.add(pivot);
-        return pivot.position.z + box.min.z * scale;
-    }
-
-    /** Fallback when car.glb is missing: a palette wedge with a cabin and 4 wheels. */
-    private buildProcedural(): number {
-        const d = this.disposal;
-        const m = this.materials;
-        const paint: HexColor = V.paints[V.paint];
-        const L = V.chassisHalf.z;
-        const W = V.chassisHalf.x;
-        const groundY = -REST_HEIGHT;
-        const floorY = groundY + V.wheelRadius;
-
-        const shape = new THREE.Shape();
-        FALLBACK.profile.forEach(([px, py], i) => {
-            if (i === 0) shape.moveTo(px * L, py * V.chassisHalf.y);
-            else shape.lineTo(px * L, py * V.chassisHalf.y);
-        });
-        shape.closePath();
-        const bodyGeo = d.track(
-            new THREE.ExtrudeGeometry(shape, {
-                depth: W * 2,
-                bevelEnabled: true,
-                bevelThickness: FALLBACK.bevel,
-                bevelSize: FALLBACK.bevel,
-                bevelSegments: 1,
-            })
-        );
-        // Extruded along +Z (0..2W): turning by −90° maps the profile's +X to +Z
-        // (forward) and the extrusion to x ∈ [−2W, 0], so shift it back by W.
-        bodyGeo.rotateY(-Math.PI / 2);
-        bodyGeo.translate(W, floorY, 0);
-        const body = new THREE.Mesh(bodyGeo, m.lambert(paint));
-        body.receiveShadow = true;
-        this.chassis.add(body);
-
-        const C = FALLBACK.cabin;
-        const cabinGeo = d.track(new THREE.BoxGeometry(C.w, C.h, C.d));
-        const cabin = new THREE.Mesh(cabinGeo, m.lambert(PALETTE.carTrim));
-        cabin.position.set(0, floorY + V.chassisHalf.y * FALLBACK.cabinBase + C.h / 2, C.z);
-        this.chassis.add(cabin);
-
-        const tyreGeo = d.track(
-            new THREE.CylinderGeometry(V.wheelRadius, V.wheelRadius, FALLBACK.wheelWidth, FALLBACK.wheelSegments)
-        );
-        tyreGeo.rotateZ(Math.PI / 2);
-        const rimR = V.wheelRadius * FALLBACK.rimRadiusFraction;
-        const rimGeo = d.track(new THREE.CylinderGeometry(rimR, rimR, FALLBACK.rimWidth, FALLBACK.rimSegments));
-        rimGeo.rotateZ(Math.PI / 2);
-        const cz = L - V.wheelConnection.insetZ;
-        const spots = [
-            [W, cz],
-            [-W, cz],
-            [W, -cz],
-            [-W, -cz],
-        ];
-        for (const [x, z] of spots) {
-            const w = new THREE.Group();
-            w.rotation.order = "YXZ";
-            w.position.set(x, groundY + V.wheelRadius, z);
-            w.add(new THREE.Mesh(tyreGeo, m.lambert(PALETTE.carTyre)), new THREE.Mesh(rimGeo, m.lambert(PALETTE.carRim)));
-            this.chassis.add(w);
-            this.wheels.push(w);
-        }
-        return -L - FALLBACK.bevel;
-    }
-
-    /** Two brake/reverse lamps on ink backings at the rear (§4.2 fix 8). */
-    private buildLamps(rearZ: number) {
-        const Ls = V.lights;
-        const backingGeo = this.disposal.track(new THREE.BoxGeometry(Ls.backing.w, Ls.backing.h, Ls.backing.d));
-        const lampGeo = this.disposal.track(new THREE.BoxGeometry(Ls.lamp.w, Ls.lamp.h, Ls.lamp.d));
-        const box = new THREE.Box3().setFromObject(this.chassis);
-        const halfW = (box.max.x - box.min.x) / 2;
-        const y = box.min.y + (box.max.y - box.min.y) * LAMP_PLACEMENT.yFraction;
-        const backingZ = rearZ - Ls.backing.d / 2;
-        const lampZ = backingZ - Ls.backing.d / 2 - Ls.lamp.d / 2;
-        for (const sgn of [-1, 1]) {
-            const x = sgn * halfW * LAMP_PLACEMENT.xFraction;
-            const backing = new THREE.Mesh(backingGeo, this.materials.lambert(PALETTE.ink));
-            backing.position.set(x, y, backingZ);
-            const lamp = new THREE.Mesh(lampGeo, this.materials.basic(PALETTE.brake));
-            lamp.position.set(x, y, lampZ);
-            lamp.visible = false;
-            this.chassis.add(backing, lamp);
-            this.lamps.push(lamp);
-        }
+    /** The headlight: a shadowless SpotLight on the front bar, aimed at the ground ahead; off until night. */
+    private buildHeadlight(): THREE.SpotLight {
+        const H = HEADLIGHT;
+        const light = new THREE.SpotLight(H.color, 0, H.distance, H.angle, H.penumbra, H.decay);
+        light.name = "vehicle-headlight";
+        light.castShadow = false;
+        light.visible = false;
+        light.position.copy(this.truck.headlightOrigin);
+        light.target.name = "vehicle-headlight-target";
+        light.target.position.set(0, this.truck.dims.groundY, this.truck.dims.zFront + H.ahead);
+        // Both under the chassis, so they follow the truck (the target's matrix updates with the scene).
+        this.chassis.add(light, light.target);
+        return light;
     }
 
     private buildBlob(shared?: THREE.Texture): { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial } {
@@ -549,10 +462,7 @@ export class Vehicle {
             this.wheels[i].rotation.set(spin, i < 2 ? this.steer : 0, 0);
         }
 
-        for (const lamp of this.lamps) {
-            lamp.visible = this.light !== "off";
-            lamp.material = this.light === "reverse" ? this.reverseMat : this.brakeMat;
-        }
+        this.truck.rearBar.material = this.rearBarMats[this.light];
 
         // Blob follows the interpolated chassis x/z and yaw, flat at y 0.10.
         const p = this.chassis.position;
@@ -566,6 +476,25 @@ export class Vehicle {
             return;
         }
         if (this.flip.update(dt, upY(this.body.rotation()))) this.autoFlip();
+    }
+
+    // ── night ────────────────────────────────────────────────────────────
+    /**
+     * Day/night: t = 0 (day) → headlight off and hidden; t = 1 (night) → full.
+     * Hidden by day so the lit programs skip it; the first time it shows, the
+     * programs gain a spot-light variant (pre-warm it with setNightFactor(1)
+     * around renderer.compile()).
+     */
+    setNightFactor(t: number) {
+        this.night = clamp(Number.isFinite(t) ? t : 0, 0, 1);
+        const intensity = headlightIntensity(this.night);
+        this.headlight.intensity = intensity;
+        this.headlight.visible = intensity > 0;
+    }
+
+    /** The last night factor given to setNightFactor (0..1). */
+    get nightFactor(): number {
+        return this.night;
     }
 
     // ── placement ────────────────────────────────────────────────────────
@@ -655,6 +584,7 @@ export class Vehicle {
         if (this.disposed) return;
         this.disposed = true;
         this.teleportListeners.clear();
+        this.headlight.dispose();
         this.root.removeFromParent();
         try {
             this.physics.unlink(this.body);

@@ -11,33 +11,38 @@ import type { AudioApi, MaterialsApi, RuntimeInfo, TextApi, TextHandle, XZ } fro
 // - One coin per Layout.TOKENS point, paired in order with content
 //   `yorubaWords`: Cylinder(1.1, 1.1, 0.28, 40) turned so its axis is local Z,
 //   paper faces with a play-yellow (#F6C21C) rim, faceCamera.
-// - The word is upright troika text (ctx-style TextApi, Inter Bold 0.42, ink)
-//   just in front of the face (local z +0.15), so the look's colour swap
-//   reaches it like any other in-world text.
+// - The word is upright troika text through the shared TextApi (Inter Bold
+//   0.42, ink) just in front of the face (local z +0.15), so the look's colour
+//   swap reaches it like any other in-world text. Yoruba is Inter only (§3.2).
 // - Motion: bob 0.3 at 1.2 Hz plus a ±20° yaw wobble (never a full spin, so
 //   the word stays readable); phases are staggered per coin. Under reduced
-//   motion the coins hold still (§9.4) and a pickup hides the coin at once.
+//   motion (read live from the runtime) the coins hold still (§9.4) and a
+//   pickup hides the coin at once.
 // - Pickup: the car centre within 2.8 (ground distance) collects the coin. It
-//   pops away and `onCollect` receives the glossary word, the running count
-//   and the toast text `Ọ̀rẹ́ — Friend · 3 of 8 words`. `storeCollector(store)`
-//   is the store wiring (words list for the Menu → Words glossary, wordsTotal,
-//   toast); the integrator passes it as `onCollect`.
+//   pops away and `onCollect(word, index, event)` fires once; the event carries
+//   the running count and the toast text `Ọ̀rẹ́ — Friend · 3 of 8 words`.
+//   `storeCollector(store)` is the store wiring (words list for the Menu →
+//   Words glossary, wordsTotal, toast); the integrator passes it as `onCollect`,
+//   and `collected: store.snapshot.words.map((w) => w.word)` so a world built
+//   against a store that already holds words starts with those coins taken.
+// - Coins further than CONFIG.text.cullDistance from the car are hidden and not
+//   animated (they belong to no area, so Areas' culling never reaches them).
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Yaw wobble rate (Hz): slower than the bob so the two never lock together. */
 const WOBBLE_HZ = 0.45;
-/** Per-coin phase step (radians) so neighbouring coins never move in sync. */
+/** Per-coin phase step (radians, the golden angle) so neighbouring coins never move in sync. */
 const PHASE_STEP = 2.39996;
 /** The word fits inside this share of the coin's diameter. */
-const WORD_FIT = 0.8;
+export const WORD_FIT = 0.8;
 /** Pickup pop: duration (s) and rise (world units) while the coin shrinks away. */
-const COLLECT_POP_S = 0.3;
+export const COLLECT_POP_S = 0.3;
 const COLLECT_RISE = 1.2;
 
 const TAU = Math.PI * 2;
 const WOBBLE_RAD = THREE.MathUtils.degToRad(TOKEN.wobbleDeg);
 
-/** What `onCollect` receives for each pickup. */
+/** What a pickup reports besides the word and the coin index. */
 export interface CollectEvent {
     /** The glossary entry (NFC). */
     word: GlossaryWord;
@@ -50,16 +55,20 @@ export interface CollectEvent {
     toast: string;
 }
 
+export type CollectCallback = (word: GlossaryWord, index: number, event: CollectEvent) => void;
+
 export interface CollectiblesDeps {
     materials: MaterialsApi;
     text: TextApi;
     /** Called once per pickup (the integrator passes `storeCollector(store)`). */
-    onCollect?: (e: CollectEvent) => void;
+    onCollect?: CollectCallback;
     /** Optional pickup chime (`playUi("confirm")`). */
     audio?: Pick<AudioApi, "playUi">;
     /** Defaults: content `yorubaWords` at Layout `TOKENS` (paired by index). */
     words?: readonly YorubaWord[];
     positions?: readonly XZ[];
+    /** Words already collected (e.g. the store's glossary): those coins start taken and hidden. */
+    collected?: readonly string[];
 }
 
 export interface Coin {
@@ -78,6 +87,7 @@ export interface CollectiblesHandle {
     coins: readonly Coin[];
     readonly total: number;
     readonly collectedCount: number;
+    /** Animates, culls and checks pickups (call every unpaused frame with the shared runtime). */
     update(dt: number, t: number, rt: RuntimeInfo): void;
     /** Brings every coin back (uncollected). Does not touch the store. */
     reset(): void;
@@ -105,22 +115,24 @@ export function inPickupRange(token: XZ, carX: number, carZ: number): boolean {
     return Math.hypot(carX - token.x, carZ - token.z) <= TOKEN.pickupRadius;
 }
 
+/** Number of coins built for the default content (min of words and tokens). */
+export const defaultTotal = (): number => Math.min(TOKENS.length, yorubaWords.length);
+
 /**
  * The store wiring for `onCollect`: sets `wordsTotal` now, then on each pickup
  * appends the word to `words` (the Menu → Words glossary; never twice) and
- * shows the toast.
+ * shows the toast. The toast counts the glossary, so it always agrees with the
+ * Words tab (even after the coins were reset).
  */
-export function storeCollector(store: WorldStore, total: number = defaultTotal()): (e: CollectEvent) => void {
+export function storeCollector(store: WorldStore, total: number = defaultTotal()): CollectCallback {
     store.set({ wordsTotal: total });
-    return (e) => {
+    return (word, _index, e) => {
         const words = store.snapshot.words;
-        if (!words.some((w) => w.word === e.word.word)) store.set({ words: [...words, e.word] });
-        store.set({ wordsTotal: e.total });
-        store.showToast(e.toast);
+        const next = words.some((w) => w.word === word.word) ? words : [...words, word];
+        store.set({ words: next, wordsTotal: e.total });
+        store.showToast(collectToast(word, next.length, e.total));
     };
 }
-
-const defaultTotal = () => Math.min(TOKENS.length, yorubaWords.length);
 
 // ── Builder ──────────────────────────────────────────────────────────────
 interface CoinState extends Coin {
@@ -133,8 +145,10 @@ export function build(deps: CollectiblesDeps): CollectiblesHandle {
     const words = deps.words ?? yorubaWords;
     const positions = deps.positions ?? TOKENS;
     const total = Math.min(words.length, positions.length);
+    const already = new Set((deps.collected ?? []).map((w) => w.normalize("NFC")));
     const T = TOKEN;
     const TY = CONFIG.type.coinWord;
+    const cullDistance = CONFIG.text.cullDistance;
 
     const group = new THREE.Group();
     group.name = "collectibles";
@@ -176,6 +190,7 @@ export function build(deps: CollectiblesDeps): CollectiblesHandle {
             mesh.raycast = () => {};
             root.add(mesh);
 
+            // Inter Bold: Yoruba is never set in the display face (§3.4 item 8).
             const label = deps.text.upright({
                 text: word.word,
                 font: TY.font,
@@ -189,7 +204,12 @@ export function build(deps: CollectiblesDeps): CollectiblesHandle {
             root.add(label.object);
 
             group.add(root);
-            coins.push({ index: i, word, position, root, mesh, label, collected: false, pop: null });
+            const taken = already.has(word.word);
+            if (taken) {
+                root.visible = false;
+                collectedCount++;
+            }
+            coins.push({ index: i, word, position, root, mesh, label, collected: taken, pop: null });
         }
     } catch (err) {
         release();
@@ -202,13 +222,14 @@ export function build(deps: CollectiblesDeps): CollectiblesHandle {
         if (reducedMotion) c.root.visible = false;
         else c.pop = 0;
         deps.audio?.playUi("confirm");
-        deps.onCollect?.({
+        const event: CollectEvent = {
             word: { ...c.word },
             index: c.index,
             collected: collectedCount,
             total,
             toast: collectToast(c.word, collectedCount, total),
-        });
+        };
+        deps.onCollect?.(event.word, c.index, event);
     };
 
     return {
@@ -235,6 +256,10 @@ export function build(deps: CollectiblesDeps): CollectiblesHandle {
                     continue;
                 }
                 if (c.collected) continue;
+                const dx = rt.carPos.x - c.position.x;
+                const dz = rt.carPos.z - c.position.z;
+                c.root.visible = Math.hypot(dx, dz) <= cullDistance;
+                if (!c.root.visible) continue;
                 const pose = coinPose(c.index, t, rt.reducedMotion);
                 c.root.position.y = pose.y;
                 c.root.rotation.y = pose.yaw;

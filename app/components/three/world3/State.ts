@@ -1,4 +1,4 @@
-import type { QualitySetting } from "./Config";
+import type { EffectiveTime, QualitySetting, TimeMode } from "./Config";
 import { CONFIG } from "./Config";
 import type { AreaId, MenuTab, Prompt } from "./types";
 import type { InfoContent } from "@/app/field/content/world";
@@ -46,6 +46,12 @@ export interface WorldState {
     words: GlossaryWord[];
     wordsTotal: number;
     isTouch: boolean;
+
+    // ── day / night (DayNight.ts) ──
+    /** The chosen mode: "auto" follows the visitor's local clock. */
+    timeMode: TimeMode;
+    /** What the world shows (or is easing toward): day or night. */
+    effectiveTime: EffectiveTime;
 }
 
 /** High-frequency values the engine writes every frame; read via rAF, never
@@ -83,7 +89,12 @@ export interface WorldCommandSet {
     togglePhotoMode(): void;
     capturePhoto(): void;
     resetPlayground(): void;
+    /** Day / night: "auto" (local clock), "day" or "night"; persisted by DayNight. */
+    setTimeMode(mode: TimeMode): void;
 }
+
+/** The HUD sun / moon button: the opposite of what shows, as an explicit mode. */
+export const toggledTimeMode = (effective: EffectiveTime): TimeMode => (effective === "night" ? "day" : "night");
 
 export type Listener = () => void;
 
@@ -122,6 +133,9 @@ export const initialWorldState = (): WorldState => ({
     words: [],
     wordsTotal: 0,
     isTouch: false,
+    // DayNight reports the real values as soon as it is built.
+    timeMode: CONFIG.dayNight.defaultMode,
+    effectiveTime: "day",
 });
 
 const noop = () => {};
@@ -149,6 +163,9 @@ const defaultCommands = (store: WorldStore): WorldCommandSet => ({
     togglePhotoMode: () => store.set({ photoMode: !store.snapshot.photoMode }),
     capturePhoto: noop,
     resetPlayground: noop,
+    // Until DayNight is wired: explicit modes show at once; "auto" keeps what shows.
+    setTimeMode: (timeMode) =>
+        store.set({ timeMode, effectiveTime: timeMode === "auto" ? store.snapshot.effectiveTime : timeMode }),
 });
 
 export class WorldStore {
