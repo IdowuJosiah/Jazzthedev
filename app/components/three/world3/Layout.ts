@@ -210,7 +210,7 @@ export const AREAS: readonly AreaDef[] = [
         cameraZone: rectFromBounds(28, 152, -92, -44),
         // Step 0 deviation: x 29 (spec 24) so the title's footprint stays inside the
         // projects rect (x ≥ 18) and the gallery camera zone (x ≥ 28) — see DECISIONS.md.
-        title3D: { text: "PROJECTS", x: 29, z: -78, dynamic: false },
+        title3D: { text: "PROJECTS", x: 29, z: -66, dynamic: false },
     },
     {
         id: "journey",
@@ -563,7 +563,7 @@ export const AREA_LAYOUT = {
         labelOutsideEdge: HUB_LABEL_OUTSIDE,
     },
     projects: {
-        title: { x: 29, z: -78 },
+        title: { x: 29, z: -66 },
         /** Board base centres (§5.1 builds the board). */
         boards: projectBoards,
         board: {

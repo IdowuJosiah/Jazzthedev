@@ -1,12 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Area registry (side-effect imports). Each Wave 2 area module calls
-// `registerArea(id, build)` at module load; the integrator adds one import
-// per module here. Experience imports this file before Areas.build().
+// Area registry (side-effect imports). Each area module calls
+// `registerArea(id, build)` at module load; Experience imports this file
+// before Areas.build().
 //
 // Areas without a module here still show their interim 3D title marker
-// (Experience.buildInterimMarkers); each marker disappears once its module
-// registers.
+// (Experience.buildInterimMarkers); since Wave 2b every area has one.
 // ─────────────────────────────────────────────────────────────────────────
 
 import "./Welcome";
 import "./Hub";
+import "./Projects";
+import "./Journey";
+import "./Eko";
+import "./Music";
+import "./About";
+import "./Playground";
+import "./Credits";

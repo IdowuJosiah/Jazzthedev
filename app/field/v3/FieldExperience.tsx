@@ -118,6 +118,11 @@ export default function FieldExperience() {
     }, [store]);
 
     const onToggleSound = useCallback(() => store.commands.setMuted(!store.snapshot.muted), [store]);
+    // Sets the mode explicitly (the opposite of what shows), leaving "auto".
+    const onToggleTime = useCallback(
+        () => store.commands.setTimeMode(store.snapshot.effectiveTime === "night" ? "day" : "night"),
+        [store]
+    );
 
     const onTravel = useCallback(
         (id: AreaId) => {
@@ -162,6 +167,8 @@ export default function FieldExperience() {
                     onOpenMap={onOpenMap}
                     onToggleSound={onToggleSound}
                     onOpenMenu={onOpenMenu}
+                    effectiveTime={state.effectiveTime}
+                    onToggleTime={onToggleTime}
                 />
             )}
 

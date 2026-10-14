@@ -252,7 +252,7 @@ export const musicPillars: MusicPillar[] = [
 // ─────────────────────────────────────────────────────────────
 
 export interface WorldMeta {
-    /** HTML-only, always set in Inter. Owner picks the final name at the gate. */
+    /** HTML-only, always set in Inter (the Start card kicker). Owner gate pick. */
     worldName: string;
     /** 3D hero word (ASCII / Latin-1 only: set in Bricolage). */
     heroWord: string;
@@ -263,7 +263,7 @@ export interface WorldMeta {
 }
 
 export const meta: WorldMeta = {
-    worldName: "Èkó",
+    worldName: "Jazz's World",
     heroWord: "JAZZ",
     role: "FRONTEND DEVELOPER · PRODUCT LEAD",
     greeting: "Ẹ káàbọ̀ — welcome",

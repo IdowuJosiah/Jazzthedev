@@ -165,7 +165,7 @@ export function StartCard({ isTouch, onStart }: StartCardProps) {
                 <a className="w3-link w3-skip" href={CLASSIC_SITE_URL}>
                     Skip to classic portfolio
                 </a>
-                <p className="w3-kicker w3-muted">Interactive portfolio</p>
+                <p className="w3-kicker w3-muted">{meta.worldName}</p>
                 <h2 id={titleId} className="w3-start-title">
                     Drive through my work
                 </h2>

@@ -7,9 +7,12 @@ import "./areas/index"; // side-effect registration of the Wave 2 area modules
 import { Assets } from "./Assets";
 import { Audio } from "./Audio";
 import { Camera } from "./Camera";
+import * as Collectibles from "./Collectibles";
 import { Controls } from "./Controls";
+import { DayNight, isTimeMode } from "./DayNight";
 import type { Debug } from "./Debug";
 import { Environment } from "./Environment";
+import * as Lamps from "./Lamps";
 import { Materials, clearOccluder, setOccluder } from "./Materials";
 import * as Paths from "./Paths";
 import { Physics, loadRapier } from "./Physics";
@@ -39,12 +42,13 @@ import * as content from "@/app/field/content/world";
 // Boot (§10 Wave 3 order; the profile is detected by the React shell first):
 //   renderer → fonts (troika preload + typeface JSON) ∥ Rapier init → assets
 //   (the scenery plan is computed while they download) → environment → car,
-//   camera, controls → areas (+ interim markers) → paths → scenery → warm-up
+//   camera, controls → areas (+ interim markers) → paths → scenery → lamps,
+//   coins, day/night → warm-up
 //   render → "ready". The build yields to the UI between steps so the loader
 //   bar moves (CONFIG.loading.buildSteps).
 // Load contract (§6.2): fonts 0.15 → assets 0.55 → build 0.25 → warm-up 0.05,
 // progress only ever increases (LoadTracker). Failures: no WebGL2 / renderer
-// throws → "webgl"; a required asset (font, typeface, car.glb, Rapier) fails
+// throws → "webgl"; a required asset (font, typeface, Rapier) fails
 // after its one retry → "asset"; webglcontextlost → "context-lost" (and
 // location.reload() on restore); 15 s without "ready" → failReason "timeout"
 // while loading continues.
@@ -384,6 +388,9 @@ interface World {
     /** Optional decoration: null when it failed to build (logged; the world still runs). */
     paths: Paths.PathsHandle | null;
     scenery: Scenery | null;
+    lamps: Lamps.LampsHandle | null;
+    collectibles: Collectibles.CollectiblesHandle | null;
+    dayNight: DayNight;
 }
 
 export class Experience {
@@ -477,7 +484,7 @@ export class Experience {
             if (this.halted()) return;
             this.tracker.complete("fonts");
 
-            // 3. Assets (car required; palm, Nature Kit, avatar optional).
+            // 3. Assets (palm, Nature Kit, avatar; all optional — the truck is procedural).
             const scene = new THREE.Scene();
             const physics = new Physics();
             this.own(() => physics.dispose());
@@ -507,6 +514,8 @@ export class Experience {
             // 5. Warm-up render (compiles every program before the first real frame).
             this.tracker.report("warmup", 0);
             const { camera } = world;
+            // Night first (lamp lights + headlight visible), so the first switch never stalls on compiles.
+            world.dayNight.prewarm(() => renderer.instance.compile(scene, camera.camera));
             renderer.instance.compile(scene, camera.camera);
             renderer.render(scene, camera.camera);
             this.tracker.complete("warmup");
@@ -605,7 +614,7 @@ export class Experience {
         this.own(() => text3d.dispose());
 
         const vehicle = new Vehicle(
-            { physics, materials, disposal: this.disposal, model: assets.model("car"), blobTexture: env.blobTexture("rect") },
+            { physics, materials, disposal: this.disposal, blobTexture: env.blobTexture("rect") },
             SPAWN
         );
         scene.add(vehicle.root);
@@ -711,6 +720,51 @@ export class Experience {
         }
         if (!(await stepDone(B.scenery))) return null;
 
+        // Night lamps (no PointLights on the low profiles: globes only).
+        const lamps = optional("lamps", () =>
+            Lamps.build({
+                materials,
+                physics,
+                addPropBlobs: (spots) => env.addPropBlobs(spots),
+                lights: !profile.id.endsWith("low"),
+            })
+        );
+        if (lamps) {
+            scene.add(lamps.group);
+            this.own(() => lamps.dispose());
+        }
+
+        // Yoruba word coins → the store's glossary + toast.
+        const collectibles = optional("collectibles", () =>
+            Collectibles.build({
+                materials,
+                text,
+                audio: this.audio,
+                onCollect: Collectibles.storeCollector(this.store),
+                collected: this.store.snapshot.words.map((word) => word.word),
+            })
+        );
+        if (collectibles) {
+            scene.add(collectibles.group);
+            this.own(() => collectibles.dispose());
+        }
+
+        // Day / night: the stored mode (or ?time=day|night), else the visitor's clock.
+        const timeParam = new URLSearchParams(window.location.search).get("time");
+        const dayNight = new DayNight({
+            environment: env,
+            materials,
+            text,
+            text3d,
+            lamps: lamps ?? undefined,
+            setHeadlights: (t) => vehicle.setNightFactor(t),
+            reducedMotion: () => rt.reducedMotion,
+            mode: isTimeMode(timeParam) ? timeParam : undefined,
+            onChange: ({ mode, effective }) => this.store.set({ timeMode: mode, effectiveTime: effective }),
+        });
+        this.own(() => dayNight.dispose());
+        this.store.set({ timeMode: dayNight.mode, effectiveTime: dayNight.effective });
+
         // Quality: the Menu setting + adaptive steps → shadows, scenery, dust.
         this.steps = adaptiveSteps(profile);
         this.adaptive = new AdaptiveQuality(this.steps.length, () => this.applyQuality());
@@ -732,6 +786,9 @@ export class Experience {
             areas,
             paths,
             scenery,
+            lamps,
+            collectibles,
+            dayNight,
         };
         // Input gating follows the store (Start, dialogs, pause).
         const sync = () => this.syncInput(world);
@@ -837,6 +894,8 @@ export class Experience {
                 this.adaptive?.reset();
                 this.applyQuality();
             },
+            // DayNight persists the mode and reports mode + effective time back (onChange).
+            setTimeMode: (mode) => this.w?.dayNight.setMode(mode),
             travelTo: (id) => this.travelTo(id),
             interact: () => this.interact(),
             closePanel: () => {
@@ -1025,6 +1084,7 @@ export class Experience {
 
             rt.carSpeed = vehicle.speed;
             areas.update(dt, elapsed, rt);
+            if (running) w.collectibles?.update(dt, elapsed, rt);
             if (running) {
                 const p = vehicle.position;
                 this.detectArea(p.x, p.z);
@@ -1039,6 +1099,8 @@ export class Experience {
         const focus = camera.state.focus;
         areas.cull(focus.x, focus.z, CONFIG.text.cullDistance);
         w.assets.boards.update(focus.x, focus.z);
+        // Before the environment: it reads the look DayNight just applied.
+        w.dayNight.update(dt);
         w.env.update(dt, elapsed, camera.state);
         // Scenery between camera and car dithers out; parked before Start and in photo mode.
         if (running && !s.photoMode) setOccluder(camera.camera.position, vehicle.position);
