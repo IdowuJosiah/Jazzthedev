@@ -550,3 +550,21 @@ controls; mobile is not polished now.
 - `?debug` adds `window.__world3.teleport(x, z, yaw)` for QA screenshots.
 - Work method change (owner, 2026-10-14): usage limits kept killing parallel agent runs, so the
   rest of the build is done sequentially in one session with a local checkpoint commit per step.
+
+## Wave 3: v3 is /field (v2 deleted)
+
+- `/field` always renders v3 (`FieldMount` → `v3/FieldExperience`); the `?v=3` switch is gone.
+  The server HTML is a plain background-coloured `.field-boot` placeholder, hidden by the
+  no-JS style (it replaced v2's `.ekoworld-root`).
+- Deleted per §8.2: `app/components/three/world/` (all of v2), `app/field/FieldExperience.tsx`,
+  `app/field/world.css`, the v2 models (bird, house, market, lantern, crate, rock), the HDRI,
+  the sand / water textures, `ambient.ogg` (v3 never plays it), and the `n8ao` and
+  `postprocessing` dependencies.
+- Deviation from §8.2 "Keep": `car.glb` is deleted too, because the owner chose the procedural
+  Cybertruck. The in-world credits drop the Kenney Car Kit and Impact Sounds (impacts are
+  synthesized), so `credits` and CREDITS.md list only what ships.
+- Content: `sectors` / `SectorMeta` and the per-project `image` (v2 monitor screenshots) are
+  removed; panels already use `boardImage`.
+- Cybertruck proportions (owner: "fix the truck"): chassis 4.8 × 1.9 (was 3.8 × 2.0), wheels
+  inset 0.85 (wheelbase 3.1), apex 1.7 at ~42 % from the nose, tailgate 1.24.
+- Kept in `app/field/v3/` (not moved up a folder) to keep the history readable.

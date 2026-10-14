@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import FieldMount from "./FieldMount";
 import FieldSummary from "./FieldSummary";
-// v2's styles (plain /field keeps rendering v2 until Wave 3).
-import "./world.css";
 
 export const metadata: Metadata = {
     title: "Jazz · Drive through my work",

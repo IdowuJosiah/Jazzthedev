@@ -4,8 +4,8 @@ Next.js 16 (App Router) + React 19 + TypeScript portfolio, with two ways in:
 
 - **Classic site** — `/`, `/projects`, `/about`, `/contact`. Fast, accessible,
   recruiter-friendly. This is also the fallback if WebGL is unavailable.
-- **Èkó Nights** — `/field`, a drivable 3D world where the portfolio lives as a
-  neon night island. Built on raw three.js + Rapier physics.
+- **Jazz's World** — `/field`, a drivable 3D toy world of the portfolio that
+  switches between day and night. Built on raw three.js + Rapier physics.
 
 ---
 
@@ -24,87 +24,93 @@ rest of the site prerenders as static HTML.
 
 ---
 
-## Èkó Nights — the 3D world (`/field`)
+## Jazz's World — the 3D world (`/field`)
 
-A stylized Afro-futurist Lagos-at-night island you drive around. Each portfolio
-area is a physical **district** with interactive billboards; collect Yoruba
-words, find the physics playground, and pull up to any project.
+A clean, matte diorama you drive a red Cybertruck-style truck around. Each part of
+the portfolio is an area off a central Crossroads: pull up to a pad and press `E`
+to open it. Collect the eight Yoruba word coins and find the physics playground.
 
-### Controls
+### Controls (desktop first)
 
-| Action | Keyboard | Touch |
-|---|---|---|
-| Drive / steer | `W A S D` or arrows | left joystick |
-| Boost | `Shift` | ⏵⏵ button |
-| Handbrake / drift | `Space` | ✦ button |
-| Interact / open panel | `E` or `Enter` | `E` button |
-| Respawn | `R` | — |
-| Photo mode | `P` | ◉ (top-right) |
-| Mute | `M` | 🔊 (top-right) |
-| Menu (travel / settings / controls / credits) | `Esc` | ☰ (top-right) |
+| Action | Keyboard |
+|---|---|
+| Drive / steer | `W A S D` or arrows |
+| Boost | `Shift` |
+| Handbrake / drift | `Space` |
+| Open what you're on | `E` or `Enter` |
+| Respawn | `R` |
+| Map / fast travel | `M` |
+| Mute | `N` |
+| Photo mode | `P` |
+| Menu (settings, controls, words, contact, credits) / close | `Esc` |
 
-Add `?debug` to the URL for a lil-gui tuning panel + stats.js FPS, and to expose
-`window.__ekoStore` for scripting.
+Desktop shows no on-screen controls. Touch devices get a joystick plus `E`.
+
+Add `?debug` for a lil-gui tuning panel and stats.js; it also exposes
+`window.__world3Store` and `window.__world3.teleport(x, z, yaw)` for QA.
+`?time=day` or `?time=night` forces the time of day for one visit.
 
 ### Features
 
-- **Driving** — Rapier raycast-vehicle with suspension, grip, drift, respawn;
-  damped follow-cam with a cinematic intro and fast-travel swoops.
-- **Portfolio as place** — four districts (Frontend, Music, Eko, Journey & Skills)
-  with landmarks + billboards that open animated content panels. Content comes
-  from one file (below).
-- **World** — procedural island terrain (shared physics trimesh), stylized water
-  + sky shaders, day↔night cycle, volumetric-ish fog, instanced palms/rocks,
-  wind-bending grass, fireflies, toggleable rain, a lantern-lit night market,
-  and circling birds.
-- **Life & play** — Yoruba-word collectibles with a counter, a physics playground
-  (jump ramp, knockable crate pyramid, push-ball), and beat-reactive neon that
-  pulses to the music bed.
-- **Polish** — postprocessing (bloom, SSAO on high, ACES tone-map, colour grade,
-  vignette, SMAA); spatial market audio + speed-reactive engine + UI sounds.
-- **UX** — real loading progress, minimap, fast-travel, settings (quality, sound,
-  reduced motion, time-of-day, rain), controls help, in-world credits.
-- **Performance & a11y** — GPU-tier detection + adaptive quality (auto-steps down
-  if FPS drops), DPR cap, instancing, proper GPU disposal on unmount; reduced-
-  motion support, keyboard-navigable UI, and a graceful WebGL-failure fallback to
-  `/projects`.
+- **Driving**: a Rapier raycast vehicle (suspension, grip, drift, auto-flip,
+  respawn) with a fixed 3/4 follow camera, a gallery shot at the project boards
+  and map fast travel.
+- **Areas**: Welcome (3D JAZZ letters), Crossroads, Frontend Projects (four
+  boards), Journey & Skills, Eko (case study + phone), Music & Culture (stage,
+  vinyl, sound-reactive EQ), About & Contact, Playground (ramp, bowling, brick
+  wall, reset pad) and Credits on the lagoon jetty.
+- **Day and night**: follows the visitor's clock (HUD sun/moon button and a
+  Settings choice override it), with lamp posts and headlights at night. No
+  bloom or glow, so everything stays crisp.
+- **Sharp text**: SDF text (troika) and 3D type, rendered at the device pixel
+  ratio with no post-processing; anything read for longer than a second is HTML.
+- **UX**: real loading progress, Start card, area chip + first-visit toasts,
+  map, settings (quality, sound, reduced motion, time of day), content panels,
+  photo mode and a Words glossary.
+- **Performance and a11y**: GPU-tier render profiles and adaptive quality
+  (shadows → scenery → tyre dust, never resolution), instancing, full GPU
+  disposal; reduced motion, keyboard-navigable UI, a server-rendered summary
+  for no-JS / screen readers, and a WebGL-failure card linking the classic site.
 
 ### Editing portfolio content
 
-All copy, links, tags and images live in **`app/field/content/world.ts`** — no 3D
-code changes needed:
+All copy, links, tags and images live in **`app/field/content/world.ts`**; no 3D
+code changes are needed:
 
-- `frontendProjects` → Frontend district billboards
-- `musicPillars` → Music district
-- `ekoMilestones` → Eko district
-- `journeyStops` + `skillTotems` → Journey & Skills district
-- `yorubaWords` → the collectible orbs
-- `sectors` → district names / blurbs / accent colours
+- `frontendProjects` → the project boards (`boardImage`, `boardPitch`) and panels
+- `ekoMilestones` → Eko; `musicPillars` → Music & Culture
+- `journeyStops` + `skillTotems` → Journey & Skills
+- `about` + `contactLinks` → About & Contact; `credits` → the Credits sign
+- `yorubaWords` → the word coins; `meta` → name, hero word, role, greeting
+- `areaCopy` → each area's name and blurb (map, toasts, chips)
 
-Images are plain paths under `public/images/`. Classic `/projects` content lives
-in `app/projects/page.tsx`.
+Board images are 1600×900 WebP under `public/assets/boards/`. An optional avatar
+(`about.avatarModel`, spec §8.3) replaces the About portrait once the file exists.
+Classic `/projects` content lives in `app/projects/page.tsx`.
 
 ### Architecture
 
-Modular engine under `app/components/three/world/`: `Experience` (root loop),
-`Renderer`, `Camera`, `Physics`, `Vehicle`, `Controls`, `Environment`, `Zones`,
-`Scenery`, `Particles`, `Creatures`, `Collectibles`, `MiniGames`, `Audio`,
-`Postprocess`, `Debug`, with `Config` (all tunables), `State` (store) and
-`Assets` (loaders), plus `shaders/` and `utils/`. React UI in `app/field/` +
-`world/ui/`. Tunables live in `Config.ts` — no magic numbers in systems.
+The engine is in `app/components/three/world3/`: `Experience` (boot + loop),
+`Renderer`, `Camera`, `Controls`, `Physics`, `Vehicle` (+ `models/Cybertruck`),
+`Environment`, `DayNight`, `Lamps`, `Paths`, `Scenery`, `Collectibles`,
+`Areas` + `areas/*` (one module per area), `Audio`, `Assets`, `Debug`, with
+`Config` (every tunable and the looks), `Layout` (every coordinate), `State`
+(store) and `utils/`. The React shell is `app/field/v3/` (+ `world3/ui/`).
+Unit tests: `npm run test`.
+
+The full design is in `docs/field-v3-spec.md`; deviations and decisions are
+logged in **DECISIONS.md**.
 
 ### Assets
 
-All world assets are local under `public/assets/` (≈7.7 MB, lazy-loaded) and are
-CC0 / MIT. Full attribution in **CREDITS.md** and the in-world Credits panel.
-Build/creative decisions are logged in **DECISIONS.md**.
+All world assets are local (`public/assets` ≈ 4 MB, `public/fonts`,
+`public/detect-gpu`) and CC0 / OFL / MIT. Full attribution is in **CREDITS.md**
+and on the in-world Credits sign.
 
 ### Known limitations / next steps
 
-- FPS target is 60 on a mid laptop; verify on the deployed site (the local
-  preview pane throttles when unfocused). Adaptive quality covers weaker GPUs.
-- Open-licence **afrobeat** is scarce, so the music bed is a CC0 "cool city"
-  loop; the world still pulses to its beat. Swap the file in `public/assets/audio`
-  anytime.
-- Possible next steps: bake lightmaps for the static props, add KTX2 for larger
-  textures if the island grows, and richer NPC behaviour.
+- The target is 60 fps on a mid laptop; verify on the deployed site (the local
+  preview pane throttles when unfocused).
+- Open-licence afrobeat is scarce, so the music bed is a CC0 "cool city" loop;
+  swap the file in `public/assets/audio` anytime.
+- Next: QA at DPR 1/2/3 and in Safari, then mobile polish.

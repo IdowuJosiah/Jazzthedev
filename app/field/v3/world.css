@@ -1,6 +1,6 @@
 /* ───────────────────────────────────────────────────────────────
-   /field v3 "clean diorama" UI (§6). Every class is prefixed `w3-`
-   so it never collides with v2's `eko-` / `ekoworld-` styles.
+   /field "clean diorama" UI (§6). Every class is prefixed `w3-`
+   so it never collides with the rest of the site's styles.
 
    Rules (§3.4.7, §6.1): whole-pixel font sizes; 8 px spacing grid;
    radii 8 / 12 / 16 only; no gradients on controls, no glows, no

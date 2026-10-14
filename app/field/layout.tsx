@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { Bricolage_Grotesque, Inter } from "next/font/google";
 
 // /field fonts (§3.2 "DOM fonts"): Inter for reading, Bricolage Grotesque for
-// display, exposed as CSS variables on a plain wrapper div. The v3 UI reads
-// them through --w-font / --w-display; v2's styles never reference them, and
-// its full-screen root is position: fixed, so the wrapper doesn't affect it.
+// display, exposed as CSS variables on a plain wrapper div. The world UI reads
+// them through --w-font / --w-display; its full-screen root is position:
+// fixed, so the wrapper doesn't affect its layout.
 
 const inter = Inter({
     subsets: ["latin", "latin-ext", "vietnamese"],

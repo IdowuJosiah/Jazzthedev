@@ -35,11 +35,11 @@ const HIDDEN_CSS =
     ".field-summary:focus-within a{color:#24222B}" +
     ".field-summary:focus-within :focus-visible{outline:2px solid #2F6FED;outline-offset:2px}";
 
-// No-JS: show the summary as a plain readable page; hide the world's loader
-// (v2's server-rendered placeholder), which can never finish without JS. The
-// :focus-within selector cancels the focus reveal above (the page is static).
+// No-JS: show the summary as a plain readable page; hide the world's
+// server-rendered placeholder (FieldMount), which can never finish without JS.
+// The :focus-within selector cancels the focus reveal above (the page is static).
 const NOSCRIPT_CSS = `<style>
-.ekoworld-root{display:none!important}
+.field-boot{display:none!important}
 .field-summary,.field-summary:focus-within{position:static;z-index:auto;border-radius:0;width:auto;height:auto;margin:0 auto;overflow:visible;clip:auto;white-space:normal;max-width:720px;padding:48px 24px 64px;background:#F3DCC0;color:#24222B;font-family:var(--font-inter),system-ui,sans-serif;font-size:16px;line-height:24px}
 .field-summary h1{font-family:var(--font-bricolage),var(--font-inter),system-ui,sans-serif;font-size:40px;line-height:44px;font-weight:800;margin:0 0 16px}
 .field-summary h2{font-size:20px;line-height:28px;font-weight:600;margin:32px 0 8px}

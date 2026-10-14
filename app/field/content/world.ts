@@ -5,15 +5,6 @@
 
 import type { AreaId } from "@/app/components/three/world3/types";
 
-export interface SectorMeta {
-    id: "frontend" | "eko" | "music" | "journey";
-    name: string;
-    blurb: string;
-    /** hex accent used for the gateway + sector theming */
-    color: number;
-    active: boolean;
-}
-
 /** Shape of an animated content panel opened from an in-world object. */
 export interface InfoContent {
     title: string;
@@ -33,21 +24,11 @@ export interface Terminal {
     tags: string[];
     liveUrl?: string;
     repoUrl?: string;
-    /** screenshot rendered onto the in-world monitor */
-    image: string;
-    /** v3 board image (1600×900 WebP built by scripts/boards). */
+    /** Board image (1600×900 WebP built by scripts/boards); also the panel image. */
     boardImage: string;
-    /** v3 one-line board pitch, ≤ 32 characters. */
+    /** One-line board pitch, ≤ 32 characters. */
     boardPitch: string;
 }
-
-/** The four sector gateways shown in the hub, in arc order. */
-export const sectors: SectorMeta[] = [
-    { id: "frontend", name: "Frontend Projects", blurb: "Shipped frontend work", color: 0x1d4ed8, active: true },
-    { id: "eko", name: "Eko", blurb: "Product case study", color: 0xd97706, active: true },
-    { id: "music", name: "Music Platform", blurb: "Spotify-powered", color: 0x9333ea, active: true },
-    { id: "journey", name: "Journey & Skills", blurb: "Background & skills", color: 0x0d9488, active: true },
-];
 
 // ── Sector A — Frontend Development Projects ──
 // TODO(jazz): swap in the real creative-studio + school-site details,
@@ -60,7 +41,6 @@ export const frontendProjects: Terminal[] = [
             "A full-service creative production studio: video for brands, events, YouTube & podcasts, music videos and documentaries, plus professional gear rental — all under one roof. Built the end-to-end site around a 'Create. Curate. Connect.' identity, with dark mode, a consultation-booking flow, and a gear catalogue.",
         tags: ["Next.js", "TypeScript", "Dark Mode", "Booking Flow"],
         liveUrl: "https://www.claystudiocreations.com",
-        image: "/images/claystudiocreations.jpg",
         boardImage: "/assets/boards/clay.webp",
         boardPitch: "Creative studio & gear rental",
     },
@@ -71,7 +51,6 @@ export const frontendProjects: Terminal[] = [
             "A production frontend for Cafe Riddim — artist submissions, media galleries, and a community hub. Built the responsive UI, integrated Cloudinary media and Resend email, and shipped it end to end.",
         tags: ["Next.js", "TypeScript", "Cloudinary", "Resend"],
         liveUrl: "https://www.caferiddim.com",
-        image: "/images/caferridim.png",
         boardImage: "/assets/boards/caferiddim.webp",
         boardPitch: "Platform for a music collective",
     },
@@ -82,7 +61,6 @@ export const frontendProjects: Terminal[] = [
             "A visual-first storytelling platform with bold layouts and motion. Translated design into a performant, responsive Next.js frontend focused on immersive presentation.",
         tags: ["Next.js", "TypeScript", "Motion"],
         liveUrl: "https://www.maramania.live",
-        image: "/images/mara.png",
         boardImage: "/assets/boards/mara.webp",
         boardPitch: "Cinematic documentary site",
     },
@@ -92,7 +70,6 @@ export const frontendProjects: Terminal[] = [
         description:
             "Built and maintained the company's main site and contributed to a ticketing platform that powered 3,000+ ticket sales. Worked across component architecture, REST API integration, and delivery.",
         tags: ["React", "TypeScript", "REST APIs", "CI/CD"],
-        image: "/images/cRf6OhI78D9fHIZyhDlqODIP0.webp",
         boardImage: "/assets/boards/sphiderass.webp",
         boardPitch: "Main site & ticketing platform",
     },
@@ -248,7 +225,7 @@ export const musicPillars: MusicPillar[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────
-// v3 world (/field?v=3) — additive content. v2 ignores these.
+// World identity, About, contact, credits and per-area copy.
 // ─────────────────────────────────────────────────────────────
 
 export interface WorldMeta {
@@ -324,7 +301,7 @@ export interface CreditEntry {
     url: string;
 }
 
-/** Credits tab + jetty sign. Mirrors CREDITS.md for the assets v3 uses. */
+/** Credits tab + jetty sign. Mirrors CREDITS.md. */
 export const credits: CreditEntry[] = [
     { name: "three.js", author: "mrdoob and contributors", license: "MIT", url: "https://threejs.org" },
     { name: "Rapier (rapier3d-compat)", author: "Dimforge", license: "Apache-2.0", url: "https://rapier.rs" },
@@ -338,9 +315,7 @@ export const credits: CreditEntry[] = [
         license: "OFL 1.1",
         url: "https://github.com/google/fonts/tree/main/ofl/bricolagegrotesque",
     },
-    { name: "Car Kit (car)", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/car-kit" },
     { name: "Nature Kit", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/nature-kit" },
-    { name: "Impact Sounds", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/impact-sounds" },
     { name: "Interface Sounds", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/interface-sounds" },
     { name: "Palm Tree", author: "Quaternius", license: "CC0 1.0", url: "https://poly.pizza/m/P0tgwyXBgr" },
     { name: "Cool City (music bed)", author: "mintodog", license: "CC0 1.0", url: "https://opengameart.org/content/cool-city" },
