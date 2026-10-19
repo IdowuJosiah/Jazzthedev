@@ -55,6 +55,19 @@
     padding: .7rem 1.5rem;
     border: 1px solid rgb(36, 38, 47);
 }
+/* Optional way into the 3D world (/field), below the two main actions. */
+.hero-world-link{
+    align-self: flex-start;
+    margin-top: .5rem;
+    font-weight: 600;
+    color: rgb(29, 78, 216);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+}
+.hero-world-link:hover{
+    text-decoration-thickness: 2px;
+}
 .hero-profile{
     flex: 1;
     display: flex;
@@ -1188,6 +1201,7 @@
 .hero-second-line { animation: fadeUpIn 0.75s cubic-bezier(0.22,1,0.36,1) 0.12s both; }
 .hero-third-line  { animation: fadeUpIn 0.75s cubic-bezier(0.22,1,0.36,1) 0.24s both; }
 .hero-fourth-line { animation: fadeUpIn 0.75s cubic-bezier(0.22,1,0.36,1) 0.38s both; }
+.hero-world-link  { animation: fadeUpIn 0.75s cubic-bezier(0.22,1,0.36,1) 0.5s both; }
 .hero-profile     { animation: scaleInFade 0.9s cubic-bezier(0.22,1,0.36,1) 0.18s both; }
 
 /* ─── Floating profile circle ─── */

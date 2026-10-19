@@ -8,7 +8,7 @@ import { BsChatText } from "react-icons/bs";
 const navLinks = [
     { href: "/", label: "Home" },
     { href: "/projects", label: "Projects" },
-    { href: "/field", label: "Explore" },
+    { href: "/field", label: "3D World" },
     { href: "/about", label: "About" },
 ];
 

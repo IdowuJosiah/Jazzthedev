@@ -183,6 +183,9 @@ export default function Home() {
                         Browse Projects
                       </Link>
                   </div>
+                  <Link href="/field" className="hero-world-link">
+                      Or drive through my work in 3D <span aria-hidden="true">→</span>
+                  </Link>
               </section>
               <section className="hero-profile">
                 <div className="hero-profile-circle">
