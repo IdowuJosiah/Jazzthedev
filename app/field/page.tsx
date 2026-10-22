@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import ProjectField from "@/app/components/three/ProjectField";
-import "./field.css";
+import FieldMount from "./FieldMount";
+import FieldSummary from "./FieldSummary";
 
 export const metadata: Metadata = {
-    title: "Explore · Jazz's Interactive 3D World",
+    title: "Jazz · Drive through my work",
     description:
-        "Drive through a 3D world of Jazz's work — enter themed sectors and pull up to each project.",
+        "An interactive portfolio: drive a small toy world of Jazz's frontend projects, the Eko product case study, music work and contact links, or skip to the classic site.",
 };
 
 export default function FieldPage() {
-    return <ProjectField />;
+    return (
+        <>
+            <FieldMount />
+            {/* After the world in DOM order so "Skip to classic portfolio" stays the first focusable. */}
+            <FieldSummary />
+        </>
+    );
 }
