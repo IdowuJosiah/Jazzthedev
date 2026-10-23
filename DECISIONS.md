@@ -568,3 +568,20 @@ controls; mobile is not polished now.
 - Cybertruck proportions (owner: "fix the truck"): chassis 4.8 × 1.9 (was 3.8 × 2.0), wheels
   inset 0.85 (wheelbase 3.1), apex 1.7 at ~42 % from the nose, tailgate 1.24.
 - Kept in `app/field/v3/` (not moved up a folder) to keep the history readable.
+
+## Wave 4 QA (2026-10-23)
+
+Checked on the live site (www.jazzthedev.online) and locally, desktop Chrome engine at DPR 2.
+
+| Check | Result |
+|---|---|
+| Perf §9.2, busiest views day + night | Pass: draw calls 90–135 (≤ 180), triangles 139k–230k (≤ 350k), troika texts 75 (≤ 110). Night adds ≤ 8 point lights (owner decision; the §9.2 "0 point lights" predates day/night). |
+| First-load transfer before Start | Pass: ≈ 2.6 MB (≤ 3.5 MB); JS 2.0 MB (Rapier 1.7 MB), fonts ≈ 450 KB, models 88 KB. |
+| Device-pixel canvas | Pass at DPR 2 (2880 × 1800 buffer for 1440 × 900, "device px" path). Resize / DPR-change logic covered by `computeBufferSize` tests; a live resize could not be observed because the preview pane was hidden (no frames, so no ResizeObserver callbacks). |
+| No-JS | Pass: SSR summary (projects incl. Clay, Eko, Music, contact links) and the `.field-boot` placeholder hidden by the noscript style. |
+| Context loss | Pass: "Graphics were reset" card with Reload and Classic site. |
+| Keyboard-only | Pass: Start focused (Skip link one Shift+Tab before it), Enter starts, M map and Esc menu are focus-trapped dialogs, Esc returns focus to the canvas. Movement uses `e.code`, so AZERTY works. |
+| Reduced motion | Code path: OS setting read at boot + Settings toggle; camera snaps, coins / vinyl / letters static (unit-tested per module). |
+| Contrast | From the calibrated night targets: paper text on the lit night ground ≈ 7:1, ink on lit paper plates ≈ 9.8:1; visually readable in day and night screenshots. No pixel probe run. |
+| Font / asset failure | Code path only (init → "asset" failure card); not forced in a browser. |
+| Safari macOS / iOS, real-device fps | Owner to check (needs the real browsers / devices). |
