@@ -65,6 +65,7 @@ export default function AboutPage() {
     return (
         <main className="page-width about-page-shell">
             <section className="about-hero-section">
+                <p className="label-mono">( Liner notes )</p>
                 <h1 className="about-heading">
                     About Me<span className="story-dot">.</span>
                 </h1>

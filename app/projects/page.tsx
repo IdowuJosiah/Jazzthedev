@@ -88,7 +88,7 @@ export default function ProjectsPage() {
         <main className="page-width projects-page-shell">
             <section className="projects-page-hero">
                 <div className="projects-page-hero-copy">
-                    <p className="projects-page-kicker">Selected Work</p>
+                    <p className="label-mono">( The full record )</p>
                     <h1 className="projects-page-heading">
                         My Projects<span className="story-dot">.</span>
                     </h1>
@@ -109,7 +109,7 @@ export default function ProjectsPage() {
                         data-index={index}
                         className={`project-showcase-card ${visibleCards.includes(index) ? "project-showcase-card-visible" : ""}`}
                     >
-                        <div className="project-showcase-image-wrap">
+                        <div className="project-showcase-image-wrap" data-cursor={project.title}>
                             <Image
                                 src={project.image}
                                 alt={project.title}
@@ -132,7 +132,7 @@ export default function ProjectsPage() {
                                 </div>
                                 <Link href="/contact" className="project-showcase-link">
                                     <span>Discuss Project</span>
-                                    <span className="l-project-link">
+                                    <span className="link-arrow-circle">
                                         <MdArrowOutward />
                                     </span>
                                 </Link>
