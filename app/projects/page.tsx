@@ -19,16 +19,16 @@ const projects = [
     {
         title: "Cafe Riddim",
         subtitle: "African Electronic Music Collective",
-        year: "2026",
+        year: "2025",
         image: "/images/caferridim.png",
         description:
             "A cultural hub and digital home for Cafe Riddim — blending music, visuals, artist submissions, and community experiences into an immersive platform rooted in African electronic and house music culture.",
-        tags: ["Next.js", "Spotify API", "Cloudinary", "Resend"],
+        tags: ["Next.js", "TypeScript", "Spotify API", "Cloudinary", "Resend", "Vercel"],
     },
     {
-        title: "Eko",
+        title: "Eeko",
         subtitle: "Interactive Yoruba Learning Platform",
-        year: "2026",
+        year: "2025",
         image: "/images/eekoo.png",
         description:
             "An engaging educational platform designed to make learning Yoruba fun and interactive through mini-games, pronunciation exercises, quizzes, and immersive language-learning experiences.",
@@ -44,12 +44,12 @@ const projects = [
         tags: ["React", "Component Systems", "Accessibility"],
     },
     {
-        title: "Mara Mania",
+        title: "MaraMania",
         subtitle: "Documentary & Cultural Storytelling Platform",
-        year: "2026",
+        year: "2025",
         image: "/images/maramaniaimage.png",
         description:
-            "A cinematic documentary experience built to showcase Mara Mania through bold visuals, storytelling-focused layouts, and immersive presentation of African street culture, music, and movement.",
+            "A cinematic documentary experience built to showcase MaraMania through bold visuals, storytelling-focused layouts, and immersive presentation of African street culture, music, and movement.",
         tags: ["Creative Direction", "Visual Storytelling", "UI Design", "Motion"],
     },
 ];

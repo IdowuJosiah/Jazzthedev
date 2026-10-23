@@ -8,7 +8,7 @@ import { MdArrowOutward } from "react-icons/md";
 
 const experiences = [
     {
-        company: "SphiderAssWeb",
+        company: "Sphiderass Web",
         role: "Frontend Developer → Operations Officer",
         period: "Oct 2023 - Oct 2024",
         location: "Lagos, Nigeria",
@@ -16,7 +16,7 @@ const experiences = [
             "Started as a Frontend Developer before transitioning into an Operations Officer role, contributing to both product development and internal company growth.",
         highlights: [
             "Built and maintained the company's main website using modern frontend technologies.",
-            "Contributed to the development of a ticketing platform that powered an event with 3,000+ ticket sales.",
+            "Built a ticketing platform that processed 3,000+ ticket sales for live events.",
             "Led recruitment efforts that increased the company workforce by over 300%.",
             "Improved internal workflows and communication between departments.",
             "Managed client relationships and translated business requirements into actionable development tasks.",
@@ -28,9 +28,9 @@ const experiences = [
         period: "2024 - Feb 2025",
         location: "Remote",
         description:
-            "Worked with multiple clients in the crypto and NFT space, building fast-paced landing pages and digital experiences for Web3 projects.",
+            "Worked with clients around the world in the crypto and Web3 space, building fast-paced landing pages and digital experiences.",
         highlights: [
-            "Designed and developed 30+ one-page websites for meme coin and NFT projects.",
+            "Designed and developed 30+ one-page websites for meme-coin and Web3 projects.",
             "Built responsive and conversion-focused landing pages using React.js and Next.js.",
             "Managed multiple client projects across different time zones and fast delivery cycles.",
             "Focused on performance, responsiveness, and visually engaging UI experiences.",
@@ -58,10 +58,23 @@ const experiences = [
         description:
             "Developed production-ready cultural and music-focused platforms that blended storytelling, visuals, and performance-driven frontend development.",
         highlights: [
-            "Built and launched Mara Mania, a documentary storytelling platform.",
+            "Built and launched MaraMania, a documentary storytelling platform.",
             "Developed Cafe Riddim, a digital platform for an African electronic music collective.",
             "Integrated Spotify APIs, Cloudinary media management, and Resend email systems.",
-            "Translated Figma designs into responsive, high-performance interfaces using Next.js and TypeScript.",
+            "Translated Figma designs into responsive, high-performance interfaces using Next.js (App Router) and TypeScript, deployed on Vercel.",
+        ],
+    },
+    {
+        company: "Freelance / Client Websites",
+        role: "Frontend Developer",
+        period: "2026",
+        location: "Lagos, Nigeria",
+        description:
+            "Built three client websites from scratch on freelance contracts, from a full e-commerce store to studio and school sites.",
+        highlights: [
+            "Dorée Jewelry: a fully dynamic e-commerce storefront with product catalogue, collections, wishlist and customer accounts, plus a custom admin dashboard, built with Next.js and Supabase.",
+            "Clay Studio Creations: a full-service creative studio site with service pages, a portfolio and a gear rental catalogue (Aug 2026).",
+            "Honey Rock School: the school's website, built start to finish (Aug 2026).",
         ],
     },
     {
@@ -82,7 +95,7 @@ const skillGroups = [
 
   {
     title: "Frontend",
-    skills: ["Javascript", "ReactJS", "NextJS", "CSS3"],
+    skills: ["React.js", "Next.js", "TypeScript", "JavaScript", "Responsive UI", "CSS/SCSS", "BEM"],
   },
     {
         title: "Product Management",
@@ -112,19 +125,19 @@ const featuredProjects = [
         "A cultural hub and digital home for Cafe Riddim, blending music, visuals, artist submissions, and community experiences.",
   },
   {
-    title: "Eko",
+    title: "Eeko",
     image: "/images/eekoo.png",
     imageClassName: "pj-image-6",
-    alt: "Eko project preview",
+    alt: "Eeko project preview",
     url: "https://eeko.site",
     description:
         "An interactive Yoruba learning platform with mini-games, pronunciation exercises, quizzes, and responsive learning flows.",
   },
   {
-    title: "Mara Mania",
+    title: "MaraMania",
     image: "/images/maramaniaimage.png",
     imageClassName: "pj-image-4",
-    alt: "Mara Mania project preview",
+    alt: "MaraMania project preview",
     url: "https://www.maramania.live",
     description:
         "A cinematic documentary experience for bold visuals, storytelling-focused layouts, and African street culture presentation.",
@@ -317,7 +330,7 @@ export default function Home() {
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.1s' }}>
-                      I started working as a <span className="story-accent">front-end developer</span>, building responsive websites and web applications using modern technologies like ReactJS and NextJS while collaborating with teams on client and in-house products.
+                      I started working as a <span className="story-accent">front-end developer</span>, building responsive websites and web applications using modern technologies like React, Next.js and TypeScript while collaborating with teams on client and in-house products.
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.15s' }}>
@@ -325,7 +338,7 @@ export default function Home() {
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.2s' }}>
-                      I&apos;ve worked on projects across different industries — from <span className="story-accent">real estate platforms</span> and fashion-commerce websites to creative cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eko</span>.
+                      I&apos;ve worked on projects across different industries — from a <span className="story-accent">jewelry e-commerce store</span> and a creative studio&apos;s website to cultural platforms like <span className="story-accent">Cafe Riddim</span> and educational experiences like <span className="story-accent">Eeko</span>.
                   </p>
 
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.25s' }}>
