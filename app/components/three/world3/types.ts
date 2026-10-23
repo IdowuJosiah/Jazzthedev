@@ -94,7 +94,7 @@ export interface Prompt {
     action: string;
 }
 
-export type MenuTab = "settings" | "controls" | "words" | "contact" | "credits";
+export type MenuTab = "settings" | "controls" | "contact" | "credits";
 
 export interface WorldInteractable {
     pad: PadDef;

@@ -6,16 +6,10 @@ import "../index.css";
 const experiences = [
     {
         role: "Frontend Developer → Operations Officer",
-        company: "SphiderAssWeb",
+        company: "Sphiderass Web",
         period: "Oct 2023 - Oct 2024",
         paragraphs: [
-            "Started as a Frontend Developer, building and maintaining the company’s main website while collaborating with designers and backend engineers to deliver responsive, scalable interfaces for client and in-house products.",
-
-            "Contributed to the development of a ticketing platform that successfully powered an event with over 3,000 ticket sales, helping improve performance, usability, and user experience across the platform.",
-
-            "After months of strong contributions, I was promoted to Operations Officer where I led recruitment efforts that increased the company workforce by over 300%, improved internal workflows, and strengthened communication between departments.",
-
-            "I also managed client relationships, translated business requirements into actionable development tasks, and played a key role in securing the company’s largest client.",
+            "Built the company website and a ticketing platform that processed 3,000+ ticket sales. Promoted to Operations Officer within the year, I led recruitment that grew the team's capacity by over 300% and kept clients and developers aligned.",
         ],
     },
     {
@@ -23,9 +17,7 @@ const experiences = [
         company: "Crypto / Web3 Projects",
         period: "2024 - Feb 2025",
         paragraphs: [
-            "Worked independently with clients in the crypto and NFT space, designing and developing over 30 one-page websites and landing pages for meme coin and Web3 projects.",
-
-            "Focused on building fast, responsive, and visually engaging interfaces optimized for conversions while managing multiple projects across different time zones and tight delivery timelines.",
+            "Shipped 30+ responsive, conversion-focused landing pages for meme-coin and Web3 clients around the world, on tight timelines.",
         ],
     },
     {
@@ -33,34 +25,30 @@ const experiences = [
         company: "Eeko — Yoruba Learning App",
         period: "Apr 2025 - Dec 2025",
         paragraphs: [
-            "Led product planning and execution for Eeko, an interactive Yoruba learning platform focused on creating engaging educational experiences through games and immersive learning flows.",
-
-            "Defined product features, user flows, and development priorities while coordinating closely with design and engineering teams to ensure timely and efficient product delivery.",
-
-            "Focused heavily on user engagement, onboarding experience, and making language learning feel more interactive, accessible, and culturally relevant.",
+            "Owned product planning and feature definition and coordinated development through to release, prioritising engagement and a simpler core learning flow.",
         ],
     },
     {
-        role: "Freelance Developer",
+        role: "Freelance Frontend Developer",
         company: "WeTalkSound",
         period: "2025",
         paragraphs: [
-            "Built and launched two production-ready platforms: Mara Mania, a documentary storytelling platform, and Cafe Riddim, a digital home for an African electronic music collective.",
-
-            "Used Next.js, TypeScript, and CSS Modules to translate Figma designs into responsive, high-performance interfaces with strong visual storytelling and smooth user experiences.",
-
-            "Integrated Spotify APIs for music functionality, managed media delivery with Cloudinary, implemented email systems using Resend, and deployed applications using Vercel.",
+            "Built and launched MaraMania and Cafe Riddim with Next.js and TypeScript, integrating the Spotify API, Cloudinary and Resend, deployed on Vercel.",
+        ],
+    },
+    {
+        role: "Freelance Frontend Developer",
+        company: "Dorée Jewelry · Clay Studio Creations · Honey Rock School",
+        period: "2026",
+        paragraphs: [
+            "Built Dorée Jewelry's e-commerce store with a custom admin dashboard (Next.js and Supabase), plus the Clay Studio Creations and Honey Rock School websites.",
         ],
     },
     {
         role: "Frontend Developer & Product Lead",
         company: "Health Connect",
         period: "2025 - Present",
-        paragraphs: [
-            "Currently leading both product direction and frontend development for Health Connect, a health-focused platform designed to improve access and connectivity within healthcare systems.",
-
-            "Working across strategy, planning, interface design, and development to shape a scalable product experience that balances usability, accessibility, and real-world healthcare needs.",
-        ],
+        paragraphs: ["Leading product direction and frontend development for a healthcare-focused platform."],
     },
 ];
 
@@ -80,17 +68,9 @@ const stackItems = [
 ];
 
 const storyParagraphs = [
-    "My journey into tech started with frontend development and a strong curiosity for building interfaces that feel modern, interactive, and intuitive for users.",
+    "I started as a frontend developer and grew into product: from developer to Operations Officer at Sphiderass Web, 30+ Web3 landing pages as a freelancer, then product manager for Eeko.",
 
-    "As I gained more experience, I started moving beyond just writing code and became more involved in how products were planned, structured, and delivered — which naturally pushed me toward product and operations management.",
-
-    "At SphiderAssWeb, I grew from being a frontend developer into an Operations Officer role where I helped scale the team, improve internal workflows, manage client relationships, and contribute to larger business decisions.",
-
-    "Alongside my full-time experience, I worked independently as a freelance developer, building over 30 websites in the crypto and Web3 space while learning how to balance speed, design quality, and client expectations across fast-moving projects.",
-
-    "Over time, I transitioned deeper into product management, leading projects like Eeko while still maintaining a strong frontend engineering foundation. I enjoy bridging the gap between design, development, business goals, and user experience.",
-
-    "Today, I focus on building digital products that are visually strong, technically scalable, and strategically aligned — combining frontend development, product thinking, and operational leadership into the way I work.",
+    "Today I lead product and development for Health Connect and build sites for clients, combining frontend craft with product thinking.",
 ];
 
 export default function AboutPage() {
@@ -200,6 +180,17 @@ export default function AboutPage() {
                             </div>
                         </article>
                     ))}
+                </div>
+            </section>
+
+            <section className="about-story-section">
+                <h2 className="about-section-heading">
+                    Education<span className="story-dot">.</span>
+                </h2>
+                <div className="story-content">
+                    <p className="story-paragraph">
+                        B.Ed, Early Childhood Education, University of Lagos. Final year (400 Level).
+                    </p>
                 </div>
             </section>
         </main>

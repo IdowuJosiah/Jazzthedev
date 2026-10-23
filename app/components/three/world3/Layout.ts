@@ -225,12 +225,12 @@ export const AREAS: readonly AreaDef[] = [
     },
     {
         id: "eko",
-        name: "Eko",
+        name: "Eeko",
         ...accents("eko"),
         rect: rect(64, -122, 48, 44),
         arrival: { x: 44, z: -120, yaw: Math.PI / 2 },
         cameraShot: "default",
-        title3D: { text: "EKO", x: 50, z: -138, dynamic: false },
+        title3D: { text: "EEKO", x: 50, z: -138, dynamic: false },
     },
     {
         id: "music",
@@ -347,10 +347,10 @@ export const PATHS: readonly PathDef[] = [
         // Step 0 deviation: d 4.5 (spec d 6). The centred ≈15.2-long label at d 6
         // clipped milestone-0's plate corner; at d 4.5 it ends ≈ 0.5 short of it
         // (side gap 0.9 unchanged). Its sun strip still clears the hub planter.
-        labels: [{ text: "JOURNEY · EKO · MUSIC", d: 4.5 }],
+        labels: [{ text: "JOURNEY · EEKO · MUSIC", d: 4.5 }],
     },
     { id: "P5", from: { x: -3, z: -120 }, to: { x: -40, z: -120 }, width: 2, labels: [{ text: "MUSIC", d: 6 }] },
-    { id: "P6", from: { x: 3, z: -120 }, to: { x: 40, z: -120 }, width: 2, labels: [{ text: "EKO", d: 6 }] },
+    { id: "P6", from: { x: 3, z: -120 }, to: { x: 40, z: -120 }, width: 2, labels: [{ text: "EEKO", d: 6 }] },
     { id: "P7", from: { x: -22, z: 4 }, to: { x: -34, z: 4 }, width: 2, labels: [{ text: "ABOUT & CONTACT", d: 4 }] },
 ];
 
@@ -468,32 +468,6 @@ export const PATH_LABELS: readonly PathLabelPlacement[] = PATHS.flatMap((p) =>
     p.labels.map((l) => pathLabelPlacement(p, l))
 );
 
-// ── Yoruba-word tokens (§2.7) ────────────────────────────────────────────
-export const TOKENS: readonly XZ[] = [
-    { x: 16, z: -30 },
-    { x: -30, z: -26 },
-    { x: 90, z: -40 },
-    { x: 160, z: -80 },
-    { x: -30, z: -150 },
-    { x: 30, z: -152 },
-    { x: -140, z: -60 },
-    { x: -20, z: 30 },
-];
-
-/** Coin geometry + pickup (§5.2). */
-export const TOKEN = {
-    radius: 1.1,
-    thickness: 0.28,
-    segments: 40,
-    pickupRadius: 2.8,
-    bob: 0.3,
-    bobHz: 1.2,
-    wobbleDeg: 20,
-    wordZ: 0.15,
-    /** Coin centre height above the ground. */
-    y: 1.6,
-} as const;
-
 // ── Area contents (§2.4) ─────────────────────────────────────────────────
 const welcomeHero: XZ = { x: -11, z: 4 };
 const musicC: XZ = { x: -64, z: -122 };
@@ -598,7 +572,7 @@ export const AREA_LAYOUT = {
             screen: { w: 3.9, h: 8.2, inset: 0.01 },
         },
         pad: { ...offsetRS(ekoPhone, 0, 8), w: 6, d: 5 },
-        padLabel: "E  OPEN EKO",
+        padLabel: "E  OPEN EEKO",
     },
     music: {
         centre: musicC,

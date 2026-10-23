@@ -5,7 +5,7 @@ import { CONFIG } from "../Config";
 // r186's RoundedBoxGeometry clamps its radius to half the shortest side, so thin
 // objects that need rounded corners seen from above / the front use these.
 
-export type FlatLayerId = "plaza" | "plate" | "padOnPlate" | "groundText" | "tile" | "blob" | "tileText";
+export type FlatLayerId = "plaza" | "plate" | "padOnPlate" | "plateText" | "groundText" | "tile" | "blob" | "tileText";
 
 export interface FlatLayer {
     /** Height of the layer's surface (tiles: their top). */
@@ -47,7 +47,9 @@ export const LAYERS: Readonly<Record<FlatLayerId, FlatLayer>> = Object.freeze({
      * contact plates): just above the plate so the two never share a plane.
      */
     padOnPlate: layer(L.padOnPlate, -3, -3, { depthWrite: false, renderOrder: 1 }),
-    /** Text on ground, plaza or plates. */
+    /** Copy on paper plates (milestone, skill, contact, Eeko tiles): reads as paper at night. */
+    plateText: layer(L.plateText, -4, -4, { depthWrite: false, renderOrder: 2, receiveShadow: false }),
+    /** Text on the ground or a plaza. */
     groundText: layer(L.groundText, -4, -4, { depthWrite: false, renderOrder: 2, receiveShadow: false }),
     /** Path tiles: solid from tileBottom to tileTop (y is the top). */
     tile: layer(L.tileTop, 0, 0),

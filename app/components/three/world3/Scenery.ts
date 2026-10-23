@@ -13,7 +13,6 @@ import {
     QUAY_Z,
     RAMP_CORRIDOR,
     RAMP_FOOTPRINT,
-    TOKENS,
     padFootprint,
     pathClearance,
     pointInRect,
@@ -216,7 +215,6 @@ export type SceneryRejectReason =
     | "corridor"
     | "area"
     | "path"
-    | "token"
     | "feature"
     | "pad"
     | "groundText"
@@ -244,7 +242,6 @@ export function sceneryReject(x: number, z: number, kind?: SceneryKind): Scenery
         if (distToSegment2D(x, z, p.a.x, p.a.z, p.b.x, p.b.z) <= p.clear) return "path";
     }
     const fc = SC.featureClearance;
-    for (const t of TOKENS) if (Math.hypot(x - t.x, z - t.z) <= fc) return "token";
     for (const f of FEATURES) if (distToFootprint(f, x, z) <= fc) return "feature";
     for (const f of PAD_FOOTPRINTS) if (distToFootprint(f, x, z) <= fc) return "pad";
     const reach = kind ? KIND_EXTENT[kind].reach : 0;

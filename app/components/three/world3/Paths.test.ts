@@ -131,9 +131,9 @@ describe("Paths (§2.5)", () => {
     it("label ownership: Welcome 2, Hub 4 (6 outside the hub edge), P5/P6 unowned", () => {
         expect(labelsOwnedBy("welcome").map((l) => l.text).sort()).toEqual(["ABOUT & CONTACT", "CROSSROADS"]);
         expect(labelsOwnedBy("hub").map((l) => l.text).sort()).toEqual(
-            ["JOURNEY · EKO · MUSIC", "PLAYGROUND", "PROJECTS", "START"].sort()
+            ["JOURNEY · EEKO · MUSIC", "PLAYGROUND", "PROJECTS", "START"].sort()
         );
-        expect(labelsOwnedBy(null).map((l) => l.text).sort()).toEqual(["EKO", "MUSIC"]);
+        expect(labelsOwnedBy(null).map((l) => l.text).sort()).toEqual(["EEKO", "MUSIC"]);
         const p1 = PATHS.find((p) => p.id === "P1")!;
         expect(labelOwner(p1, p1.labels[0])).toBe("welcome");
         expect(labelOwner(p1, p1.labels[1])).toBe("hub");
@@ -148,7 +148,7 @@ describe("Paths (§2.5)", () => {
 
         const some = stubDeps();
         const h2 = build(some.deps, { skipOwners: ["welcome", "hub"] });
-        expect(some.calls.map((c) => c.text).sort()).toEqual(["EKO", "MUSIC"]);
+        expect(some.calls.map((c) => c.text).sort()).toEqual(["EEKO", "MUSIC"]);
         // Areas + Paths together draw every label exactly once.
         const owned = stubDeps();
         const areaLabels = [

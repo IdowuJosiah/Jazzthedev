@@ -15,12 +15,6 @@ export interface Toast {
     text: string;
 }
 
-export interface GlossaryWord {
-    word: string;
-    meaning: string;
-    pron?: string;
-}
-
 export interface WorldState {
     // ── kept from v2 ──
     phase: WorldPhase;
@@ -43,8 +37,6 @@ export interface WorldState {
     mapOpen: boolean;
     menuTab: MenuTab | null;
     toast: Toast | null;
-    words: GlossaryWord[];
-    wordsTotal: number;
     isTouch: boolean;
 
     // ── day / night (DayNight.ts) ──
@@ -130,8 +122,6 @@ export const initialWorldState = (): WorldState => ({
     mapOpen: false,
     menuTab: null,
     toast: null,
-    words: [],
-    wordsTotal: 0,
     isTouch: false,
     // DayNight reports the real values as soon as it is built.
     timeMode: CONFIG.dayNight.defaultMode,

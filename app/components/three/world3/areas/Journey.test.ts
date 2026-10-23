@@ -205,8 +205,8 @@ describe("areas/Journey (§2.4, §5.2, §5.3)", () => {
         });
     });
 
-    it("plate copy text is the plate layer the look system reads (padOnPlate, above the plate and its pad)", () => {
-        expect(PLATE_TEXT_LAYER).toBe("padOnPlate");
+    it("plate copy text is the plate layer the look system reads (plateText, above the plate and its pad)", () => {
+        expect(PLATE_TEXT_LAYER).toBe("plateText");
         expect(shapes.LAYERS[PLATE_TEXT_LAYER].y).toBeGreaterThan(shapes.LAYERS.plate.y);
         expect(PLATE_TEXT_RENDER_ORDER).toBeGreaterThan(shapes.LAYERS.padOnPlate.renderOrder);
     });

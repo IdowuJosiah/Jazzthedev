@@ -7,7 +7,6 @@ import "./areas/index"; // side-effect registration of the Wave 2 area modules
 import { Assets } from "./Assets";
 import { Audio } from "./Audio";
 import { Camera } from "./Camera";
-import * as Collectibles from "./Collectibles";
 import { Controls } from "./Controls";
 import { DayNight, isTimeMode } from "./DayNight";
 import type { Debug } from "./Debug";
@@ -43,7 +42,7 @@ import * as content from "@/app/field/content/world";
 //   renderer → fonts (troika preload + typeface JSON) ∥ Rapier init → assets
 //   (the scenery plan is computed while they download) → environment → car,
 //   camera, controls → areas (+ interim markers) → paths → scenery → lamps,
-//   coins, day/night → warm-up
+//   day/night → warm-up
 //   render → "ready". The build yields to the UI between steps so the loader
 //   bar moves (CONFIG.loading.buildSteps).
 // Load contract (§6.2): fonts 0.15 → assets 0.55 → build 0.25 → warm-up 0.05,
@@ -389,7 +388,6 @@ interface World {
     paths: Paths.PathsHandle | null;
     scenery: Scenery | null;
     lamps: Lamps.LampsHandle | null;
-    collectibles: Collectibles.CollectiblesHandle | null;
     dayNight: DayNight;
 }
 
@@ -734,21 +732,6 @@ export class Experience {
             this.own(() => lamps.dispose());
         }
 
-        // Yoruba word coins → the store's glossary + toast.
-        const collectibles = optional("collectibles", () =>
-            Collectibles.build({
-                materials,
-                text,
-                audio: this.audio,
-                onCollect: Collectibles.storeCollector(this.store),
-                collected: this.store.snapshot.words.map((word) => word.word),
-            })
-        );
-        if (collectibles) {
-            scene.add(collectibles.group);
-            this.own(() => collectibles.dispose());
-        }
-
         // Day / night: the stored mode (or ?time=day|night), else the visitor's clock.
         const timeParam = new URLSearchParams(window.location.search).get("time");
         const dayNight = new DayNight({
@@ -787,7 +770,6 @@ export class Experience {
             paths,
             scenery,
             lamps,
-            collectibles,
             dayNight,
         };
         // Input gating follows the store (Start, dialogs, pause).
@@ -849,7 +831,8 @@ export class Experience {
         const w = this.w;
         if (!w || !new URLSearchParams(window.location.search).has("debug")) return;
         // QA hook (?debug only): place the car anywhere, e.g. __world3.teleport(44, -64, Math.PI).
-        (window as unknown as { __world3?: { teleport(x: number, z: number, yaw?: number): void } }).__world3 = {
+        (window as unknown as { __world3?: { scene: THREE.Scene; teleport(x: number, z: number, yaw?: number): void } }).__world3 = {
+            scene: w.scene,
             teleport: (x, z, yaw = 0) => {
                 w.vehicle.teleport(x, z, yaw);
                 w.camera.snapTo(x, z);
@@ -1092,7 +1075,6 @@ export class Experience {
 
             rt.carSpeed = vehicle.speed;
             areas.update(dt, elapsed, rt);
-            if (running) w.collectibles?.update(dt, elapsed, rt);
             if (running) {
                 const p = vehicle.position;
                 this.detectArea(p.x, p.z);

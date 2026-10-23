@@ -518,6 +518,12 @@ export const CONFIG = {
             plate: 0.025,
             /** Pad outline/fill drawn on top of a plate that is also the pad. */
             padOnPlate: 0.03,
+            /**
+             * Copy on paper plates. Well clear of the plate: its polygon offset pulls it
+             * toward the camera by more than a few hundredths at gallery distance, so
+             * copy just above it (padOnPlate) was hidden under the plate.
+             */
+            plateText: 0.08,
             groundText: 0.035,
             tileBottom: 0,
             tileTop: 0.08,
@@ -554,7 +560,6 @@ export const CONFIG = {
         boardPitch: { font: "medium", size: 0.5, maxChars: 32 },
         boardTags: { font: "semibold", size: 0.42, letterSpacing: 0.08 },
         sleeveTitle: { font: "bold", size: 0.7 },
-        coinWord: { font: "bold", size: 0.42 },
     },
 
     /** Pads (§5.3). */

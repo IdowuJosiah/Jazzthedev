@@ -448,12 +448,14 @@ describe("areas/Music (§2.4, §5.2)", () => {
         });
 
         it("panel content carries the pillar copy and its link when it has one", () => {
-            const c0 = musicPillarContent(0);
-            expect(c0.title).toBe(musicPillars[0].title);
-            expect(c0.body).toBe(musicPillars[0].body);
-            expect(c0.links).toEqual([{ label: "Visit site", url: musicPillars[0].url }]);
-            expect(c0.accent).toBe(parseInt(ACCENT.music.slice(1), 16));
-            expect(musicPillarContent(1).links).toBeUndefined();
+            const linked = musicPillars.findIndex((p) => p.url);
+            const plain = musicPillars.findIndex((p) => !p.url);
+            const c = musicPillarContent(linked);
+            expect(c.title).toBe(musicPillars[linked].title);
+            expect(c.body).toBe(musicPillars[linked].body);
+            expect(c.links).toEqual([{ label: "Visit site", url: musicPillars[linked].url }]);
+            expect(c.accent).toBe(parseInt(ACCENT.music.slice(1), 16));
+            expect(musicPillarContent(plain).links).toBeUndefined();
         });
     });
 

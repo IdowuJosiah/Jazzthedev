@@ -106,7 +106,7 @@ export function build(ctx: AreaContext): WelcomeHandle {
             W.roleLine.x,
             W.roleLine.z
         );
-        // Yoruba: Inter only (§3.2). ink2 is allowed here: it sits on the plaza.
+        // Inter (§3.2). ink2 is allowed here: it sits on the plaza.
         const greeting = flatAt(
             text.flat({
                 text: meta.greeting,

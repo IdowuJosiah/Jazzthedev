@@ -178,13 +178,13 @@ describe("panel accent", () => {
 });
 
 describe("menu tabs", () => {
-    it("has the five §6.2 tabs and wraps with the arrow keys", () => {
-        expect(MENU_TABS.map((t) => t.id)).toEqual(["settings", "controls", "words", "contact", "credits"]);
+    it("has four tabs (no Words since the word coins were removed) and wraps with the arrow keys", () => {
+        expect(MENU_TABS.map((t) => t.id)).toEqual(["settings", "controls", "contact", "credits"]);
         expect(nextTab("credits", "ArrowRight")).toBe("settings");
         expect(nextTab("settings", "ArrowLeft")).toBe("credits");
-        expect(nextTab("words", "Home")).toBe("settings");
-        expect(nextTab("words", "End")).toBe("credits");
-        expect(nextTab("words", "a")).toBeNull();
+        expect(nextTab("contact", "Home")).toBe("settings");
+        expect(nextTab("contact", "End")).toBe("credits");
+        expect(nextTab("contact", "a")).toBeNull();
     });
 });
 

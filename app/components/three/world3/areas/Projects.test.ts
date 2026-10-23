@@ -565,7 +565,7 @@ describe("areas/Projects (§2.4, §5.1)", () => {
             const clay = h.boards.find((b) => b.project.title === "Clay Studio Creations")!;
             expect(fake(clay).fontSize).toBeLessThan(TY.boardTitle.size);
             expect(fake(clay).naturalWidth).toBeCloseTo(TY.boardTitle.maxWidth, 6);
-            const short = h.boards.find((b) => b.project.title === "Mara Mania")!;
+            const short = h.boards.find((b) => b.project.title === "MaraMania")!;
             expect(fake(short).fontSize).toBe(TY.boardTitle.size);
         });
 

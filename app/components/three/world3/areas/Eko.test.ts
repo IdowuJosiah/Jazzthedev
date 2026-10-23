@@ -164,13 +164,13 @@ describe("areas/Eko (§2.4, §5.2)", () => {
         expect(registeredAreaIds()).toContain("eko");
     });
 
-    it("the static 3D title EKO in ACCENT_INK.eko, placed once at its Layout point, faceCamera", () => {
+    it("the static 3D title EEKO in ACCENT_INK.eko, placed once at its Layout point, faceCamera", () => {
         const s = stubCtx();
         const h = build(s.ctx);
         expect(s.words).toHaveLength(1);
         const { text, opts, word } = s.words[0];
         const t3 = AREA_BY_ID.eko.title3D!;
-        expect(text).toBe("EKO");
+        expect(text).toBe("EEKO");
         expect(opts).toEqual({
             cap: TY.areaTitle.cap,
             depth: TY.areaTitle.depth,
@@ -219,7 +219,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
             }
         });
 
-        it("numbers 01–05 in Bricolage 2.4 ACCENT_INK.eko and the titles in Inter Bold 0.8 ink, on the padOnPlate layer", () => {
+        it("numbers 01–05 in Bricolage 2.4 ACCENT_INK.eko and the titles in Inter Bold 0.8 ink, on the plateText layer", () => {
             const s = stubCtx();
             const h = build(s.ctx);
             expect(h.numerals.map((n) => s.texts.find((t) => t.handle === n)!.opts.text)).toEqual([
@@ -237,7 +237,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
                     font: "display",
                     size: E.tile.numeralSize,
                     color: ACCENT_INK.eko,
-                    layer: "padOnPlate",
+                    layer: "plateText",
                 });
                 expect(E.tile.numeralSize).toBe(TY.numerals.max);
                 const title = h.tileTitles[k];
@@ -248,7 +248,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
                     font: "bold",
                     size: TY.minFlatSize,
                     color: PALETTE.ink,
-                    layer: "padOnPlate",
+                    layer: "plateText",
                 });
                 expect(tc.opts.maxWidth).toBeLessThan(E.tile.w);
                 // Both on the tile; the numeral above the title on screen (−S is up).
@@ -531,7 +531,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
     });
 
     describe("pad", () => {
-        it("one pad (Layout's eko spot, labelled, no keycap) that opens the Eko panel", () => {
+        it("one pad (Layout's eko spot, labelled, no keycap) that opens the Eeko panel", () => {
             const s = stubCtx();
             const h = build(s.ctx);
             const spot = PADS.find((p) => p.id === "eko")!;
@@ -539,7 +539,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
             const i = s.interactables[0];
             expect(i.pad).toBe(spot.pad);
             expect(i.areaId).toBe("eko");
-            expect(i.prompt.title).toBe("Eko");
+            expect(i.prompt.title).toBe("Eeko");
             expect(i.onInteract).toBeUndefined();
             expect(i.content).toEqual(ekoPanelContent());
             // The pad sits in front of the phone (phone + S·8) and inside the area.
@@ -565,7 +565,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
 
         it("the panel lists the five milestones and links eeko.site", () => {
             const c = ekoPanelContent();
-            expect(c.title).toBe("Eko");
+            expect(c.title).toBe("Eeko");
             expect(c.image).toBe(boardUrl(EKO_BOARD));
             expect(c.sections).toHaveLength(5);
             c.sections!.forEach((sec, k) => {

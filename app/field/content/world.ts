@@ -30,53 +30,50 @@ export interface Terminal {
     boardPitch: string;
 }
 
-// ── Sector A — Frontend Development Projects ──
-// TODO(jazz): swap in the real creative-studio + school-site details,
-// screenshots, and links. These are editable placeholders.
+// ── Frontend projects (the CV is the source of truth for facts and stacks) ──
 export const frontendProjects: Terminal[] = [
     {
         title: "Clay Studio Creations",
-        pitch: "Creative production studio & gear rental — Lagos",
+        pitch: "Full-service creative studio site — freelance, Aug 2026",
         description:
-            "A full-service creative production studio: video for brands, events, YouTube & podcasts, music videos and documentaries, plus professional gear rental — all under one roof. Built the end-to-end site around a 'Create. Curate. Connect.' identity, with dark mode, a consultation-booking flow, and a gear catalogue.",
-        tags: ["Next.js", "TypeScript", "Dark Mode", "Booking Flow"],
+            "A full-service creative studio website with service pages, a portfolio and a gear rental catalogue, covering video for brands, events, podcasts, music videos and documentaries. Built on a freelance contract.",
+        tags: ["Next.js", "TypeScript", "Responsive UI"],
         liveUrl: "https://www.claystudiocreations.com",
         boardImage: "/assets/boards/clay.webp",
         boardPitch: "Creative studio & gear rental",
     },
     {
         title: "Cafe Riddim",
-        pitch: "Culture & music platform for an African electronic collective",
+        pitch: "Site for a melodic African electronic & house collective",
         description:
-            "A production frontend for Cafe Riddim — artist submissions, media galleries, and a community hub. Built the responsive UI, integrated Cloudinary media and Resend email, and shipped it end to end.",
-        tags: ["Next.js", "TypeScript", "Cloudinary", "Resend"],
+            "Built and launched for WeTalkSound (2025) with Next.js (App Router) and TypeScript: the Spotify API for music data, Cloudinary for media and Resend for email, deployed on Vercel.",
+        tags: ["Next.js", "TypeScript", "Spotify API", "Cloudinary", "Resend", "Vercel"],
         liveUrl: "https://www.caferiddim.com",
         boardImage: "/assets/boards/caferiddim.webp",
-        boardPitch: "Platform for a music collective",
+        boardPitch: "Electronic & house collective",
     },
     {
-        title: "Mara Mania",
+        title: "MaraMania",
         pitch: "Cinematic documentary storytelling site",
         description:
-            "A visual-first storytelling platform with bold layouts and motion. Translated design into a performant, responsive Next.js frontend focused on immersive presentation.",
-        tags: ["Next.js", "TypeScript", "Motion"],
+            "Built and launched for WeTalkSound (2025) with Next.js (App Router) and TypeScript: a visual-first storytelling site with bold layouts and motion, deployed on Vercel.",
+        tags: ["Next.js", "TypeScript", "Vercel"],
         liveUrl: "https://www.maramania.live",
         boardImage: "/assets/boards/mara.webp",
         boardPitch: "Cinematic documentary site",
     },
     {
-        title: "SphiderAss Web",
-        pitch: "Frontend Developer → Operations Officer",
+        title: "Sphiderass Web",
+        pitch: "Frontend Developer → Operations Officer, 2023 – 24",
         description:
-            "Built and maintained the company's main site and contributed to a ticketing platform that powered 3,000+ ticket sales. Worked across component architecture, REST API integration, and delivery.",
-        tags: ["React", "TypeScript", "REST APIs", "CI/CD"],
+            "Built the company website and a ticketing platform that processed 3,000+ ticket sales for live events, then took ownership of delivery and was promoted to Operations Officer within the year.",
+        tags: ["React.js", "REST APIs", "Ticketing"],
         boardImage: "/assets/boards/sphiderass.webp",
-        boardPitch: "Main site & ticketing platform",
+        boardPitch: "Company site & ticketing",
     },
 ];
 
-// ── Sector D — Background, Skills & Journey Timeline ──
-// TODO(jazz): refine dates/wording to taste.
+// ── Journey timeline and skills (from the CV) ──
 export interface JourneyStop {
     year: string;
     title: string;
@@ -85,34 +82,34 @@ export interface JourneyStop {
 
 export const journeyStops: JourneyStop[] = [
     {
-        year: "Beginnings",
-        title: "Getting into development",
-        body: "Started with curiosity and creativity — building interfaces, experimenting with ideas, and learning how products shape the way people interact online.",
-    },
-    {
         year: "2023 – 24",
-        title: "SphiderAss Web",
-        body: "Joined as a Frontend Developer and grew into an Operations Officer. Built the company's main site, contributed to a ticketing platform behind 3,000+ ticket sales, and led hiring that grew the team 300%.",
+        title: "Sphiderass Web",
+        body: "Joined as a frontend developer (Oct 2023 – Oct 2024). Built the company website and a ticketing platform that processed 3,000+ ticket sales for live events, and was promoted to Operations Officer within the year after taking ownership of delivery. Led recruitment that grew the team's capacity by over 300%, and kept clients and developers aligned on scope, goals and timelines.",
     },
     {
         year: "2024 – 25",
-        title: "Freelance & Web3",
-        body: "Shipped 30+ landing pages and one-page sites for creative studios, schools, and crypto/NFT projects — fast delivery cycles focused on performance and polish.",
+        title: "Web3 freelance",
+        body: "Shipped 30+ responsive, conversion-focused landing pages for meme-coin and Web3 clients around the world (2024 – Feb 2025): fast, design-led one-pagers on tight timelines.",
     },
     {
         year: "2025",
-        title: "Founding Eko",
-        body: "Moved into product: founded and led Eko, an interactive Yoruba learning platform — roadmap, research, and cross-functional delivery. (Full story in the Eko area.)",
+        title: "Product Manager, Eeko",
+        body: "Product manager for Eeko, a Yoruba learning app (Apr – Dec 2025). Owned product planning and feature definition, coordinated development through to release, and prioritised UX improvements around user engagement while streamlining the core learning workflow. (Full story in the Eeko area.)",
     },
     {
         year: "2025",
-        title: "Music & culture platforms",
-        body: "Built cultural/music products like Cafe Riddim and Mara Mania, integrating Spotify, Cloudinary, and email systems. (See the Music area.)",
+        title: "WeTalkSound",
+        body: "Freelance frontend developer: built and launched MaraMania and Cafe Riddim with Next.js (App Router) and TypeScript, integrating the Spotify API, Cloudinary media handling and Resend email, deployed on Vercel. (See the Music area.)",
+    },
+    {
+        year: "2026",
+        title: "Freelance builds",
+        body: "Dorée Jewelry: a fully dynamic e-commerce storefront (product catalogue, collections, wishlist, customer accounts) with a custom admin dashboard, built with Next.js and Supabase (shopdoree.co). Plus the Clay Studio Creations and Honey Rock School websites, each built from scratch on a freelance contract.",
     },
     {
         year: "Now",
-        title: "Product + frontend lead",
-        body: "Leading both product direction and frontend for a health-focused platform — balancing UX, accessibility, and strategy.",
+        title: "Health Connect",
+        body: "Leading both product direction and development for Health Connect, a healthcare-focused digital platform, while in the final year of a B.Ed in Early Childhood Education at the University of Lagos.",
     },
 ];
 
@@ -124,23 +121,23 @@ export interface SkillTotem {
 
 export const skillTotems: SkillTotem[] = [
     {
-        category: "Frontend Engineering",
-        proof: "Shipped Cafe Riddim, Mara Mania, and 30+ sites.",
-        skills: ["React", "TypeScript", "Next.js", "Component architecture", "Testing", "CI/CD", "Git"],
+        category: "Frontend",
+        proof: "Shipped Dorée, Cafe Riddim and 30+ sites.",
+        skills: ["React.js", "Next.js", "TypeScript", "JavaScript", "Responsive UI", "CSS/SCSS", "BEM"],
     },
     {
-        category: "Product Management",
-        proof: "Led Eko end to end.",
-        skills: ["Roadmapping", "User research", "Prioritization", "Cross-functional delivery"],
+        category: "Integration & Tooling",
+        proof: "Spotify, Cloudinary, Resend on Vercel.",
+        skills: ["REST APIs", "Spotify API", "Cloudinary", "Resend", "Supabase", "Vercel", "Git"],
     },
     {
-        category: "Tools & Collaboration",
-        proof: "Day-to-day delivery across teams.",
-        skills: ["Figma", "Notion", "Slack", "Analytics"],
+        category: "Product",
+        proof: "PM for Eeko; leading Health Connect.",
+        skills: ["Product planning", "User testing", "Analytics", "Agile workflows", "Cross-functional collaboration"],
     },
 ];
 
-// ── Sector B — Eko (Yoruba Learning App), PM case study ──
+// ── Eeko (Yoruba learning app), PM case study ──
 export interface EkoMilestone {
     step: string;
     title: string;
@@ -155,49 +152,29 @@ export const ekoMilestones: EkoMilestone[] = [
         body: "Accessible, engaging Yoruba-learning tools are scarce. Most resources are academic or dry — not built for a new, mobile-first generation that wants to actually speak the language.",
     },
     {
-        step: "02 · Discovery",
-        title: "Research & insights",
-        body: "Talked to learners and diaspora users. The core insight: motivation collapses without play and pronunciation feedback — people needed quick wins, not grammar drills.",
+        step: "02 · Planning",
+        title: "Product planning",
+        body: "As product manager (Apr – Dec 2025), owned product planning and feature definition: what the app should do, in what order, and what the first release needed.",
     },
     {
-        step: "03 · Roadmap",
-        title: "Scope & priorities",
-        body: "Sequenced the core loops — vocabulary, pronunciation, quizzes, and mini-games — and deliberately cut scope to ship a focused, delightful MVP first.",
+        step: "03 · Delivery",
+        title: "Through to release",
+        body: "Coordinated development from feature definition through to release, keeping the team aligned on scope and priorities.",
     },
     {
-        step: "04 · Delivery",
-        title: "Cross-functional build",
-        body: "Partnered with design and engineering to ship onboarding, interactive lessons, and gamified practice — balancing learning outcomes with engagement.",
+        step: "04 · UX",
+        title: "Engagement first",
+        body: "Prioritised UX improvements around user engagement and streamlined the core learning workflow.",
     },
     {
         step: "05 · Outcome",
-        title: "Where Eko is now",
-        body: "A live, interactive learning platform. Next up: expanding content depth and strengthening retention loops.",
+        title: "Live today",
+        body: "Eeko is live as a Yoruba learning app.",
         liveUrl: "https://eeko.site",
     },
 ];
 
-/** Floating vocabulary orbs scattered near the path — playful texture. */
-export interface YorubaWord {
-    word: string;
-    meaning: string;
-    /** Optional pronunciation guide (shown in the v3 glossary when present). */
-    pron?: string;
-}
-
-export const yorubaWords: YorubaWord[] = [
-    { word: "Ẹ káàbọ̀", meaning: "Welcome", pron: "eh kah-ah-baw" },
-    { word: "Ọmọ", meaning: "Child", pron: "aw-maw" },
-    { word: "Ilé", meaning: "Home", pron: "ee-lay" },
-    { word: "Omi", meaning: "Water", pron: "oh-mee" },
-    { word: "Oúnjẹ", meaning: "Food", pron: "oh-oon-jeh" },
-    { word: "Ọ̀rẹ́", meaning: "Friend", pron: "aw-reh" },
-    { word: "Ìfẹ́", meaning: "Love", pron: "ee-feh" },
-    { word: "Ẹ ṣé", meaning: "Thank you", pron: "eh sheh" },
-];
-
-// ── Sector C — Music Platform (Spotify API) ──
-// TODO(jazz): confirm the real Spotify features/data used + the live URL.
+// ── Music & culture: the WeTalkSound work (from the CV) ──
 export interface MusicPillar {
     title: string;
     body: string;
@@ -206,21 +183,22 @@ export interface MusicPillar {
 
 export const musicPillars: MusicPillar[] = [
     {
-        title: "The platform",
-        body: "A music product built on the Spotify Web API — search Spotify's catalogue, browse playlists, and surface rich track detail with 30-second previews. Frontend in Next.js / TypeScript.",
+        title: "WeTalkSound",
+        body: "Freelance frontend developer for WeTalkSound (2025): built and launched two music and culture sites, MaraMania and Cafe Riddim, with Next.js (App Router) and TypeScript.",
+    },
+    {
+        title: "Cafe Riddim",
+        body: "The site for a melodic African electronic & house collective, with music data from the Spotify API.",
         url: "https://www.caferiddim.com",
     },
     {
-        title: "Spotify Search",
-        body: "Debounced search across artists, albums, and tracks, returning artwork, metadata, and preview URLs from the Spotify Web API.",
-    },
-    {
-        title: "Playlists & Previews",
-        body: "Browse curated playlists and audition tracks with in-app 30-second previews — no Premium account required.",
+        title: "MaraMania",
+        body: "A cinematic documentary storytelling site with bold layouts and motion.",
+        url: "https://www.maramania.live",
     },
     {
         title: "Tech stack",
-        body: "Next.js, TypeScript, the Spotify Web API for data, and the Web Audio API powering the visualiser on the stage (with sound on).",
+        body: "Next.js (App Router), TypeScript, the Spotify API, Cloudinary media handling and Resend email, deployed on Vercel.",
     },
 ];
 
@@ -235,7 +213,7 @@ export interface WorldMeta {
     heroWord: string;
     /** Flat role line under the hero word. */
     role: string;
-    /** Flat greeting on the Welcome plaza (Yoruba: set in Inter). */
+    /** Flat greeting on the Welcome plaza (set in Inter). */
     greeting: string;
 }
 
@@ -243,7 +221,7 @@ export const meta: WorldMeta = {
     worldName: "Jazz's World",
     heroWord: "JAZZ",
     role: "FRONTEND DEVELOPER · PRODUCT LEAD",
-    greeting: "Ẹ káàbọ̀ — welcome",
+    greeting: "Welcome",
 };
 
 export interface AboutContent {
@@ -262,8 +240,8 @@ export interface AboutContent {
 }
 
 export const about: AboutContent = {
-    bio: "I build digital products from both sides of the table: the frontend details users feel immediately, and the product decisions that keep teams moving with clarity. I grew from frontend developer to operations officer at SphiderAssWeb, shipped 30+ sites as a freelancer, led Eko as product manager, and today lead product and frontend for Health Connect.",
-    bioShort: "Frontend developer and product lead. I build the details users feel and the decisions behind them.",
+    bio: "I'm a frontend developer in Lagos who ships production web apps with React, Next.js and TypeScript, and I've carried products from planning through launch in startup teams. I went from developer to Operations Officer at Sphiderass Web, shipped 30+ landing pages for Web3 clients, was product manager for Eeko, built MaraMania and Cafe Riddim for WeTalkSound and the Dorée Jewelry store, and now lead product and development for Health Connect. I also make short-form video for small brands and individuals.",
+    bioShort: "Frontend developer in Lagos. I ship React and Next.js apps, and own the product direction too.",
     portrait: "/assets/boards/profile.webp",
 };
 
@@ -341,7 +319,7 @@ export const areaCopy: Record<AreaId, AreaCopy> = {
     hub: { name: "Crossroads", blurb: "Every path starts here" },
     projects: { name: "Frontend Projects", blurb: `${frontendProjects.length} projects` },
     journey: { name: "Journey & Skills", blurb: `${journeyStops.length} milestones · ${skillTotems.length} skill sets` },
-    eko: { name: "Eko", blurb: "Product case study" },
+    eko: { name: "Eeko", blurb: "Product case study" },
     music: { name: "Music & Culture", blurb: `${musicPillars.length} records` },
     about: { name: "About & Contact", blurb: "Say hello" },
     playground: { name: "Playground", blurb: "Ramp, bowling and a brick wall" },

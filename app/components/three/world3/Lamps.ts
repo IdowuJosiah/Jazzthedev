@@ -35,7 +35,7 @@ const LP = CONFIG.dayNight.lamps;
  * Where a lamp stands, as an offset (world X / Z) from its area's arrival
  * point. Each spot lies on its area's plaza, ≥ 4 from the arrival, clear of
  * pads, ground text (and its sun-side strip: lamps are tall), props, path
- * tiles (+1.5), the ramp corridor and the coin pickups, and never directly in
+ * tiles (+1.5) and the ramp corridor, and never directly in
  * front of a ground text or a title on screen (Lamps.test.ts checks all of it).
  */
 export const LAMP_OFFSETS: Readonly<Partial<Record<AreaId, XZ>>> = Object.freeze({
