@@ -554,129 +554,187 @@
     line-height: 1.3;
     color: rgb(88, 88, 88);
 }
-.about-stack-section{
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 0 0 5rem;
-}
-.about-stack-heading{
-    font-size: 2.4rem;
-    line-height: 1.1;
-    font-weight: 700;
-    color: rgb(33, 36, 46);
-}
-.about-stack-list{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-    max-width: 64rem;
-}
-.about-stack-item{
-    padding: 0.8rem 1rem;
-    border-radius: 999px;
-    background: rgba(29, 78, 216, 0.08);
-    color: rgb(73, 73, 73);
-    font-weight: 500;
-}
-.about-experience-section{
-    display: flex;
-    flex-direction: column;
-    gap: 3rem;
-    padding: 1rem 0 6rem;
-}
-.about-section-heading{
-    font-size: 5rem;
-    line-height: 1;
-    font-weight: 700;
-    color: rgb(33, 36, 46);
-}
-.experience-timeline-section{
-    display: flex;
-    flex-direction: column;
-    gap: 7rem;
-    padding-bottom: 6rem;
-}
-.experience-timeline-item{
+
+/* ─── About: highlights, skills, one line per role ─── */
+.ab-stats{
     display: grid;
-    grid-template-columns: 10rem minmax(0, 1fr);
-    gap: 3rem;
-    align-items: start;
-}
-.experience-timeline-left{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-}
-.experience-timeline-number{
-    font-size: 5.4rem;
-    line-height: 0.9;
-    font-weight: 700;
-    color: rgb(33, 36, 46);
-}
-.experience-timeline-line{
-    width: 4px;
-    height: 16rem;
-    background: rgba(29, 78, 216, 0.12);
-    overflow: hidden;
-    position: relative;
-}
-.experience-timeline-line-progress{
-    position: absolute;
-    inset: 0;
-    background: rgb(29, 78, 216);
-    transform: scaleY(0);
-    transform-origin: top;
-    transition: transform 0.12s linear;
-}
-.experience-timeline-right{
-    display: flex;
-    flex-direction: column;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
-    padding-top: 0.8rem;
+    margin: 0;
+    padding: 0 0 3.5rem;
+    list-style: none;
 }
-.experience-timeline-role{
-    font-size: 1.1rem;
-    color: rgb(29, 78, 216);
-    font-weight: 500;
+.ab-stat{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    border-radius: 16px;
+    background: rgba(29, 78, 216, 0.06);
 }
-.experience-timeline-company{
-    font-size: 4rem;
+.ab-stat-value{
+    font-size: 2.6rem;
     line-height: 1;
     font-weight: 700;
-    color: rgb(33, 36, 46);
+    color: rgb(29, 78, 216);
 }
-.experience-timeline-period{
-    font-size: 1rem;
-    color: rgb(125, 125, 130);
-}
-.experience-timeline-copy{
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    margin-top: 1rem;
-    max-width: 74rem;
-}
-.experience-timeline-paragraph{
-    font-size: 1.1rem;
-    line-height: 1.35;
+.ab-stat-label{
+    font-size: 0.95rem;
+    line-height: 1.4;
     color: rgb(88, 88, 88);
 }
-.about-story-section{
-    min-height: 42vh;
+.ab-section{
     display: flex;
     flex-direction: column;
+    gap: 1.75rem;
+    padding: 3rem 0;
+    border-top: 1px solid rgba(36, 38, 47, 0.1);
+}
+.ab-heading{
+    font-size: 1.75rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: rgb(33, 36, 46);
+}
+.ab-skills{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 2rem;
-    padding-bottom: 5rem;
 }
-.about-stack-block,
-.about-feature-block{
-    background: rgba(255, 255, 255, 0.7);
+.ab-skill-title{
+    margin-bottom: 0.85rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgb(33, 36, 46);
+}
+.ab-chips{
     display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
+.ab-chip{
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid rgba(36, 38, 47, 0.14);
+    font-size: 0.9rem;
+    color: rgb(73, 73, 73);
+}
+.ab-roles{
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.ab-role{
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 19rem) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: baseline;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid rgba(36, 38, 47, 0.08);
+}
+.ab-role:last-child{
+    border-bottom: 0;
+}
+.ab-role-period{
+    font-size: 0.9rem;
+    color: rgb(120, 120, 120);
+}
+.ab-role-title{
+    font-weight: 600;
+    line-height: 1.35;
+    color: rgb(33, 36, 46);
+}
+.ab-role-company{
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: rgb(29, 78, 216);
+}
+.ab-role-line{
+    line-height: 1.5;
+    color: rgb(88, 88, 88);
+}
+.ab-education{
+    font-size: 1.05rem;
+    color: rgb(88, 88, 88);
+}
+@media (max-width: 1024px) {
+    .ab-stats{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .ab-skills{
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    .ab-role{
+        grid-template-columns: 9rem minmax(0, 1fr);
+        gap: 0.5rem 1.5rem;
+    }
+    .ab-role-line{
+        grid-column: 2;
+    }
+}
+@media (max-width: 640px) {
+    .ab-stats{
+        gap: 0.75rem;
+        padding-bottom: 2.5rem;
+    }
+    .ab-stat{
+        padding: 1rem;
+    }
+    .ab-stat-value{
+        font-size: 1.9rem;
+    }
+    .ab-stat-label{
+        font-size: 0.85rem;
+    }
+    .ab-section{
+        gap: 1.25rem;
+        padding: 2rem 0;
+    }
+    .ab-heading{
+        font-size: 1.4rem;
+    }
+    .ab-role{
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+    }
+    .ab-role-line{
+        grid-column: auto;
+    }
+}
+@media (prefers-color-scheme: dark) {
+    .ab-heading,
+    .ab-skill-title,
+    .ab-role-title{
+        color: #ededed;
+    }
+    .ab-stat-label,
+    .ab-chip,
+    .ab-role-line,
+    .ab-education{
+        color: rgb(160, 160, 165);
+    }
+    .ab-role-period{
+        color: rgb(140, 140, 145);
+    }
+    .ab-stat{
+        background: rgba(29, 78, 216, 0.14);
+    }
+    .ab-chip{
+        border-color: rgba(237, 237, 237, 0.14);
+    }
+    .ab-section{
+        border-top-color: rgba(237, 237, 237, 0.08);
+    }
+    .ab-role{
+        border-bottom-color: rgba(237, 237, 237, 0.06);
+    }
+}
+
 .contact-page-shell{
     padding-top: 3rem;
 }
@@ -854,10 +912,7 @@
     .project-showcase-heading-row{
         flex-direction: column;
     }
-    .experience-timeline-item{
-        grid-template-columns: 7rem minmax(0, 1fr);
-        gap: 2rem;
-    }
+
     .hero-container{
         gap: 3rem;
         padding: 3rem 0;
@@ -917,10 +972,7 @@
         font-size: 2.75rem;
         line-height: 1;
     }
-    .about-section-heading{
-        font-size: 2.55rem;
-        line-height: 1.05;
-    }
+
     .hero-third-line,
     .projects-page-description,
     .about-intro,
@@ -1078,56 +1130,12 @@
     .project-showcase-link{
         font-size: 0.9rem;
     }
-    .about-stack-heading{
-        font-size: 1.35rem;
-    }
-    .about-stack-section,
-    .about-story-section,
-    .about-experience-section{
-        padding-bottom: 3rem;
-        gap: 1.5rem;
-    }
-    .about-stack-list{
-        gap: 0.6rem;
-    }
-    .about-stack-item,
+
     .project-showcase-tag{
         padding: 0.6rem 0.75rem;
         font-size: 0.82rem;
     }
-    .experience-timeline-section{
-        gap: 3.2rem;
-        padding-bottom: 3rem;
-    }
-    .experience-timeline-item{
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-    .experience-timeline-left{
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    .experience-timeline-number{
-        font-size: 3rem;
-    }
-    .experience-timeline-line{
-        height: 5rem;
-        margin-left: 1.4rem;
-    }
-    .experience-timeline-company{
-        font-size: 2rem;
-    }
-    .experience-timeline-role,
-    .experience-timeline-period{
-        font-size: 0.9rem;
-    }
-    .experience-timeline-copy{
-        gap: 1rem;
-    }
-    .experience-timeline-paragraph{
-        font-size: 0.92rem;
-        line-height: 1.5;
-    }
+
     .contact-hero-section{
         min-height: auto;
         gap: 2.5rem;
@@ -1329,8 +1337,7 @@
     }
     .projects-page-heading,
     .about-heading,
-    .contact-heading,
-    .about-section-heading{
+    .contact-heading{
         font-size: 2.25rem;
     }
     .hero-second-line p{
@@ -1341,9 +1348,7 @@
     .project-showcase-image-wrap{
         height: 13rem;
     }
-    .experience-timeline-company{
-        font-size: 1.75rem;
-    }
+
 }
 
 /* ═══════════════════════════════════
@@ -1356,11 +1361,7 @@
     .about-heading,
     .contact-heading,
     .project-showcase-title,
-    .project-showcase-link,
-    .about-stack-heading,
-    .about-section-heading,
-    .experience-timeline-number,
-    .experience-timeline-company {
+    .project-showcase-link{
         color: #ededed;
     }
 
@@ -1369,11 +1370,10 @@
     .experience-highlight-item,
     .story-paragraph,
     .about-intro,
-    .experience-timeline-paragraph,
     .projects-page-description,
     .project-showcase-description,
     .contact-description,
-    .contact-info-item {
+    .contact-info-item{
         color: rgb(160, 160, 165);
     }
     .experience-meta {
@@ -1418,12 +1418,6 @@
         background: rgba(255, 255, 255, 0.05);
         border-color: rgba(237, 237, 237, 0.1);
         color: rgb(160, 160, 165);
-    }
-
-    /* ─── About page blocks ─── */
-    .about-stack-block,
-    .about-feature-block {
-        background: rgba(20, 20, 24, 0.7);
     }
 
     /* ─── Projects page hero panel ─── */
