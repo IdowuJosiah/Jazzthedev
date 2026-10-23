@@ -116,6 +116,17 @@ const skillGroups = [
 
 const featuredProjects = [
   {
+    title: "Dorée Jewelry",
+    image: "/images/doree.jpg",
+    alt: "Dorée Jewelry store preview",
+    url: "https://www.shopdoree.co",
+    year: "2026",
+    kind: "E-commerce store",
+    stack: "Next.js · Supabase",
+    description:
+        "A fully dynamic jewelry storefront with catalogue, collections, wishlist and customer accounts, plus a custom admin dashboard for products and content.",
+  },
+  {
     title: "Cafe Riddim",
     image: "/images/caferridim.png",
     alt: "Cafe Riddim project preview",
@@ -158,6 +169,17 @@ const featuredProjects = [
     stack: "Next.js · TypeScript",
     description:
         "A Lagos creative production studio site — brand, event, music video and documentary production plus gear rental, with a consultation-booking flow.",
+  },
+  {
+    title: "Honey Rock School",
+    image: "/images/honeyrock.jpg",
+    alt: "Honey Rock School website preview",
+    url: "https://thehoneyrockschool.com",
+    year: "2026",
+    kind: "School website",
+    stack: "React.js",
+    description:
+        "The school's website, built from scratch: about, curriculum, admissions, gallery and careers pages.",
   },
 ];
 

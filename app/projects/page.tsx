@@ -8,6 +8,15 @@ import { MdArrowOutward } from "react-icons/md";
 
 const projects = [
     {
+        title: "Dorée Jewelry",
+        subtitle: "Jewelry E-commerce Store",
+        year: "2026",
+        image: "/images/doree.jpg",
+        description:
+            "A fully dynamic e-commerce storefront for a jewelry brand: product catalogue, collections, wishlist and customer accounts, plus a custom admin dashboard for managing products and content.",
+        tags: ["Next.js", "Supabase", "E-commerce", "Admin Dashboard"],
+    },
+    {
         title: "Clay Studio Creations",
         subtitle: "Creative Production Studio & Gear Rental",
         year: "2026",
@@ -15,6 +24,15 @@ const projects = [
         description:
             "A full-service creative production studio based in Lagos — video for brands, events, YouTube & podcasts, music videos and documentaries, plus professional gear rental, all under one roof. Built the end-to-end site around a 'Create. Curate. Connect.' identity with a consultation-booking flow and a gear catalogue.",
         tags: ["Next.js", "TypeScript", "Dark Mode", "Booking Flow"],
+    },
+    {
+        title: "Honey Rock School",
+        subtitle: "School Website",
+        year: "2026",
+        image: "/images/honeyrock.jpg",
+        description:
+            "The Honey Rock School website, built from scratch on a freelance contract: about, curriculum, admissions, gallery and careers pages for parents and staff.",
+        tags: ["React.js", "Responsive UI"],
     },
     {
         title: "Cafe Riddim",
