@@ -27,11 +27,7 @@
     display: flex;
     flex-direction: column;
 }
-.hero-second-line p{
-    margin: 0;
-    padding: 0;
-    line-height: 6rem;
-}
+
 .hero-third-line{
     font-size: 1.3rem;
     color: rgb(102, 102, 102);
@@ -109,81 +105,7 @@
     font-size: 4rem;
     font-weight: 600;
 }
-.list-projects-container{
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-.project-list-top,
-.project-list-bottom{
-    display: flex;
-    gap: 2rem;
-}
-.project-list-top-left{
-    flex : 4;
-    display: flex;
-    flex-direction: column;
-    gap: .5rem;
-}
-.pj-image-4,
-.pj-image-6{
-    width: 100%;
-    height: 320px;
-    border-radius: 20px;
-    object-fit: cover;
 
-}
-.project-list-top-right{
-    flex: 6;
-    display: flex;
-    flex-direction: column;
-    gap: .5rem;
-}
-.project-list-bottom-left{
-    flex: 6;
-    display: flex;
-    flex-direction: column;
-    gap: .5rem;
-}
-.project-list-bottom-right{
-    flex: 4;
-    display: flex;
-    flex-direction: column;
-    gap: .5rem;
-}
-.landing-project-title{
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-}
-.l-project-name{
-    font-size: 1.5rem;
-    font-weight: 600;
-}
-.l-project-link{
-    color: rgb(29, 78, 216) ;
-    width: 25px;
-    height: 25px;
-    border: 2px solid rgb(29, 78, 216);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: all 0.5s ease-in-out;
-
-}
-.l-project-link:hover{
-    color: white;
-    background-color: rgb(29, 78, 216);
-    cursor: pointer;
-}
-.landing-project-description{
-    display: flex;
-    align-items: center;
-    font-size: 1rem;
-    color: gray;
-
-}
 .experience-section{
     min-height: 75vh;
     display: flex;
@@ -373,13 +295,7 @@
     gap: 1.25rem;
     max-width: 54rem;
 }
-.projects-page-kicker{
-    font-size: 1rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: rgb(29, 78, 216);
-    font-weight: 600;
-}
+
 .projects-page-heading{
     font-size: 6rem;
     line-height: 0.95;
@@ -554,129 +470,187 @@
     line-height: 1.3;
     color: rgb(88, 88, 88);
 }
-.about-stack-section{
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 0 0 5rem;
-}
-.about-stack-heading{
-    font-size: 2.4rem;
-    line-height: 1.1;
-    font-weight: 700;
-    color: rgb(33, 36, 46);
-}
-.about-stack-list{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-    max-width: 64rem;
-}
-.about-stack-item{
-    padding: 0.8rem 1rem;
-    border-radius: 999px;
-    background: rgba(29, 78, 216, 0.08);
-    color: rgb(73, 73, 73);
-    font-weight: 500;
-}
-.about-experience-section{
-    display: flex;
-    flex-direction: column;
-    gap: 3rem;
-    padding: 1rem 0 6rem;
-}
-.about-section-heading{
-    font-size: 5rem;
-    line-height: 1;
-    font-weight: 700;
-    color: rgb(33, 36, 46);
-}
-.experience-timeline-section{
-    display: flex;
-    flex-direction: column;
-    gap: 7rem;
-    padding-bottom: 6rem;
-}
-.experience-timeline-item{
+
+/* ─── About: highlights, skills, one line per role ─── */
+.ab-stats{
     display: grid;
-    grid-template-columns: 10rem minmax(0, 1fr);
-    gap: 3rem;
-    align-items: start;
-}
-.experience-timeline-left{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-}
-.experience-timeline-number{
-    font-size: 5.4rem;
-    line-height: 0.9;
-    font-weight: 700;
-    color: rgb(33, 36, 46);
-}
-.experience-timeline-line{
-    width: 4px;
-    height: 16rem;
-    background: rgba(29, 78, 216, 0.12);
-    overflow: hidden;
-    position: relative;
-}
-.experience-timeline-line-progress{
-    position: absolute;
-    inset: 0;
-    background: rgb(29, 78, 216);
-    transform: scaleY(0);
-    transform-origin: top;
-    transition: transform 0.12s linear;
-}
-.experience-timeline-right{
-    display: flex;
-    flex-direction: column;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
-    padding-top: 0.8rem;
+    margin: 0;
+    padding: 0 0 3.5rem;
+    list-style: none;
 }
-.experience-timeline-role{
-    font-size: 1.1rem;
-    color: rgb(29, 78, 216);
-    font-weight: 500;
+.ab-stat{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    border-radius: 16px;
+    background: rgba(29, 78, 216, 0.06);
 }
-.experience-timeline-company{
-    font-size: 4rem;
+.ab-stat-value{
+    font-size: 2.6rem;
     line-height: 1;
     font-weight: 700;
-    color: rgb(33, 36, 46);
+    color: rgb(29, 78, 216);
 }
-.experience-timeline-period{
-    font-size: 1rem;
-    color: rgb(125, 125, 130);
-}
-.experience-timeline-copy{
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    margin-top: 1rem;
-    max-width: 74rem;
-}
-.experience-timeline-paragraph{
-    font-size: 1.1rem;
-    line-height: 1.35;
+.ab-stat-label{
+    font-size: 0.95rem;
+    line-height: 1.4;
     color: rgb(88, 88, 88);
 }
-.about-story-section{
-    min-height: 42vh;
+.ab-section{
     display: flex;
     flex-direction: column;
+    gap: 1.75rem;
+    padding: 3rem 0;
+    border-top: 1px solid rgba(36, 38, 47, 0.1);
+}
+.ab-heading{
+    font-size: 1.75rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: rgb(33, 36, 46);
+}
+.ab-skills{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 2rem;
-    padding-bottom: 5rem;
 }
-.about-stack-block,
-.about-feature-block{
-    background: rgba(255, 255, 255, 0.7);
+.ab-skill-title{
+    margin-bottom: 0.85rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgb(33, 36, 46);
+}
+.ab-chips{
     display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
+.ab-chip{
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid rgba(36, 38, 47, 0.14);
+    font-size: 0.9rem;
+    color: rgb(73, 73, 73);
+}
+.ab-roles{
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.ab-role{
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 19rem) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: baseline;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid rgba(36, 38, 47, 0.08);
+}
+.ab-role:last-child{
+    border-bottom: 0;
+}
+.ab-role-period{
+    font-size: 0.9rem;
+    color: rgb(120, 120, 120);
+}
+.ab-role-title{
+    font-weight: 600;
+    line-height: 1.35;
+    color: rgb(33, 36, 46);
+}
+.ab-role-company{
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: rgb(29, 78, 216);
+}
+.ab-role-line{
+    line-height: 1.5;
+    color: rgb(88, 88, 88);
+}
+.ab-education{
+    font-size: 1.05rem;
+    color: rgb(88, 88, 88);
+}
+@media (max-width: 1024px) {
+    .ab-stats{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .ab-skills{
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    .ab-role{
+        grid-template-columns: 9rem minmax(0, 1fr);
+        gap: 0.5rem 1.5rem;
+    }
+    .ab-role-line{
+        grid-column: 2;
+    }
+}
+@media (max-width: 640px) {
+    .ab-stats{
+        gap: 0.75rem;
+        padding-bottom: 2.5rem;
+    }
+    .ab-stat{
+        padding: 1rem;
+    }
+    .ab-stat-value{
+        font-size: 1.9rem;
+    }
+    .ab-stat-label{
+        font-size: 0.85rem;
+    }
+    .ab-section{
+        gap: 1.25rem;
+        padding: 2rem 0;
+    }
+    .ab-heading{
+        font-size: 1.4rem;
+    }
+    .ab-role{
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+    }
+    .ab-role-line{
+        grid-column: auto;
+    }
+}
+@media (prefers-color-scheme: dark) {
+    .ab-heading,
+    .ab-skill-title,
+    .ab-role-title{
+        color: #ededed;
+    }
+    .ab-stat-label,
+    .ab-chip,
+    .ab-role-line,
+    .ab-education{
+        color: rgb(160, 160, 165);
+    }
+    .ab-role-period{
+        color: rgb(140, 140, 145);
+    }
+    .ab-stat{
+        background: rgba(29, 78, 216, 0.14);
+    }
+    .ab-chip{
+        border-color: rgba(237, 237, 237, 0.14);
+    }
+    .ab-section{
+        border-top-color: rgba(237, 237, 237, 0.08);
+    }
+    .ab-role{
+        border-bottom-color: rgba(237, 237, 237, 0.06);
+    }
+}
+
 .contact-page-shell{
     padding-top: 3rem;
 }
@@ -752,67 +726,6 @@
     border-radius: 50%;
     overflow: hidden;
 }
-.cta-footer-section{
-    margin: 2rem 0 4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 4rem;
-}
-.cta-footer-top,
-.cta-footer-bottom{
-    display: flex;
-    justify-content: space-between;
-    gap: 2rem;
-}
-.footer-nav-links,
-.footer-socials,
-.cta-footer-actions{
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-}
-.footer-nav-link{
-    font-size: 1rem;
-    font-weight: 600;
-    color: rgb(80, 82, 91);
-}
-.active-footer-nav-link{
-    color: rgb(29, 78, 216);
-}
-.footer-social-link{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgb(80, 82, 91);
-    font-size: 1.5rem;
-}
-.cta-footer-left{
-    display: flex;
-    flex-direction: column;
-    gap: 1.8rem;
-}
-.cta-footer-title{
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: rgb(80, 82, 91);
-    line-height: 1.15;
-}
-.footer-browse-button{
-    color: rgb(36, 38, 47);
-}
-.cta-footer-right{
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: flex-end;
-    text-align: right;
-    color: rgb(102, 102, 102);
-    font-size: 1.1rem;
-}
-.footer-copyright,
-.footer-credit{
-    line-height: 1.4;
-}
 
 @media (max-width: 1024px) {
     .page-width{
@@ -821,11 +734,7 @@
     .hero-container,
     .projects-page-hero,
     .contact-hero-section,
-    .cta-footer-top,
-    .cta-footer-bottom,
-    .experience-content,
-    .project-list-top,
-    .project-list-bottom{
+    .experience-content{
         flex-direction: column;
     }
     .skills-grid{
@@ -848,16 +757,11 @@
     .hero-second-line{
         font-size: 4.8rem;
     }
-    .hero-second-line p{
-        line-height: 4.8rem;
-    }
+
     .project-showcase-heading-row{
         flex-direction: column;
     }
-    .experience-timeline-item{
-        grid-template-columns: 7rem minmax(0, 1fr);
-        gap: 2rem;
-    }
+
     .hero-container{
         gap: 3rem;
         padding: 3rem 0;
@@ -885,10 +789,7 @@
         width: 21rem;
         height: 21rem;
     }
-    .cta-footer-right{
-        align-items: flex-start;
-        text-align: left;
-    }
+
 }
 
 @media (max-width: 640px) {
@@ -917,10 +818,7 @@
         font-size: 2.75rem;
         line-height: 1;
     }
-    .about-section-heading{
-        font-size: 2.55rem;
-        line-height: 1.05;
-    }
+
     .hero-third-line,
     .projects-page-description,
     .about-intro,
@@ -947,29 +845,7 @@
         min-height: auto;
         padding: 2rem 0 4rem;
     }
-    .list-projects-container,
-    .project-list-top,
-    .project-list-bottom{
-        gap: 1.6rem;
-    }
-    .pj-image-4,
-    .pj-image-6{
-        height: 14rem;
-        border-radius: 14px;
-    }
-    .l-project-name{
-        font-size: 1.1rem;
-    }
-    .l-project-link{
-        width: 22px;
-        height: 22px;
-        flex: 0 0 22px;
-    }
-    .landing-project-description{
-        align-items: flex-start;
-        font-size: 0.9rem;
-        line-height: 1.45;
-    }
+
     .experience-section,
     .skills-section,
     .story-section{
@@ -1030,7 +906,6 @@
         gap: 1.6rem;
         padding: 2.5rem 0 3rem;
     }
-    .projects-page-kicker,
     .projects-page-panel-label{
         font-size: 0.78rem;
     }
@@ -1078,56 +953,12 @@
     .project-showcase-link{
         font-size: 0.9rem;
     }
-    .about-stack-heading{
-        font-size: 1.35rem;
-    }
-    .about-stack-section,
-    .about-story-section,
-    .about-experience-section{
-        padding-bottom: 3rem;
-        gap: 1.5rem;
-    }
-    .about-stack-list{
-        gap: 0.6rem;
-    }
-    .about-stack-item,
+
     .project-showcase-tag{
         padding: 0.6rem 0.75rem;
         font-size: 0.82rem;
     }
-    .experience-timeline-section{
-        gap: 3.2rem;
-        padding-bottom: 3rem;
-    }
-    .experience-timeline-item{
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-    .experience-timeline-left{
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    .experience-timeline-number{
-        font-size: 3rem;
-    }
-    .experience-timeline-line{
-        height: 5rem;
-        margin-left: 1.4rem;
-    }
-    .experience-timeline-company{
-        font-size: 2rem;
-    }
-    .experience-timeline-role,
-    .experience-timeline-period{
-        font-size: 0.9rem;
-    }
-    .experience-timeline-copy{
-        gap: 1rem;
-    }
-    .experience-timeline-paragraph{
-        font-size: 0.92rem;
-        line-height: 1.5;
-    }
+
     .contact-hero-section{
         min-height: auto;
         gap: 2.5rem;
@@ -1150,29 +981,7 @@
         height: 2.8rem;
         font-size: 1.1rem;
     }
-    .cta-footer-section{
-        margin: 1rem 0 2.5rem;
-        padding: 1rem 0;
-        gap: 2rem;
-    }
-    .footer-nav-links,
-    .footer-socials,
-    .cta-footer-actions{
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-    .footer-nav-link{
-        font-size: 0.9rem;
-    }
-    .footer-social-link{
-        font-size: 1.25rem;
-    }
-    .cta-footer-title{
-        font-size: 1.65rem;
-    }
-    .hero-second-line p{
-        line-height: 2.55rem;
-    }
+
 }
 
 /* ═══════════════════════════════════
@@ -1221,39 +1030,6 @@
     transform: translateY(0);
 }
 
-/* ─── Project card link reset + hover lift ─── */
-.project-list-top-left,
-.project-list-top-right,
-.project-list-bottom-left,
-.project-list-bottom-right {
-    text-decoration: none;
-    color: inherit;
-    transition: transform 0.4s cubic-bezier(0.22,1,0.36,1),
-                opacity 0.7s cubic-bezier(0.22,1,0.36,1);
-}
-.project-list-top-left:hover,
-.project-list-top-right:hover,
-.project-list-bottom-left:hover,
-.project-list-bottom-right:hover {
-    transform: translateY(-7px);
-}
-
-/* Shadow lives on the image so it follows the border-radius */
-.pj-image-4,
-.pj-image-6 {
-    transition: box-shadow 0.4s ease;
-}
-.project-list-top-left:hover .pj-image-4,
-.project-list-top-left:hover .pj-image-6,
-.project-list-top-right:hover .pj-image-4,
-.project-list-top-right:hover .pj-image-6,
-.project-list-bottom-left:hover .pj-image-4,
-.project-list-bottom-left:hover .pj-image-6,
-.project-list-bottom-right:hover .pj-image-4,
-.project-list-bottom-right:hover .pj-image-6 {
-    box-shadow: 0 20px 48px rgba(29, 78, 216, 0.18);
-}
-
 /* ─── Experience tab-switch animation ─── */
 .experience-details-card {
     animation: detailsFadeIn 0.35s cubic-bezier(0.22,1,0.36,1) both;
@@ -1274,15 +1050,6 @@
     background: rgba(29, 78, 216, 0.06);
     border-color: rgb(29, 78, 216);
     transform: translateY(-2px);
-}
-
-/* ─── Footer social link hover ─── */
-.footer-social-link {
-    transition: color 0.25s ease, transform 0.25s ease;
-}
-.footer-social-link:hover {
-    color: rgb(29, 78, 216);
-    transform: translateY(-3px);
 }
 
 /* ─── Reduced-motion: show everything, skip the motion ─── */
@@ -1329,21 +1096,14 @@
     }
     .projects-page-heading,
     .about-heading,
-    .contact-heading,
-    .about-section-heading{
+    .contact-heading{
         font-size: 2.25rem;
     }
-    .hero-second-line p{
-        line-height: 2.25rem;
-    }
-    .pj-image-4,
-    .pj-image-6,
+
     .project-showcase-image-wrap{
         height: 13rem;
     }
-    .experience-timeline-company{
-        font-size: 1.75rem;
-    }
+
 }
 
 /* ═══════════════════════════════════
@@ -1356,11 +1116,7 @@
     .about-heading,
     .contact-heading,
     .project-showcase-title,
-    .project-showcase-link,
-    .about-stack-heading,
-    .about-section-heading,
-    .experience-timeline-number,
-    .experience-timeline-company {
+    .project-showcase-link{
         color: #ededed;
     }
 
@@ -1369,11 +1125,10 @@
     .experience-highlight-item,
     .story-paragraph,
     .about-intro,
-    .experience-timeline-paragraph,
     .projects-page-description,
     .project-showcase-description,
     .contact-description,
-    .contact-info-item {
+    .contact-info-item{
         color: rgb(160, 160, 165);
     }
     .experience-meta {
@@ -1382,22 +1137,13 @@
     .skill-list-item {
         color: rgb(160, 160, 165);
     }
-    .footer-nav-link,
-    .footer-social-link,
-    .projects-page-panel-list,
-    .cta-footer-title {
+    .projects-page-panel-list{
         color: rgb(175, 175, 180);
-    }
-    .cta-footer-right {
-        color: rgb(140, 140, 145);
     }
 
     /* ─── Hero "Browse Projects" button ─── */
     .bp {
         border-color: rgba(237, 237, 237, 0.25);
-        color: #ededed;
-    }
-    .footer-browse-button {
         color: #ededed;
     }
 
@@ -1420,12 +1166,6 @@
         color: rgb(160, 160, 165);
     }
 
-    /* ─── About page blocks ─── */
-    .about-stack-block,
-    .about-feature-block {
-        background: rgba(20, 20, 24, 0.7);
-    }
-
     /* ─── Projects page hero panel ─── */
     .projects-page-hero-panel {
         background:
@@ -1439,4 +1179,191 @@
         border-color: rgba(237, 237, 237, 0.2);
         color: rgb(160, 160, 165);
     }
+}
+
+/* ─── Home: set-list sections, hero lines, staggered work grid ─── */
+.hero-label{
+    margin-bottom: 0.5rem;
+}
+.hero-second-line{
+    margin: 0;
+    font-size: 6rem;
+    line-height: 1;
+    animation: none;
+}
+.hero-line{
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.08em;
+}
+.hero-line-inner{
+    display: inline-block;
+    animation: heroLineUp 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hero-line:nth-child(2) .hero-line-inner{
+    animation-delay: 0.12s;
+}
+@keyframes heroLineUp {
+    from { transform: translateY(105%); }
+    to { transform: translateY(0); }
+}
+.ticker-group{
+    display: flex;
+}
+.section-head{
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.section-head-row{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.section-link{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-bottom: 0.4rem;
+    font-weight: 600;
+    color: rgb(29, 78, 216);
+    border-bottom: 1px solid currentColor;
+}
+.landing-page-projects{
+    padding: 5rem 0 3rem;
+}
+.landing-page-projects-container{
+    gap: 3rem;
+}
+.work-grid{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2.5rem;
+    row-gap: 4rem;
+}
+.work-card{
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    color: inherit;
+}
+.work-card:nth-child(even){
+    margin-top: 7rem;
+}
+.work-frame{
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 20px;
+    background: rgba(36, 38, 47, 0.06);
+}
+.work-image{
+    object-fit: cover;
+    transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.work-card:hover .work-image,
+.work-card:focus-visible .work-image{
+    transform: scale(1.05);
+}
+.work-card:focus-visible{
+    outline: 2px solid rgb(29, 78, 216);
+    outline-offset: 6px;
+    border-radius: 20px;
+}
+.work-meta{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1.25rem;
+    margin-top: 0.5rem;
+}
+.work-meta span:first-child{
+    color: rgb(29, 78, 216);
+}
+.work-title{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.work-arrow{
+    flex: none;
+    color: rgb(29, 78, 216);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.work-card:hover .work-arrow{
+    transform: translate(3px, -3px);
+}
+.work-desc{
+    max-width: 34rem;
+    line-height: 1.5;
+    color: rgb(102, 102, 102);
+}
+@media (max-width: 1024px) {
+    .hero-second-line{
+        font-size: 4.8rem;
+    }
+}
+@media (max-width: 768px) {
+    .work-grid{
+        grid-template-columns: 1fr;
+        row-gap: 3rem;
+    }
+    .work-card:nth-child(even){
+        margin-top: 0;
+    }
+}
+@media (max-width: 640px) {
+    .hero-second-line{
+        font-size: 3.2rem;
+    }
+    .landing-page-projects{
+        padding-top: 3rem;
+    }
+    .work-title{
+        font-size: 1.4rem;
+    }
+}
+@media (prefers-color-scheme: dark) {
+    .work-frame{
+        background: rgba(237, 237, 237, 0.06);
+    }
+    .work-desc{
+        color: rgb(160, 160, 165);
+    }
+    .section-link,
+    .work-arrow,
+    .work-meta span:first-child{
+        color: #7da2ff;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hero-line-inner{
+        animation: none;
+    }
+    .work-image,
+    .work-arrow{
+        transition: none;
+    }
+}
+
+/* ─── Small round arrow (Projects page "Discuss project") ─── */
+.link-arrow-circle{
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgb(29, 78, 216);
+    border-radius: 50%;
+    color: rgb(29, 78, 216);
+    transition: color 0.4s ease, background-color 0.4s ease;
+}
+.project-showcase-link:hover .link-arrow-circle{
+    color: white;
+    background-color: rgb(29, 78, 216);
 }

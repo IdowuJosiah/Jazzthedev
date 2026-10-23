@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import "./index.css";
@@ -118,73 +118,70 @@ const featuredProjects = [
   {
     title: "Cafe Riddim",
     image: "/images/caferridim.png",
-    imageClassName: "pj-image-4",
     alt: "Cafe Riddim project preview",
     url: "https://www.caferiddim.com",
+    year: "2025",
+    kind: "Music collective",
+    stack: "Next.js · TypeScript · Spotify API",
     description:
         "A cultural hub and digital home for Cafe Riddim, blending music, visuals, artist submissions, and community experiences.",
   },
   {
     title: "Eeko",
     image: "/images/eekoo.png",
-    imageClassName: "pj-image-6",
     alt: "Eeko project preview",
     url: "https://eeko.site",
+    year: "2025",
+    kind: "Learning app · PM",
+    stack: "Product planning · UX",
     description:
         "An interactive Yoruba learning platform with mini-games, pronunciation exercises, quizzes, and responsive learning flows.",
   },
   {
     title: "MaraMania",
     image: "/images/maramaniaimage.png",
-    imageClassName: "pj-image-4",
     alt: "MaraMania project preview",
     url: "https://www.maramania.live",
+    year: "2025",
+    kind: "Documentary site",
+    stack: "Next.js · TypeScript",
     description:
         "A cinematic documentary experience for bold visuals, storytelling-focused layouts, and African street culture presentation.",
   },
   {
     title: "Clay Studio Creations",
     image: "/images/claystudiocreations.jpg",
-    imageClassName: "pj-image-6",
     alt: "Clay Studio Creations project preview",
     url: "https://www.claystudiocreations.com",
+    year: "2026",
+    kind: "Creative studio",
+    stack: "Next.js · TypeScript",
     description:
         "A Lagos creative production studio site — brand, event, music video and documentary production plus gear rental, with a consultation-booking flow.",
   },
 ];
+
+/** The slow ticker under the hero (shown twice so the loop is seamless). */
+const tickerItems = ["Frontend developer", "Product lead", "React", "Next.js", "TypeScript", "Based in Lagos"];
 
 
 export default function Home() {
   const [selectedExperience, setSelectedExperience] = useState(0);
   const activeExperience = experiences[selectedExperience];
 
-  useEffect(() => {
-    const els = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach(e => {
-        if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }
-      }),
-      { threshold: 0.1 }
-    );
-    els.forEach(el => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
 
   return (
       <main className="page-width" id="home">
           <div className="hero-container">
               <section className="hero_details">
+                 <p className="label-mono hero-label">( Side A · Now playing )</p>
                  <div className="hero-first-line">
                     Hey, I&apos;m Jazz
                  </div>
-                  <div className="hero-second-line">
-                      <p>
-                          FrontEnd
-                      </p>
-                      <p>
-                          Developer
-                      </p>
-                  </div>
+                  <h1 className="hero-second-line">
+                      <span className="hero-line"><span className="hero-line-inner">FrontEnd</span></span>
+                      <span className="hero-line"><span className="hero-line-inner">Developer</span></span>
+                  </h1>
                   <div className="hero-third-line">
                       I&apos;m a frontend developer based in Lagos, I&apos;ll help you build beautiful websites your users will love.
                   </div>
@@ -208,60 +205,70 @@ export default function Home() {
                 </div>
               </section>
           </div>
+          <div className="ticker" aria-hidden="true">
+              <div className="ticker-track">
+                  {[0, 1].map((copy) => (
+                      <div key={copy} className="ticker-group">
+                          {tickerItems.map((item) => (
+                              <span key={item} className="ticker-item">{item}</span>
+                          ))}
+                      </div>
+                  ))}
+              </div>
+          </div>
           <section className="landing-page-projects" id="projects">
             <div className="landing-page-projects-container">
-                <h1 className="projects-heading reveal">
-                    Projects
-                </h1>
-                <div className="list-projects-container" >
-                    <section className="project-list-top">
-                        <Link href={featuredProjects[0].url ?? "#"} target={featuredProjects[0].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-top-left reveal" style={{ transitionDelay: '0.1s' }}>
-                            <Image src={featuredProjects[0].image} className={featuredProjects[0].imageClassName} alt={featuredProjects[0].alt} width={200} height={200} />
-                            <p className="landing-project-title">
-                               <span className="l-project-name">{featuredProjects[0].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
-                            </p>
-                            <p className="landing-project-description">
-                                {featuredProjects[0].description}
-                            </p>
+                <div className="section-head reveal">
+                    <p className="label-mono">( Track 01 — Selected work )</p>
+                    <div className="section-head-row">
+                        <h2 className="projects-heading">Projects</h2>
+                        <Link href="/projects" className="section-link">
+                            View all <MdArrowOutward aria-hidden="true" />
                         </Link>
-                        <Link href={featuredProjects[1].url ?? "#"} target={featuredProjects[1].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-top-right reveal" style={{ transitionDelay: '0.2s' }}>
-                            <Image src={featuredProjects[1].image} className={featuredProjects[1].imageClassName} alt={featuredProjects[1].alt} width={200} height={200} />
-                            <p className="landing-project-title">
-                                <span className="l-project-name">{featuredProjects[1].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
+                    </div>
+                </div>
+                <div className="work-grid">
+                    {featuredProjects.map((project, index) => (
+                        <Link
+                            key={project.title}
+                            href={project.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="work-card reveal"
+                            data-cursor="View ↗"
+                            style={{ transitionDelay: `${(index % 2) * 0.12}s` }}
+                        >
+                            <div className="work-frame">
+                                <Image
+                                    src={project.image}
+                                    alt={project.alt}
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                    className="work-image"
+                                />
+                            </div>
+                            <p className="work-meta label-mono">
+                                <span>Track {String(index + 1).padStart(2, "0")}</span>
+                                <span>{project.year}</span>
+                                <span>{project.kind}</span>
                             </p>
-                            <p className="landing-project-description">
-                                {featuredProjects[1].description}
+                            <p className="work-title">
+                                {project.title}
+                                <MdArrowOutward className="work-arrow" aria-hidden="true" />
                             </p>
+                            <p className="work-desc">{project.description}</p>
+                            <p className="work-stack label-mono">{project.stack}</p>
                         </Link>
-                    </section>
-                    <section className="project-list-bottom">
-                        <Link href={featuredProjects[2].url ?? "#"} target={featuredProjects[2].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-bottom-left reveal" style={{ transitionDelay: '0.15s' }}>
-                            <Image src={featuredProjects[2].image} className={featuredProjects[2].imageClassName} alt={featuredProjects[2].alt} width={200} height={200} />
-                            <p className="landing-project-title">
-                                <span className="l-project-name">{featuredProjects[2].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
-                            </p>
-                            <p className="landing-project-description">
-                                {featuredProjects[2].description}
-                            </p>
-                        </Link>
-                        <Link href={featuredProjects[3].url ?? "#"} target={featuredProjects[3].url ? "_blank" : undefined} rel="noopener noreferrer" className="project-list-bottom-right reveal" style={{ transitionDelay: '0.25s' }}>
-                            <Image src={featuredProjects[3].image} className={featuredProjects[3].imageClassName} alt={featuredProjects[3].alt} width={200} height={200} />
-                            <p className="landing-project-title">
-                                <span className="l-project-name">{featuredProjects[3].title}</span> <span className="l-project-link"> <MdArrowOutward /></span>
-                            </p>
-                            <p className="landing-project-description">
-                                {featuredProjects[3].description}
-                            </p>
-                        </Link>
-                    </section>
+                    ))}
                 </div>
             </div>
           </section>
           <section id="experience">
             <div className="experience-section">
-                <p className="experience-heading reveal">
-                    Experience
-                </p>
+                <div className="section-head reveal">
+                    <p className="label-mono">( Track 02 — Experience )</p>
+                    <h2 className="experience-heading">Experience</h2>
+                </div>
                 <div className="experience-content">
                     <div className="experience-company-list reveal" style={{ transitionDelay: '0.1s' }}>
                         {experiences.map((experience, index) => (
@@ -302,9 +309,12 @@ export default function Home() {
             </div>
           </section>
           <section className="skills-section" id="skills">
-              <p className="skills-heading reveal">
-                  Skills<span className="skills-dot">.</span>
-              </p>
+              <div className="section-head reveal">
+                  <p className="label-mono">( Track 03 — Toolkit )</p>
+                  <h2 className="skills-heading">
+                      Skills<span className="skills-dot">.</span>
+                  </h2>
+              </div>
               <div className="skills-grid">
                   {skillGroups.map((group, index) => (
                       <article key={group.title} className="skill-column reveal" style={{ transitionDelay: `${index * 0.12}s` }}>
@@ -321,9 +331,12 @@ export default function Home() {
               </div>
           </section>
           <section className="story-section" id="about">
-              <p className="story-heading reveal">
+              <div className="section-head reveal">
+                  <p className="label-mono">( Track 04 — Liner notes )</p>
+                  <h2 className="story-heading">
                   My Story<span className="story-dot">.</span>
-              </p>
+                  </h2>
+              </div>
               <div className="story-content">
                   <p className="story-paragraph reveal" style={{ transitionDelay: '0.05s' }}>
                       My journey into tech started with curiosity and creativity — building interfaces, experimenting with ideas, and learning how products shape the way people interact online. Over time, I transitioned from simply writing code into understanding how to build experiences people genuinely connect with.

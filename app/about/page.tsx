@@ -1,197 +1,136 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
 import "../index.css";
 
-const experiences = [
+// About: the CV at a glance. Highlights first, then skills, then one line per
+// role (newest first), then education. Facts come from the CV only.
+
+const highlights = [
+    { value: "3,000+", label: "tickets sold through the ticketing platform I built at Sphiderass Web" },
+    { value: "300%+", label: "growth in team capacity from the recruitment I led" },
+    { value: "30+", label: "conversion-focused landing pages shipped for Web3 clients" },
+    { value: "2", label: "products led as PM / product lead: Eeko and Health Connect" },
+];
+
+const skillGroups = [
+    { title: "Frontend", skills: ["React.js", "Next.js", "TypeScript", "JavaScript", "Responsive UI", "CSS/SCSS", "BEM"] },
     {
-        role: "Frontend Developer → Operations Officer",
-        company: "Sphiderass Web",
-        period: "Oct 2023 - Oct 2024",
-        paragraphs: [
-            "Built the company website and a ticketing platform that processed 3,000+ ticket sales. Promoted to Operations Officer within the year, I led recruitment that grew the team's capacity by over 300% and kept clients and developers aligned.",
-        ],
+        title: "Integrations & tooling",
+        skills: ["REST APIs", "Spotify API", "Cloudinary", "Resend", "Supabase", "Vercel", "Git"],
     },
     {
-        role: "Freelance Frontend Developer",
-        company: "Crypto / Web3 Projects",
-        period: "2024 - Feb 2025",
-        paragraphs: [
-            "Shipped 30+ responsive, conversion-focused landing pages for meme-coin and Web3 clients around the world, on tight timelines.",
-        ],
+        title: "Product",
+        skills: ["Product planning", "User testing", "Analytics", "Agile workflows", "Cross-functional collaboration"],
     },
+];
+
+const roles = [
     {
-        role: "Product Manager",
-        company: "Eeko — Yoruba Learning App",
-        period: "Apr 2025 - Dec 2025",
-        paragraphs: [
-            "Owned product planning and feature definition and coordinated development through to release, prioritising engagement and a simpler core learning flow.",
-        ],
-    },
-    {
-        role: "Freelance Frontend Developer",
-        company: "WeTalkSound",
-        period: "2025",
-        paragraphs: [
-            "Built and launched MaraMania and Cafe Riddim with Next.js and TypeScript, integrating the Spotify API, Cloudinary and Resend, deployed on Vercel.",
-        ],
-    },
-    {
-        role: "Freelance Frontend Developer",
-        company: "Dorée Jewelry · Clay Studio Creations · Honey Rock School",
-        period: "2026",
-        paragraphs: [
-            "Built Dorée Jewelry's e-commerce store with a custom admin dashboard (Next.js and Supabase), plus the Clay Studio Creations and Honey Rock School websites.",
-        ],
-    },
-    {
+        period: "Now",
         role: "Frontend Developer & Product Lead",
         company: "Health Connect",
-        period: "2025 - Present",
-        paragraphs: ["Leading product direction and frontend development for a healthcare-focused platform."],
+        line: "Leading product direction and development for a healthcare-focused platform.",
     },
-];
-
-const stackItems = [
-    "React.js",
-    "Next.js",
-    "TypeScript",
-    "Frontend Development",
-    "Product Management",
-    "UI/UX Collaboration",
-    "API Integration",
-    "Agile Workflow",
-    "Operations Management",
-    "Analytics & User Testing",
-    "Responsive Design",
-    "Team Leadership",
-];
-
-const storyParagraphs = [
-    "I started as a frontend developer and grew into product: from developer to Operations Officer at Sphiderass Web, 30+ Web3 landing pages as a freelancer, then product manager for Eeko.",
-
-    "Today I lead product and development for Health Connect and build sites for clients, combining frontend craft with product thinking.",
+    {
+        period: "2026",
+        role: "Freelance Frontend Developer",
+        company: "Client websites",
+        line: "Dorée Jewelry's e-commerce store and admin dashboard (Next.js, Supabase), plus the Clay Studio Creations and Honey Rock School sites.",
+    },
+    {
+        period: "Apr – Dec 2025",
+        role: "Product Manager",
+        company: "Eeko",
+        line: "Owned product planning and feature definition for a Yoruba learning app, through to release.",
+    },
+    {
+        period: "2025",
+        role: "Freelance Frontend Developer",
+        company: "WeTalkSound",
+        line: "Built and launched MaraMania and Cafe Riddim with Next.js, TypeScript and the Spotify API.",
+    },
+    {
+        period: "2024 – Feb 2025",
+        role: "Freelance Web Developer",
+        company: "Crypto / Web3 projects",
+        line: "30+ fast, design-led landing pages for clients around the world.",
+    },
+    {
+        period: "Oct 2023 – Oct 2024",
+        role: "Frontend Developer → Operations Officer",
+        company: "Sphiderass Web",
+        line: "Built the company site and its ticketing platform; promoted within the year and led hiring.",
+    },
 ];
 
 export default function AboutPage() {
-    const timelineRefs = useRef<Array<HTMLElement | null>>([]);
-    const [timelineProgress, setTimelineProgress] = useState<number[]>(
-        () => experiences.map(() => 0)
-    );
-
-    useEffect(() => {
-        const clamp = (value: number) => Math.min(Math.max(value, 0), 1);
-
-        const updateTimelineProgress = () => {
-            const triggerPoint = window.innerHeight * 0.55;
-
-            setTimelineProgress(
-                timelineRefs.current.map((item) => {
-                    if (!item) return 0;
-
-                    const rect = item.getBoundingClientRect();
-                    return clamp((triggerPoint - rect.top) / rect.height);
-                })
-            );
-        };
-
-        updateTimelineProgress();
-        window.addEventListener("scroll", updateTimelineProgress, { passive: true });
-        window.addEventListener("resize", updateTimelineProgress);
-
-        return () => {
-            window.removeEventListener("scroll", updateTimelineProgress);
-            window.removeEventListener("resize", updateTimelineProgress);
-        };
-    }, []);
-
     return (
         <main className="page-width about-page-shell">
             <section className="about-hero-section">
+                <p className="label-mono">( Liner notes )</p>
                 <h1 className="about-heading">
                     About Me<span className="story-dot">.</span>
                 </h1>
                 <p className="about-intro">
-                    I build digital products from both sides of the table: the frontend details users feel immediately, and the product decisions that keep teams moving with clarity.
+                    Frontend developer in Lagos. I ship production web apps with React, Next.js and TypeScript, and
+                    I&apos;ve carried products from planning to launch in startup teams.
                 </p>
             </section>
 
-            {/*<section className="about-stack-section">*/}
-            {/*    <h2 className="about-stack-heading">What I Work With</h2>*/}
-            {/*    <div className="about-stack-list">*/}
-            {/*        {stackItems.map((item) => (*/}
-            {/*            <span key={item} className="about-stack-item">*/}
-            {/*                {item}*/}
-            {/*            </span>*/}
-            {/*        ))}*/}
-            {/*    </div>*/}
-            {/*</section>*/}
+            <section aria-label="Highlights">
+                <ul className="ab-stats">
+                    {highlights.map((h) => (
+                        <li key={h.value} className="ab-stat">
+                            <span className="ab-stat-value">{h.value}</span>
+                            <span className="ab-stat-label">{h.label}</span>
+                        </li>
+                    ))}
+                </ul>
+            </section>
 
-            <section className="about-story-section">
-                <h2 className="about-section-heading">
-                    My Story<span className="story-dot">.</span>
+            <section className="ab-section" aria-labelledby="ab-skills">
+                <h2 id="ab-skills" className="ab-heading">
+                    What I work with<span className="story-dot">.</span>
                 </h2>
-                <div className="story-content">
-                    {storyParagraphs.map((paragraph) => (
-                        <p key={paragraph} className="story-paragraph">
-                            {paragraph}
-                        </p>
+                <div className="ab-skills">
+                    {skillGroups.map((g) => (
+                        <div key={g.title}>
+                            <h3 className="ab-skill-title">{g.title}</h3>
+                            <ul className="ab-chips">
+                                {g.skills.map((s) => (
+                                    <li key={s} className="ab-chip">
+                                        {s}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     ))}
                 </div>
             </section>
 
-            <section className="about-experience-section">
-                <h2 className="about-section-heading">
+            <section className="ab-section" aria-labelledby="ab-experience">
+                <h2 id="ab-experience" className="ab-heading">
                     Experience<span className="story-dot">.</span>
                 </h2>
-                <div className="experience-timeline-section">
-                    {experiences.map((experience, index) => (
-                        <article
-                            key={`${experience.company}-${experience.period}`}
-                            ref={(element) => {
-                                timelineRefs.current[index] = element;
-                            }}
-                            className="experience-timeline-item"
-                        >
-                            <div className="experience-timeline-left">
-                                <span className="experience-timeline-number">
-                                    {String(index + 1).padStart(2, "0")}
-                                </span>
-                                {index < experiences.length - 1 && (
-                                    <span className="experience-timeline-line" aria-hidden="true">
-                                        <span
-                                            className="experience-timeline-line-progress"
-                                            style={{ transform: `scaleY(${timelineProgress[index] ?? 0})` }}
-                                        />
-                                    </span>
-                                )}
-                            </div>
-                            <div className="experience-timeline-right">
-                                <p className="experience-timeline-role">{experience.role}</p>
-                                <h3 className="experience-timeline-company">{experience.company}</h3>
-                                <p className="experience-timeline-period">{experience.period}</p>
-                                <div className="experience-timeline-copy">
-                                    {experience.paragraphs.map((paragraph) => (
-                                        <p key={paragraph} className="experience-timeline-paragraph">
-                                            {paragraph}
-                                        </p>
-                                    ))}
-                                </div>
-                            </div>
-                        </article>
+                <ol className="ab-roles">
+                    {roles.map((r) => (
+                        <li key={`${r.company}-${r.period}`} className="ab-role">
+                            <span className="ab-role-period">{r.period}</span>
+                            <span className="ab-role-title">
+                                {r.role}
+                                <span className="ab-role-company">{r.company}</span>
+                            </span>
+                            <span className="ab-role-line">{r.line}</span>
+                        </li>
                     ))}
-                </div>
+                </ol>
             </section>
 
-            <section className="about-story-section">
-                <h2 className="about-section-heading">
+            <section className="ab-section" aria-labelledby="ab-education">
+                <h2 id="ab-education" className="ab-heading">
                     Education<span className="story-dot">.</span>
                 </h2>
-                <div className="story-content">
-                    <p className="story-paragraph">
-                        B.Ed, Early Childhood Education, University of Lagos. Final year (400 Level).
-                    </p>
-                </div>
+                <p className="ab-education">
+                    B.Ed, Early Childhood Education · University of Lagos · final year (400 Level)
+                </p>
             </section>
         </main>
     );
