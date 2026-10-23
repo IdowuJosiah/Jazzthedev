@@ -6,7 +6,7 @@ import { ACCENT, ACCENT_INK, type AccentKey, type HexColor, type QualitySetting,
 import { AREA_BY_ID } from "../Layout";
 import type { WorldCommandSet, WorldState } from "../State";
 import type { AreaId, MenuTab } from "../types";
-import { contactLinks, credits, creditsSignLine, yorubaWords, type InfoContent } from "@/app/field/content/world";
+import { contactLinks, credits, creditsSignLine, type InfoContent } from "@/app/field/content/world";
 import { KbdRow } from "./StartScreen";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -208,7 +208,6 @@ export function ContentPanel({ content, areaId, topmost, onClose }: ContentPanel
 export const MENU_TABS: readonly { id: MenuTab; label: string }[] = [
     { id: "settings", label: "Settings" },
     { id: "controls", label: "Controls" },
-    { id: "words", label: "Words" },
     { id: "contact", label: "Contact" },
     { id: "credits", label: "Credits" },
 ];
@@ -281,8 +280,6 @@ export function MenuModal({ state, commands, topmost, onToggleSound, onClose }: 
         tabRefs.current[next]?.focus();
     };
 
-    const total = state.wordsTotal || yorubaWords.length;
-
     return (
         <div className="w3-modal-layer w3-menu-layer">
             <div className="w3-scrim" onClick={onClose} aria-hidden="true" />
@@ -346,32 +343,6 @@ export function MenuModal({ state, commands, topmost, onToggleSound, onClose }: 
                                     Drag the world to look around; scroll to zoom. Keys follow the physical layout,
                                     so WASD works on AZERTY keyboards too.
                                 </p>
-                            )}
-                        </>
-                    )}
-                    {tab === "words" && (
-                        <>
-                            <p className="w3-body">
-                                {state.words.length} of {total} Yoruba words found.
-                            </p>
-                            {state.words.length === 0 ? (
-                                <p className="w3-small w3-muted">
-                                    Drive into the gold-rimmed coins around the world to collect words.
-                                </p>
-                            ) : (
-                                <ul className="w3-list">
-                                    {state.words.map((w) => (
-                                        <li key={w.word} className="w3-row">
-                                            <span className="w3-row-main">
-                                                <span className="w3-word" lang="yo">
-                                                    {w.word}
-                                                </span>
-                                                <span className="w3-small w3-muted">{w.meaning}</span>
-                                            </span>
-                                            {w.pron && <span className="w3-small w3-muted">{w.pron}</span>}
-                                        </li>
-                                    ))}
-                                </ul>
                             )}
                         </>
                     )}

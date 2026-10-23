@@ -165,7 +165,7 @@ describe("areas/Hub (§2.4)", () => {
         const { ctx, texts } = stubCtx();
         const h = build(ctx);
         expect(texts.map((t) => t.opts.text).sort()).toEqual(
-            ["JOURNEY · EKO · MUSIC", "PLAYGROUND", "PROJECTS", "START"].sort()
+            ["JOURNEY · EEKO · MUSIC", "PLAYGROUND", "PROJECTS", "START"].sort()
         );
         expect(h.pathLabels).toHaveLength(4);
         const want = labelsOwnedBy("hub");

@@ -7,8 +7,6 @@ import {
     PATHS,
     PROPS,
     RAMP_CORRIDOR,
-    TOKENS,
-    TOKEN,
     footprintCorners,
     padFootprint,
     pathHalfWidth,
@@ -34,7 +32,6 @@ function ok(id: AreaId, x: number, z: number): string | null {
     for (const p of PROPS) if (convexPolygonsOverlap(disc(x, z, R + 1.5), footprintCorners(p.footprint))) return "prop " + p.id;
     for (const p of PATHS) if (distToSegment2D(x, z, p.from.x, p.from.z, p.to.x, p.to.z) < pathHalfWidth(p) + 1.5) return "path " + p.id;
     if (pointInRect(RAMP_CORRIDOR, x, z)) return "ramp";
-    for (const t of TOKENS) if (Math.hypot(t.x - x, t.z - z) < TOKEN.pickupRadius + 2) return "token";
     if (Math.hypot(a.arrival.x - x, a.arrival.z - z) < 4) return "arrival";
     const Sx = Math.SQRT1_2, Sz = Math.SQRT1_2, Rx = Math.SQRT1_2, Rz = -Math.SQRT1_2;
     for (const f of [...GROUND_TEXTS.map((g) => g.footprint), ...PROPS.map((p) => p.footprint)]) {

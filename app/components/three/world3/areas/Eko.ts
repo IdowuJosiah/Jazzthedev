@@ -17,7 +17,7 @@ import type { AreaContext, AreaHandle, RuntimeInfo, ShapesApi, TextHandle, Word3
 // - Five flush paper milestone tiles (plate layer), faceCamera, in a row along
 //   R. Each carries its number `01`–`05` (Bricolage SDF 2.4, ACCENT_INK.eko:
 //   text on night-lit paper needs the text-safe accent, see DECISIONS) and
-//   its title (Inter Bold 0.8, ink) as flat text on the padOnPlate layer: the
+//   its title (Inter Bold 0.8, ink) as flat text on the plateText layer: the
 //   copy sits above the plate, and the look system knows it is on paper.
 // - The hero phone: an ink rounded slab standing on a paper plinth, with a
 //   rounded screen in front of its face (its corners follow the body's). The
@@ -217,7 +217,7 @@ export function buildEko(ctx: AreaContext, { screenSources = PHONE_SCREEN_SOURCE
             tile.add(plate);
             tiles.push(plate);
 
-            // Copy on paper: the padOnPlate layer sits just above the plate.
+            // Copy on paper: the plateText layer sits clear of the plate.
             const numeral = text.flat({
                 text: milestoneNumber(k),
                 font: TY.numerals.font,
@@ -225,7 +225,7 @@ export function buildEko(ctx: AreaContext, { screenSources = PHONE_SCREEN_SOURCE
                 color: ACCENT_INK.eko,
                 anchorX: "center",
                 anchorY: "middle",
-                layer: "padOnPlate",
+                layer: "plateText",
             });
             texts.push(numeral);
             numerals.push(numeral);
@@ -240,7 +240,7 @@ export function buildEko(ctx: AreaContext, { screenSources = PHONE_SCREEN_SOURCE
                 maxWidth: E.tile.w - 2 * TILE_TITLE_MARGIN,
                 anchorX: "center",
                 anchorY: "middle",
-                layer: "padOnPlate",
+                layer: "plateText",
             });
             texts.push(label);
             tileTitles.push(label);

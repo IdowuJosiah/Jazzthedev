@@ -18,7 +18,6 @@ import {
     QUAY_Z,
     RAMP_CORRIDOR,
     RAMP_FOOTPRINT,
-    TOKENS,
     convexPolygonsOverlap,
     footprintCorners,
     padFootprint,
@@ -203,11 +202,10 @@ describe("acceptance rules (§2.6)", () => {
         }
     });
 
-    it("every prop is more than 4 from tokens, titles / props and pads", () => {
+    it("every prop is more than 4 from titles / props and pads", () => {
         const c = SC.featureClearance;
         const features = [...PROPS.map((f) => f.footprint), RAMP_FOOTPRINT, ...PADS.map((p) => padFootprint(p.pad))];
         for (const p of all(plan)) {
-            for (const t of TOKENS) expect(Math.hypot(p.x - t.x, p.z - t.z)).toBeGreaterThan(c);
             for (const f of features) expect(polyDist(f, p.x, p.z)).toBeGreaterThan(c);
         }
     });
@@ -226,7 +224,6 @@ describe("acceptance rules (§2.6)", () => {
         expect(sceneryReject(-100, -40)).toBe("corridor");
         expect(sceneryReject(0, 2)).toBe("area");
         expect(sceneryReject(2, -32)).toBe("path");
-        expect(sceneryReject(TOKENS[3].x, TOKENS[3].z)).toBe("token");
     });
 
     it("sceneryReject flags a pad, a ground text, and a sun-side strip (checked independently)", () => {

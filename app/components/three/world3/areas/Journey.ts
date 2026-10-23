@@ -40,9 +40,9 @@ import type { AreaContext, AreaHandle, PadDef, TextHandle, TextOpts, Word3D } fr
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Layer of the copy printed on a plate (above the plate and its pad outline). */
-export const PLATE_TEXT_LAYER: FlatLayerId = "padOnPlate";
+export const PLATE_TEXT_LAYER: FlatLayerId = "plateText";
 /** Plate copy draws after the active pad fill (padOnPlate renderOrder 1). */
-export const PLATE_TEXT_RENDER_ORDER = LAYERS.groundText.renderOrder;
+export const PLATE_TEXT_RENDER_ORDER = LAYERS.plateText.renderOrder;
 /** Clear space between the plate copy and the inner edge of the active pad outline. */
 const PLATE_COPY_PAD = 0.4;
 /** Copy inset from every plate edge: the active outline (inset into the plate) plus clear space. */

@@ -79,7 +79,7 @@ export default function FieldSummary() {
                 {areaCopy.eko.blurb}. {ekoLine}{" "}
                 {ekoUrl && (
                     <a href={ekoUrl} target="_blank" rel="noopener noreferrer">
-                        Visit Eko
+                        Visit Eeko
                     </a>
                 )}
             </p>

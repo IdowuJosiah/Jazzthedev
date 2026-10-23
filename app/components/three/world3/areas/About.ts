@@ -53,9 +53,9 @@ const IMAGE_TINT = 0xffffff;
 /** The plaza corner radius shared with the Welcome and Hub plazas. */
 const PLAZA_RADIUS_SOURCE = "welcome" as const;
 /** Layer of the label printed on a contact plate (above the plate and its pad outline). */
-const PLATE_TEXT_LAYER: FlatLayerId = "padOnPlate";
+const PLATE_TEXT_LAYER: FlatLayerId = "plateText";
 /** Plate copy draws after the active pad fill (padOnPlate renderOrder 1). */
-const PLATE_TEXT_RENDER_ORDER = LAYERS.groundText.renderOrder;
+const PLATE_TEXT_RENDER_ORDER = LAYERS.plateText.renderOrder;
 /** HTML prompt action per contact link (title: the link's display value). */
 const CONTACT_ACTIONS: Readonly<Record<ContactLink["id"], string>> = {
     email: "Send an email",

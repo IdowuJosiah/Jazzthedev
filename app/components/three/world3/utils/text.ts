@@ -141,7 +141,7 @@ export type TextSurface = "ground" | "paper";
 
 /**
  * The surface a text's layer implies: flat text on the "groundText" or
- * "plaza" layer lies on the ground / a plaza; "plate", "padOnPlate" and
+ * "plaza" layer lies on the ground / a plaza; "plate", "padOnPlate", "plateText" and
  * "tileText" copy and upright text (layer null) sit on paper.
  */
 export function textSurface(layer: FlatLayerId | null): TextSurface {

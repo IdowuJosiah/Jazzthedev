@@ -113,15 +113,14 @@ describe("cmap coverage of content/world.ts", () => {
     });
 
     it("Yoruba strings are never set in Bricolage and are covered by Inter", () => {
-        const yoruba = [content.meta.greeting, ...content.yorubaWords.map((w) => w.word)];
-        // Coin words are Inter by type scale; the greeting is Inter Medium (§2.4).
-        expect(CONFIG.type.coinWord.font).not.toBe("display");
+        // The Welcome greeting is Inter Medium (§2.4).
+        const yoruba = [content.meta.greeting];
         for (const s of yoruba) {
             for (const id of INTER) expect(missing(FONTS[id], nfc(s)), `${id}: ${s}`).toEqual([]);
             // Even if a caller asks for `display`, anything beyond Latin-1 is redirected to Inter.
             if (!isDisplaySafe(s)) expect(resolveFont("display", s), s).toBe("bold");
         }
-        expect(yoruba.filter((s) => !isDisplaySafe(s)).length).toBeGreaterThan(4);
+        expect(yoruba.filter((s) => !isDisplaySafe(s))).toHaveLength(1);
         // Bricolage really lacks ṣ (U+1E63), which is why the rule exists.
         expect(covers(FONTS.display, "ṣ")).toBe(false);
     });

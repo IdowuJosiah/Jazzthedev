@@ -310,10 +310,10 @@ describe("areas/About (§2.4, §5.2, §5.3, §8.3)", () => {
                 font: TY.padLabel.font,
                 size: TY.padLabel.size,
                 color: PALETTE.ink,
-                layer: "padOnPlate",
+                layer: "plateText",
             });
             expect(c.label.object.parent).toBe(c.root);
-            expect(c.label.mesh.renderOrder).toBe(shapes.LAYERS.groundText.renderOrder);
+            expect(c.label.mesh.renderOrder).toBe(shapes.LAYERS.plateText.renderOrder);
             expect(c.pad.label).toBeNull();
             expect(interactables[i].pad).toBe(spot.pad);
             expect(interactables[i].prompt.title).toBe(c.link.display);

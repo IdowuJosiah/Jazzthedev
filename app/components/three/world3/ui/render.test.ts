@@ -150,13 +150,13 @@ describe("dialogs", () => {
     });
 
     it("menu renders every tab as a tab with one selected", () => {
-        const state = { ...initialWorldState(), menuTab: "words" as const };
+        const state = { ...initialWorldState(), menuTab: "contact" as const };
         const html = renderToStaticMarkup(
             h(MenuModal, { state, commands: new WorldStore().commands, topmost: true, onToggleSound: noop, onClose: noop })
         );
         for (const t of MENU_TABS) expect(html).toContain(`>${t.label}</button>`);
         expect(html.match(/aria-selected="true"/g)).toHaveLength(1);
-        expect(html).toContain("Yoruba words found");
+        expect(html).toContain("mailto:");
     });
 
     it("map lists all 9 areas with Travel", () => {

@@ -16,11 +16,8 @@ import {
     SPAWN,
     SUN_GROUND_DIR,
     TILE,
-    TOKEN,
-    TOKENS,
     areaAt,
     convexPolygonsOverlap,
-    distToRect,
     footprintCorners,
     footprintOverlapsRect,
     footprintsOverlap,
@@ -189,21 +186,7 @@ describe("ground text and titles (§2.5, §3.4.5)", () => {
     });
 });
 
-describe("tokens and the ramp corridor (§2.4, §2.7)", () => {
-    it("has 8 tokens inside the bounds", () => {
-        expect(TOKENS).toHaveLength(8);
-        for (const t of TOKENS) expect(pointInRect(BOUNDS_RECT, t.x, t.z)).toBe(true);
-    });
-
-    it("tokens lie outside every area rect and the ramp corridor (coin included)", () => {
-        for (const t of TOKENS) {
-            for (const a of AREAS) {
-                expect(distToRect(a.rect, t.x, t.z), `token (${t.x}, ${t.z}) vs ${a.id}`).toBeGreaterThan(TOKEN.radius);
-            }
-            expect(distToRect(RAMP_CORRIDOR, t.x, t.z)).toBeGreaterThan(TOKEN.radius);
-        }
-    });
-
+describe("the ramp corridor (§2.4)", () => {
     it("the ramp sits inside the corridor", () => {
         for (const c of footprintCorners(RAMP_FOOTPRINT)) expect(pointInRect(RAMP_CORRIDOR, c.x, c.z)).toBe(true);
     });
