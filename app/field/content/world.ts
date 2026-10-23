@@ -213,7 +213,7 @@ export interface WorldMeta {
     heroWord: string;
     /** Flat role line under the hero word. */
     role: string;
-    /** Flat greeting on the Welcome plaza (Yoruba: set in Inter). */
+    /** Flat greeting on the Welcome plaza (set in Inter). */
     greeting: string;
 }
 
@@ -221,7 +221,7 @@ export const meta: WorldMeta = {
     worldName: "Jazz's World",
     heroWord: "JAZZ",
     role: "FRONTEND DEVELOPER · PRODUCT LEAD",
-    greeting: "Ẹ káàbọ̀ — welcome",
+    greeting: "Welcome",
 };
 
 export interface AboutContent {
