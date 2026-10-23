@@ -585,4 +585,5 @@ Checked on the live site (www.jazzthedev.online) and locally, desktop Chrome eng
 | Contrast | From the calibrated night targets: paper text on the lit night ground ≈ 7:1, ink on lit paper plates ≈ 9.8:1; visually readable in day and night screenshots. No pixel probe run. |
 | Font / asset failure | Code path only (init → "asset" failure card); not forced in a browser. |
 | Safari macOS | Pass (visual, live site, owner's Mac): world, HUD, 3D JAZZ, role line and the Yoruba greeting with diacritics render sharp; the truck and lamp read correctly. The buffer size itself could not be read (Safari granted view-only). |
-| Safari iOS, real-device fps | Owner to check on an iPhone and on the laptop. |
+| Laptop fps (real device) | Pass: owner reports driving is smooth on their laptop. |
+| Safari iOS | Owner to check on an iPhone (joystick, day/night, sharpness). |
