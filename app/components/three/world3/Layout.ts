@@ -473,7 +473,16 @@ const welcomeHero: XZ = { x: -11, z: 4 };
 const musicC: XZ = { x: -64, z: -122 };
 const musicStage = offsetRS(musicC, 0, -5);
 const aboutC: XZ = { x: -56, z: 4 };
-const projectBoards = Array.from({ length: frontendProjects.length }, (_, i) => ({ x: 44 + 30 * i, z: -76 }));
+/**
+ * Project boards: one row along the gallery, 19.5 apart (a 10.8-wide frame leaves
+ * ~8.7 between boards), so six boards AND their pads (board + S·12, i.e. +8.5 in x)
+ * fit inside the projects rect and the gallery camera zone (x ≤ 152).
+ */
+export const PROJECT_BOARD_ROW = { startX: 40, spacing: 19.5, z: -76 } as const;
+const projectBoards = Array.from({ length: frontendProjects.length }, (_, i) => ({
+    x: PROJECT_BOARD_ROW.startX + PROJECT_BOARD_ROW.spacing * i,
+    z: PROJECT_BOARD_ROW.z,
+}));
 const ekoPhone: XZ = { x: 80, z: -112 };
 const sleeveRow = rowAlongR(offsetRS(musicC, -2, 12), musicPillars.length, 6.5);
 

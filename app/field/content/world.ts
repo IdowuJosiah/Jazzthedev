@@ -33,6 +33,16 @@ export interface Terminal {
 // ── Frontend projects (the CV is the source of truth for facts and stacks) ──
 export const frontendProjects: Terminal[] = [
     {
+        title: "Dorée Jewelry",
+        pitch: "Jewelry e-commerce store — freelance, 2026",
+        description:
+            "A fully dynamic e-commerce storefront for a jewelry brand: product catalogue, collections, wishlist and customer accounts, plus a custom admin dashboard for managing products and content. Built with Next.js and Supabase.",
+        tags: ["Next.js", "Supabase", "E-commerce", "Admin dashboard"],
+        liveUrl: "https://www.shopdoree.co",
+        boardImage: "/assets/boards/doree.webp",
+        boardPitch: "Jewelry store & admin dashboard",
+    },
+    {
         title: "Clay Studio Creations",
         pitch: "Full-service creative studio site — freelance, Aug 2026",
         description:
@@ -41,6 +51,16 @@ export const frontendProjects: Terminal[] = [
         liveUrl: "https://www.claystudiocreations.com",
         boardImage: "/assets/boards/clay.webp",
         boardPitch: "Creative studio & gear rental",
+    },
+    {
+        title: "Honey Rock School",
+        pitch: "School website — freelance, Aug 2026",
+        description:
+            "The Honey Rock School website, built from scratch, start to finish, on a freelance contract: about, curriculum, admissions, gallery and careers pages.",
+        tags: ["React.js", "Responsive UI"],
+        liveUrl: "https://thehoneyrockschool.com",
+        boardImage: "/assets/boards/honeyrock.webp",
+        boardPitch: "School website, start to finish",
     },
     {
         title: "Cafe Riddim",

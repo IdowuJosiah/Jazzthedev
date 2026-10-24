@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CONFIG } from "./Config";
 import {
     AREAS,
+    PROJECT_BOARD_ROW,
     AREA_BY_ID,
     AREA_LAYOUT,
     BOUNDS_RECT,
@@ -227,12 +228,23 @@ describe("sun-side strips (§1.2)", () => {
 });
 
 describe("area contents (§2.4)", () => {
-    it("project pads sit at board + S·12 (≈ (52.5 + 30i, −67.5))", () => {
+    it("project pads sit at board + S·12 (≈ (48.5 + 19.5i, −67.5))", () => {
         expect(AREA_LAYOUT.projects.boards).toHaveLength(frontendProjects.length);
         AREA_LAYOUT.projects.pads.forEach((p, i) => {
-            expect(near(p.x, 52.5 + 30 * i, 0.05)).toBe(true);
+            expect(near(p.x, 48.5 + 19.5 * i, 0.05)).toBe(true);
             expect(near(p.z, -67.5, 0.05)).toBe(true);
         });
+    });
+
+    it("every project board fits the projects rect and never touches its neighbour", () => {
+        const P = AREA_LAYOUT.projects;
+        const rect = AREAS.find((a) => a.id === "projects")!.rect;
+        const half = P.board.frame.w / 2;
+        expect(PROJECT_BOARD_ROW.spacing).toBeGreaterThan(P.board.frame.w);
+        for (const b of P.boards) {
+            expect(b.x - half).toBeGreaterThanOrEqual(rect.x - rect.w / 2);
+            expect(b.x + half).toBeLessThanOrEqual(rect.x + rect.w / 2);
+        }
     });
 
     it("music sleeve row centre is ≈ (−56.9, −112.1) and the stage centre ≈ (−67.5, −125.5)", () => {
