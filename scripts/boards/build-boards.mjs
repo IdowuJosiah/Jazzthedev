@@ -36,6 +36,8 @@ const JOBS = [
     ["mara.webp", "mara.png", BOARD],
     ["sphiderass.webp", "cRf6OhI78D9fHIZyhDlqODIP0.webp", BOARD],
     ["eko.webp", "eekoo.png", BOARD],
+    ["doree.webp", "doree.jpg", BOARD],
+    ["honeyrock.webp", "honeyrock.jpg", BOARD],
     ["profile.webp", "profile.png", PROFILE],
     // Cannot be cropped from the landscape eekoo.png (1666×944) without a blurry
     // upscale. Drop a portrait phone screenshot (e.g. eeko.site at 390×812 @2x)

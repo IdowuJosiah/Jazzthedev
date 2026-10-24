@@ -243,9 +243,11 @@ describe("areas/Projects (§2.4, §5.1)", () => {
     });
 
     describe("layout fits every project", () => {
-        it("one board and one pad per frontendProjects entry (four, incl. Clay Studio Creations)", () => {
-            expect(N).toBe(4);
-            expect(frontendProjects.map((p) => p.title)).toContain("Clay Studio Creations");
+        it("one board and one pad per frontendProjects entry (six, incl. Dorée and Honey Rock)", () => {
+            expect(N).toBe(6);
+            expect(frontendProjects.map((p) => p.title)).toEqual(
+                expect.arrayContaining(["Dorée Jewelry", "Clay Studio Creations", "Honey Rock School"])
+            );
             expect(P.boards).toHaveLength(N);
             expect(PADS.filter((p) => p.areaId === "projects")).toHaveLength(N);
         });

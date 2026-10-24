@@ -587,3 +587,12 @@ Checked on the live site (www.jazzthedev.online) and locally, desktop Chrome eng
 | Safari macOS | Pass (visual, live site, owner's Mac): world, HUD, 3D JAZZ, role line and the Yoruba greeting with diacritics render sharp; the truck and lamp read correctly. The buffer size itself could not be read (Safari granted view-only). |
 | Laptop fps (real device) | Pass: owner reports driving is smooth on their laptop. |
 | Safari iOS | Owner to check on an iPhone (joystick, day/night, sharpness). |
+
+## Six project boards (2026-10-24)
+
+- The Projects area holds six boards (Dorée Jewelry and Honey Rock School added). They stay in one
+  row along the gallery, now 19.5 apart from x 40 (`PROJECT_BOARD_ROW` in Layout.ts) instead of
+  30 apart from x 44: at 21 the last pad (board + S·12, +8.5 in x) left the projects rect and the
+  gallery camera zone (x ≤ 152). Frames are 10.8 wide, so ~8.7 stays between boards. Layout.test
+  checks every frame fits the rect and the spacing exceeds the frame width.
+- Board images doree.webp / honeyrock.webp come from scripts/boards (public/images sources).
