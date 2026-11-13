@@ -43,3 +43,6 @@ next-env.d.ts
 # local agent config
 CLAUDE.md
 AGENTS.md
+
+# Raw model exports (see scripts/models/build-models.mjs); only the built GLBs are committed.
+/assets-src/
