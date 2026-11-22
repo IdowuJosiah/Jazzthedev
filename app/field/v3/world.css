@@ -1006,23 +1006,20 @@
 
 /*
  * Narrow top bar. At ≤ 640 px the right cluster (Classic, Day / night, Map,
- * Sound, Menu) is 5 × 44 + 4 × 8 = 252 px on coarse pointers; the longest chip
+ * Menu) is 4 × 44 + 3 × 8 = 200 px on coarse pointers; the longest chip
  * ("Frontend Projects") is about 160 px, the wordmark plus its gap 57 px, and
- * the gutters 32 + 8. The full row needs about 509 px, so below 520 px the
- * wordmark goes, and so does the Day / night button (Menu → Settings → Time of
- * day has the same control). That leaves the chip 4 × 44 + 3 × 8 = 200 px of
- * cluster to share with: 390 − 32 − 200 − 8 = 150 px on a 390 px phone.
+ * the gutters 32 + 8. The full row needs about 457 px, so below 460 px the
+ * wordmark goes and the chip keeps the space: 390 − 32 − 200 − 8 = 150 px on
+ * a 390 px phone.
  */
-@media (max-width: 520px) {
-    .w3-wordmark,
-    .w3-timebtn {
+@media (max-width: 459px) {
+    .w3-wordmark {
         display: none;
     }
 }
 /*
- * Too narrow for a useful chip: below 360 px it would get under 120 px
- * (360 − 32 − 200 − 8) and starts to read as "Fro…"; still worth showing down
- * to 320 px (80 px). The aria-live Announcer says "Entered …" either way.
+ * Too narrow for a useful chip: below 320 px it would get under 80 px
+ * (320 − 32 − 200 − 8); the aria-live Announcer still says "Entered …".
  */
 @media (max-width: 319px) {
     .w3-area-chip {

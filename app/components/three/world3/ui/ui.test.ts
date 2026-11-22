@@ -7,7 +7,7 @@ import { failCopy } from "./FailCard";
 import { areaAnnouncement, promptAnnouncement } from "./Hud";
 import { MAP, fitMap, headingOnMap, mapExtent, rotateXZ, worldToMap } from "./MapModal";
 import { MENU_TABS, nextTab, panelAccentInk, trapIndex } from "./Panels";
-import { mutedOnStart, progressPercent, readSoundPref, writeSoundPref } from "./StartScreen";
+import { progressPercent } from "./StartScreen";
 import { TOUCH, TOUCH_DEVICE_QUERY, isTouchDevice, joystickVector, knobOffset } from "./TouchControls";
 
 const EPS = 1e-9;
@@ -213,17 +213,6 @@ describe("announcements", () => {
 });
 
 describe("start + loader", () => {
-    it("Start turns sound on unless the visitor turned it off before", () => {
-        expect(mutedOnStart(null)).toBe(false);
-        expect(mutedOnStart("on")).toBe(false);
-        expect(mutedOnStart("off")).toBe(true);
-    });
-
-    it("survives missing storage", () => {
-        expect(readSoundPref()).toBeNull();
-        expect(() => writeSoundPref("on")).not.toThrow();
-    });
-
     it("reports whole, clamped percentages", () => {
         expect(progressPercent(-1)).toBe(0);
         expect(progressPercent(0.154)).toBe(15);
