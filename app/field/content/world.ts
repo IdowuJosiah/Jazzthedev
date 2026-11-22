@@ -313,6 +313,7 @@ export const credits: CreditEntry[] = [
         license: "OFL 1.1",
         url: "https://github.com/google/fonts/tree/main/ofl/bricolagegrotesque",
     },
+    { name: "Trees, palms, bushes, boulders", author: "Generated with Tripo AI", license: "Owner's paid plan", url: "https://www.tripo3d.ai" },
     { name: "Nature Kit", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/nature-kit" },
     { name: "Interface Sounds", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/interface-sounds" },
     { name: "Palm Tree", author: "Quaternius", license: "CC0 1.0", url: "https://poly.pizza/m/P0tgwyXBgr" },

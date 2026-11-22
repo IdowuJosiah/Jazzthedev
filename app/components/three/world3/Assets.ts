@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { CONFIG, PALETTE, type PaletteToken } from "./Config";
 import { applyOccluder, type Materials } from "./Materials";
@@ -28,6 +29,20 @@ export const MODEL_URLS = {
 } as const;
 
 export const NATURE_DIR = "/assets/models/nature/";
+
+/**
+ * Tripo-generated scenery (scripts/models/build-models.mjs: meshopt + WebP).
+ * Preferred over the Kenney kit / palm.glb when they load; those stay as the
+ * fallback. Textured, so they keep their maps instead of palette colours.
+ */
+export const TRIPO_DIR = "/assets/models/tripo/";
+export const TRIPO_SCENERY = Object.freeze({
+    tree: "tree-broadleaf",
+    palm: "palm-tree",
+    bush: "bush",
+    boulder: "boulder",
+} as const);
+export type TripoSceneryKind = keyof typeof TRIPO_SCENERY;
 
 /** The Kenney Nature Kit subset shipped in public/assets/models/nature (§2.6). */
 export const NATURE_MODELS = [
@@ -128,16 +143,20 @@ export const SIZE_ESTIMATE = {
     palm: 112_000,
     avatar: 4_000,
     nature: 8_000,
+    tripo: 150_000,
 } as const;
 
 // ── GLB → Lambert conversion (§1.3) ──────────────────────────────────────
 const isStandard = (m: THREE.Material): m is THREE.MeshStandardMaterial =>
     (m as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;
 
-/** A Lambert copy of a standard (or physical) material: map/color/side/vertexColors/alphaTest/transparent/opacity. */
+/** A Lambert copy of a standard (or physical) material: map/normalMap/color/side/vertexColors/alphaTest/transparent/opacity. */
 export function toLambert(src: THREE.MeshStandardMaterial): THREE.MeshLambertMaterial {
     const m = new THREE.MeshLambertMaterial({
         map: src.map,
+        normalMap: src.normalMap,
+        normalMapType: src.normalMapType,
+        normalScale: src.normalScale.clone(),
         color: src.color.clone(),
         side: src.side,
         vertexColors: src.vertexColors,
@@ -217,6 +236,42 @@ export function preparePalm(root: THREE.Object3D): THREE.MeshLambertMaterial[] {
     const mats = convertStandardToLambert(root);
     for (const m of mats) applyOccluder(m);
     setShadows(root, true, true);
+    return mats;
+}
+
+/**
+ * Float copies of quantized (normalized integer) vertex attributes. The build
+ * step's meshopt compression quantizes positions, and normalizeNature rescales
+ * positions in place, which would clamp integer data instead of scaling it.
+ */
+export function dequantize(root: THREE.Object3D): void {
+    root.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const g = mesh.geometry;
+        for (const name of Object.keys(g.attributes)) {
+            const a = g.attributes[name] as THREE.BufferAttribute;
+            if (a.array instanceof Float32Array && !a.normalized) continue;
+            const out = new Float32Array(a.count * a.itemSize);
+            for (let i = 0; i < a.count; i++) {
+                for (let c = 0; c < a.itemSize; c++) out[i * a.itemSize + c] = a.getComponent(i, c);
+            }
+            g.setAttribute(name, new THREE.BufferAttribute(out, a.itemSize));
+        }
+    });
+}
+
+/**
+ * Tripo scenery: textured Lambert copies (base + normal map) with the scenery
+ * occluder dither; trees, bushes and boulders are normalised like the kit.
+ */
+export function prepareTripo(root: THREE.Object3D, kind: TripoSceneryKind): THREE.MeshLambertMaterial[] {
+    dequantize(root);
+    const mats = convertStandardToLambert(root);
+    for (const m of mats) applyOccluder(m);
+    setShadows(root, true, true);
+    // Palms are scaled to their planned height by Scenery instead.
+    if (kind !== "palm") normalizeNature(root, kind);
     return mats;
 }
 
@@ -502,6 +557,7 @@ export class Assets implements AssetsApi {
         this.materials = opts.materials;
         this.renderer = opts.renderer ?? null;
         this.boards = new BoardTextures((url) => this.texture(url));
+        this.loader.setMeshoptDecoder(MeshoptDecoder);
         opts.disposal?.onDispose(() => this.dispose());
     }
 
@@ -555,6 +611,21 @@ export class Assets implements AssetsApi {
                             prepareNature(r.gltf.scene, this.materials, name);
                             normalizeNature(r.gltf.scene, natureKind(name));
                         });
+                        if (ok) this.keep(id, r.gltf);
+                    })
+                );
+            }
+        }
+
+        if (loadNature) {
+            for (const kind of Object.keys(TRIPO_SCENERY) as TripoSceneryKind[]) {
+                const id: ModelName = `tripo/${TRIPO_SCENERY[kind]}`;
+                const url = `${TRIPO_DIR}${TRIPO_SCENERY[kind]}.glb`;
+                progress.add(id, SIZE_ESTIMATE.tripo);
+                jobs.push(
+                    this.fetchGLTF(url, id, progress).then((r) => {
+                        if (!r.ok) return this.warnOptional(url, r.error);
+                        const ok = this.prepareOptional(url, r.gltf, () => this.ownMaterials(prepareTripo(r.gltf.scene, kind)));
                         if (ok) this.keep(id, r.gltf);
                     })
                 );

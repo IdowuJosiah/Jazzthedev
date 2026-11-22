@@ -20,7 +20,7 @@ import {
     type BandId,
     type Footprint,
 } from "./Layout";
-import { FLAT_TOKENS, NATURE_KINDS, type NatureKind } from "./Assets";
+import { FLAT_TOKENS, NATURE_KINDS, TRIPO_SCENERY, type NatureKind } from "./Assets";
 import { applyOccluder, hasOccluder } from "./Materials";
 import type { BlobSpot, PropBlobRange } from "./Environment";
 import type { AssetsApi, MaterialsApi, PhysicsApi, RenderProfile, XZ } from "./types";
@@ -779,6 +779,8 @@ export function createSceneryTree(
     source: "kit" | "procedural" = SC.source
 ): THREE.Object3D {
     if (source === "kit") {
+        const tripo = assets.model(`tripo/${TRIPO_SCENERY.tree}`);
+        if (tripo) return tripo;
         for (const name of NATURE_KINDS.tree) {
             const m = assets.model(`nature/${name}`);
             if (m) return m;
@@ -912,6 +914,9 @@ export class Scenery {
     /** Kit models of a kind (those that loaded), else the procedural fallback. */
     private kindModels(kind: Exclude<SceneryKind, "palm">, source: "kit" | "procedural"): ModelInfo[] {
         if (source === "kit") {
+            // The Tripo model wins when it loaded; the Kenney kit is the fallback.
+            const tripo = this.deps.assets.model(`tripo/${TRIPO_SCENERY[kind]}`);
+            if (tripo) return [this.info(tripo)];
             const found: ModelInfo[] = [];
             for (const name of NATURE_KINDS[NATURE_KIND[kind]]) {
                 const m = this.deps.assets.model(`nature/${name}`);
@@ -924,7 +929,7 @@ export class Scenery {
     }
 
     private palmModels(): ModelInfo[] {
-        const m = this.deps.assets.model("palm");
+        const m = this.deps.assets.model(`tripo/${TRIPO_SCENERY.palm}`) ?? this.deps.assets.model("palm");
         if (!m) {
             console.warn("[world3] palm.glb unavailable; scenery has no palms");
             return [];
