@@ -142,7 +142,7 @@ function TimeButton({
     return (
         <button
             type="button"
-            className="w3-iconbtn"
+            className="w3-iconbtn w3-timebtn"
             aria-label={timeToggleLabel(effective)}
             title={timeToggleLabel(effective)}
             onClick={(e) => {
