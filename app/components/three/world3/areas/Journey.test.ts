@@ -122,7 +122,7 @@ describe("areas/Journey (§2.4, §5.2, §5.3)", () => {
         expect(registeredAreaIds()).toContain("journey");
     });
 
-    it("builds the static JOURNEY title in ACCENT_INK.journey at its Layout point, faceCamera", () => {
+    it("builds the dynamic (knockable) JOURNEY title in ACCENT_INK.journey at its Layout point, faceCamera", () => {
         const { ctx, words } = stubCtx();
         const h = build(ctx);
         const t3 = AREA_BY_ID.journey.title3D!;
@@ -133,7 +133,7 @@ describe("areas/Journey (§2.4, §5.2, §5.3)", () => {
             depth: TY.areaTitle.depth,
             curveSegments: TY.areaTitle.curveSegments,
             color: AREA_BY_ID.journey.accentInk,
-            dynamic: false,
+            dynamic: true,
         });
         const g = words[0].word.group;
         expect(g.parent).toBe(ctx.group);

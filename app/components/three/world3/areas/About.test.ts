@@ -171,7 +171,7 @@ describe("areas/About (§2.4, §5.2, §5.3, §8.3)", () => {
         expect(b.max.y).toBeCloseTo(shapes.LAYERS.plaza.y, 6);
     });
 
-    it("builds the static ABOUT title in ACCENT_INK.brand at its Layout point, faceCamera", () => {
+    it("builds the dynamic (knockable) ABOUT title in ACCENT_INK.brand at its Layout point, faceCamera", () => {
         const { ctx, words } = stubCtx();
         const h = build(ctx);
         const t3 = AREA_BY_ID.about.title3D!;
@@ -181,7 +181,7 @@ describe("areas/About (§2.4, §5.2, §5.3, §8.3)", () => {
             cap: TY.areaTitle.cap,
             depth: TY.areaTitle.depth,
             color: AREA_BY_ID.about.accentInk,
-            dynamic: false,
+            dynamic: true,
         });
         const g = words[0].word.group;
         expect([g.position.x, g.position.y, g.position.z]).toEqual([t3.x, 0, t3.z]);

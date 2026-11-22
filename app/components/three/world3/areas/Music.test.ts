@@ -130,7 +130,7 @@ describe("areas/Music (§2.4, §5.2)", () => {
         expect(registeredAreaIds()).toContain("music");
     });
 
-    it("the static 3D title MUSIC in ACCENT_INK.music at its Layout point, faceCamera", () => {
+    it("the dynamic (knockable) 3D title MUSIC in ACCENT_INK.music at its Layout point, faceCamera", () => {
         const s = stubCtx();
         const h = build(s.ctx);
         expect(s.words).toHaveLength(1);
@@ -142,7 +142,7 @@ describe("areas/Music (§2.4, §5.2)", () => {
             depth: TY.areaTitle.depth,
             curveSegments: TY.areaTitle.curveSegments,
             color: ACCENT_INK.music,
-            dynamic: false,
+            dynamic: true,
         });
         expect(word.group.parent).toBe(s.ctx.group);
         expect(word.group.position.toArray()).toEqual([t3.x, 0, t3.z]);

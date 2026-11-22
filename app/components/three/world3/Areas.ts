@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { CONFIG } from "./Config";
 import * as Layout from "./Layout";
 import { AREAS, areaAt, distToRect, padLocal, pointInPad } from "./Layout";
 import type {
@@ -48,11 +49,24 @@ export function registeredAreaIds(): AreaId[] {
 /** Services every area receives (AreaContext minus the per-area fields). */
 export type AreaServices = Omit<AreaContext, "group" | "def" | "layout" | "addInteractable">;
 
+/** A word with physics letters, and where its letters live. */
+interface LooseWord {
+    word: Word3D;
+    x: number;
+    z: number;
+    /** The car was past the reset distance on the last update. */
+    far: boolean;
+}
+
 interface BuiltArea {
     def: AreaDef;
     group: THREE.Group;
     handle: AreaHandle;
+    /** Dynamic words Areas sends home (empty when the handle owns that). */
+    looseWords: LooseWord[];
 }
+
+const tmpHome = new THREE.Vector3();
 
 export class Areas {
     /** Root group holding one child group per built area. */
@@ -97,7 +111,15 @@ export class Areas {
                 const handle = builder(ctx);
                 // Arm every word now (W1-B): colliders before the first physics step.
                 for (const w of words) w.reset();
-                this.built.set(def.id, { def, group, handle });
+                const looseWords: LooseWord[] = [];
+                if (!handle.ownsWordReset) {
+                    for (const word of words) {
+                        if (!word.letters.some((l) => l.body)) continue; // static title
+                        word.group.getWorldPosition(tmpHome);
+                        looseWords.push({ word, x: tmpHome.x, z: tmpHome.z, far: false });
+                    }
+                }
+                this.built.set(def.id, { def, group, handle, looseWords });
             } catch (err) {
                 console.error(`[world3] area "${def.id}" failed to build; skipping it`, err);
                 for (const off of unregister) off();
@@ -186,9 +208,22 @@ export class Areas {
 
     update(dt: number, t: number, rt: RuntimeInfo): void {
         this.updateActive(rt.carPos.x, rt.carPos.z);
+        const resetDistance = CONFIG.physics.heroLetterResetDistance;
         for (const b of this.built.values()) {
             if (b.group.visible) b.handle.update?.(dt, t, rt);
+            // Knocked letters go home once the car drives away (§3.3), even
+            // while the area is culled, so they are tidy on the way back.
+            for (const lw of b.looseWords) {
+                const nowFar = Math.hypot(rt.carPos.x - lw.x, rt.carPos.z - lw.z) > resetDistance;
+                if (nowFar && !lw.far) lw.word.reset();
+                lw.far = nowFar;
+            }
         }
+    }
+
+    /** Sends every Areas-owned dynamic word home (Travel, R, fall-off respawn). */
+    resetWords(): void {
+        for (const b of this.built.values()) for (const lw of b.looseWords) lw.word.reset();
     }
 
     /** Shows an area's group (culling at CONFIG.text.cullDistance is the integrator's). */
@@ -203,7 +238,11 @@ export class Areas {
     }
 
     reset(id?: AreaId): void {
-        for (const b of this.built.values()) if (!id || b.def.id === id) b.handle.reset?.();
+        for (const b of this.built.values()) {
+            if (id && b.def.id !== id) continue;
+            b.handle.reset?.();
+            for (const lw of b.looseWords) lw.word.reset();
+        }
     }
 
     dispose(): void {

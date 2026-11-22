@@ -161,7 +161,7 @@ export function build(ctx: AreaContext): MusicHandle {
         const quat = faceCameraQuat();
         const stageTop = M.stage.h;
 
-        // ── 3D title (static, ACCENT_INK.music) ──────────────────────────
+        // ── 3D title (dynamic, knockable; ACCENT_INK.music) ──────────────────────────
         const t3 = ctx.def.title3D;
         if (t3) {
             title = ctx.text3d.word(t3.text, {

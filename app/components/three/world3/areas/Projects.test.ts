@@ -375,7 +375,7 @@ describe("areas/Projects (§2.4, §5.1)", () => {
     });
 
     describe("build", () => {
-        it("static PROJECTS title in ACCENT_INK.projects at the Layout point, faceCamera", () => {
+        it("dynamic (knockable) PROJECTS title in ACCENT_INK.projects at the Layout point, faceCamera", () => {
             const { ctx, words } = stubCtx();
             const h = build(ctx);
             expect(words).toHaveLength(1);
@@ -387,7 +387,7 @@ describe("areas/Projects (§2.4, §5.1)", () => {
                 depth: TY.areaTitle.depth,
                 curveSegments: TY.areaTitle.curveSegments,
                 color: ACCENT_INK.projects,
-                dynamic: false,
+                dynamic: true,
             });
             expect(w.word.group.parent).toBe(ctx.group);
             expect(w.word.group.position.toArray()).toEqual([t3.x, 0, t3.z]);

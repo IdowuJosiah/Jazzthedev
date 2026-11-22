@@ -155,7 +155,7 @@ export function build(ctx: AreaContext): JourneyHandle {
     };
 
     try {
-        // ── 3D title (static, ACCENT_INK.journey) ────────────────────────
+        // ── 3D title (dynamic, knockable; ACCENT_INK.journey) ────────────────────────
         const t3 = def.title3D;
         if (t3) {
             title = ctx.text3d.word(t3.text, {

@@ -332,6 +332,12 @@ export interface AreaHandle {
     update?(dt: number, t: number, rt: RuntimeInfo): void;
     reset?(): void;
     dispose?(): void;
+    /**
+     * True when the area sends its own dynamic words home (Welcome's hero
+     * word). Otherwise Areas does it: on the car's near → far change past
+     * CONFIG.physics.heroLetterResetDistance, and on resetWords().
+     */
+    ownsWordReset?: boolean;
 }
 
 export type AreaBuilder = (ctx: AreaContext) => AreaHandle;

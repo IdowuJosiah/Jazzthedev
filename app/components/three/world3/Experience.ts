@@ -1002,6 +1002,7 @@ export class Experience {
         const interimHero = this.interimWords.get("welcome");
         if (interimHero) interimHero.reset();
         else w.areas.reset("welcome");
+        w.areas.resetWords(); // the area titles are physics letters too
     }
 
     private syncInput(w: World) {

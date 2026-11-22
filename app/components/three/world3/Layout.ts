@@ -210,7 +210,7 @@ export const AREAS: readonly AreaDef[] = [
         cameraZone: rectFromBounds(28, 152, -92, -44),
         // Step 0 deviation: x 29 (spec 24) so the title's footprint stays inside the
         // projects rect (x ≥ 18) and the gallery camera zone (x ≥ 28) — see DECISIONS.md.
-        title3D: { text: "PROJECTS", x: 29, z: -66, dynamic: false },
+        title3D: { text: "PROJECTS", x: 29, z: -66, dynamic: true },
     },
     {
         id: "journey",
@@ -221,7 +221,7 @@ export const AREAS: readonly AreaDef[] = [
         cameraShot: "default",
         // Step 0 deviation: z −77.5 (spec −76) so the title's footprint stays inside the
         // journey rect (z ≤ −70) — see DECISIONS.md.
-        title3D: { text: "JOURNEY", x: -11, z: -77.5, dynamic: false },
+        title3D: { text: "JOURNEY", x: -11, z: -77.5, dynamic: true },
     },
     {
         id: "eko",
@@ -230,7 +230,7 @@ export const AREAS: readonly AreaDef[] = [
         rect: rect(64, -122, 48, 44),
         arrival: { x: 44, z: -120, yaw: Math.PI / 2 },
         cameraShot: "default",
-        title3D: { text: "EEKO", x: 50, z: -138, dynamic: false },
+        title3D: { text: "EEKO", x: 50, z: -138, dynamic: true },
     },
     {
         id: "music",
@@ -240,7 +240,7 @@ export const AREAS: readonly AreaDef[] = [
         arrival: { x: -44, z: -124, yaw: -Math.PI / 2 },
         cameraShot: "gallery",
         cameraZone: rect(-64, -122, 48, 44),
-        title3D: { text: "MUSIC", x: -80, z: -110, dynamic: false },
+        title3D: { text: "MUSIC", x: -80, z: -110, dynamic: true },
     },
     {
         id: "about",
@@ -249,7 +249,7 @@ export const AREAS: readonly AreaDef[] = [
         rect: rect(-56, 4, 44, 32),
         arrival: { x: -38, z: 4, yaw: -Math.PI / 2 },
         cameraShot: "default",
-        title3D: { text: "ABOUT", x: -64, z: -6, dynamic: false },
+        title3D: { text: "ABOUT", x: -64, z: -6, dynamic: true },
     },
     {
         id: "playground",

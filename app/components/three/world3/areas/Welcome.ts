@@ -136,6 +136,7 @@ export function build(ctx: AreaContext): WelcomeHandle {
             roleLine,
             greeting,
             pathLabels,
+            ownsWordReset: true,
             update(_dt: number, _t: number, rt: RuntimeInfo) {
                 if (disposed || !hero || !title) return;
                 const nowFar = Math.hypot(rt.carPos.x - title.x, rt.carPos.z - title.z) > resetDistance;
