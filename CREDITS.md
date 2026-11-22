@@ -9,7 +9,8 @@ hotlinked). The same list is readable in-world from the **Credits** sign on the 
 
 | Asset | File | Author | Source | License |
 |---|---|---|---|---|
-| Nature Kit (trees, bushes, rocks) | `nature/*.glb` | Kenney | https://kenney.nl/assets/nature-kit | CC0 1.0 |
+| Trees, palms, bushes, boulders (and props to come) | `tripo/*.glb` | Generated with Tripo AI on the owner's paid plan (commercial use permitted) | https://www.tripo3d.ai | Owner's licence |
+| Nature Kit (trees, bushes, rocks) | `nature/*.glb` | Kenney | https://kenney.nl/assets/nature-kit | CC0 1.0 | (fallback)
 | Palm Tree | `palm.glb` | Quaternius | https://poly.pizza/m/P0tgwyXBgr | CC0 1.0 |
 
 The red Cybertruck-style truck is procedural (`models/Cybertruck.ts`): no model file,
