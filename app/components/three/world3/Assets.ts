@@ -240,10 +240,33 @@ export function preparePalm(root: THREE.Object3D): THREE.MeshLambertMaterial[] {
 }
 
 /**
+ * Float copies of quantized (normalized integer) vertex attributes. The build
+ * step's meshopt compression quantizes positions, and normalizeNature rescales
+ * positions in place, which would clamp integer data instead of scaling it.
+ */
+export function dequantize(root: THREE.Object3D): void {
+    root.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const g = mesh.geometry;
+        for (const name of Object.keys(g.attributes)) {
+            const a = g.attributes[name] as THREE.BufferAttribute;
+            if (a.array instanceof Float32Array && !a.normalized) continue;
+            const out = new Float32Array(a.count * a.itemSize);
+            for (let i = 0; i < a.count; i++) {
+                for (let c = 0; c < a.itemSize; c++) out[i * a.itemSize + c] = a.getComponent(i, c);
+            }
+            g.setAttribute(name, new THREE.BufferAttribute(out, a.itemSize));
+        }
+    });
+}
+
+/**
  * Tripo scenery: textured Lambert copies (base + normal map) with the scenery
  * occluder dither; trees, bushes and boulders are normalised like the kit.
  */
 export function prepareTripo(root: THREE.Object3D, kind: TripoSceneryKind): THREE.MeshLambertMaterial[] {
+    dequantize(root);
     const mats = convertStandardToLambert(root);
     for (const m of mats) applyOccluder(m);
     setShadows(root, true, true);
