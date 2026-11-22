@@ -4,7 +4,7 @@ import { CONFIG, PALETTE } from "../Config";
 import * as Layout from "../Layout";
 import { AREA_BY_ID, AREA_LAYOUT, PROPS, footprintsOverlap, type Footprint } from "../Layout";
 import { labelsOwnedBy } from "../Paths";
-import { NATURE_KINDS } from "../Assets";
+import { NATURE_KINDS, TRIPO_SCENERY } from "../Assets";
 import { registeredAreaIds } from "../Areas";
 import * as shapes from "../utils/shapes";
 import { Disposal } from "../utils/disposal";
@@ -138,12 +138,23 @@ describe("areas/Hub (§2.4)", () => {
         const { ctx } = stubCtx(() => kit);
         const h = build(ctx);
         if (CONFIG.scenery.source === "kit") {
-            expect(ctx.assets.model).toHaveBeenCalledWith(`nature/${NATURE_KINDS.tree[0]}`);
+            // The Tripo tree is preferred; the stub serves it.
+            expect(ctx.assets.model).toHaveBeenCalledWith(`tripo/${TRIPO_SCENERY.tree}`);
             expect(h.treeSource).toBe("kit");
             expect(h.tree).toBe(kit);
             expect(kit.position.toArray()).toEqual([P.x, P.h, P.z]);
         } else {
             expect(h.treeSource).toBe("procedural");
+        }
+    });
+
+    it("falls back to the Nature Kit tree when the Tripo tree is missing", () => {
+        const kit = new THREE.Group();
+        const { ctx } = stubCtx((name: string) => (name.startsWith("tripo/") ? null : kit));
+        const h = build(ctx);
+        if (CONFIG.scenery.source === "kit") {
+            expect(ctx.assets.model).toHaveBeenCalledWith(`nature/${NATURE_KINDS.tree[0]}`);
+            expect(h.tree).toBe(kit);
         }
     });
 

@@ -25,6 +25,8 @@ All models are normalised by Tripo to ~1 unit on their longest side, standing on
 
 ## Integration plan (in order)
 
+Status 2026-11-22: steps 1–2 done on this branch (loader + scenery prefer the Tripo models, Kenney/palm.glb fallback; tests pass). Measured in view: 251k–290k triangles, 60–110 draw calls. To check before merging: bushes read small/dark in the first look; compare day and night; then CREDITS.
+
 1. **Loader.** `Assets.ts`: `GLTFLoader.setMeshoptDecoder(MeshoptDecoder)` (three/addons/libs/meshopt_decoder.module.js);
    EXT_texture_webp is native. Convert materials to Lambert keeping `map` **and `normalMap`**
    (MeshLambertMaterial supports normal maps), apply the occluder dither to scenery.

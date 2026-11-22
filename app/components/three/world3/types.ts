@@ -201,7 +201,7 @@ export interface MaterialsApi {
     basic(hex: HexColor, opts?: BasicOptions): THREE.MeshBasicMaterial;
 }
 
-export type ModelName = "car" | "palm" | "avatar" | `nature/${string}`;
+export type ModelName = "car" | "palm" | "avatar" | `nature/${string}` | `tripo/${string}`;
 
 /**
  * Distance-gated lazy board-image loader (§5.1; Assets.ts BoardTextures).
