@@ -23,7 +23,6 @@ function setup() {
         interact: () => calls.push("interact"),
         respawn: () => calls.push("respawn"),
         toggleMap: () => calls.push("map"),
-        toggleMute: () => calls.push("mute"),
         togglePhotoMode: () => calls.push("photo"),
         escape: () => calls.push("escape"),
     };
@@ -70,13 +69,13 @@ describe("Controls (§4.3)", () => {
         const { calls, key } = setup();
         // AZERTY: the label "m" sits on the physical Semicolon key.
         key("keydown", "Semicolon", "m");
-        key("keydown", "KeyN", "N", { shiftKey: true });
+        key("keydown", "KeyN", "N", { shiftKey: true }); // no sound, so N does nothing
         key("keydown", "KeyP", "p");
         key("keydown", "KeyR", "r");
         key("keydown", "KeyE", "e");
         key("keydown", "Enter", "Enter");
         key("keydown", "Escape", "Escape");
-        expect(calls).toEqual(["map", "mute", "photo", "respawn", "interact", "interact", "escape"]);
+        expect(calls).toEqual(["map", "photo", "respawn", "interact", "interact", "escape"]);
     });
 
     it("interacts synchronously and ignores auto-repeat", () => {

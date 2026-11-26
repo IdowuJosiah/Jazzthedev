@@ -20,35 +20,6 @@ import FailCard, { CLASSIC_SITE_URL } from "./FailCard";
 // full list lives in Menu → Controls.
 // ─────────────────────────────────────────────────────────────────────────
 
-// ── Sound preference (persisted across visits) ───────────────────────────
-export type SoundPref = "on" | "off";
-
-/** Stored preference, or null when nothing is stored / storage is blocked. */
-export function readSoundPref(): SoundPref | null {
-    try {
-        const v = window.localStorage.getItem(CONFIG.ui.soundStorageKey);
-        return v === "on" || v === "off" ? v : null;
-    } catch {
-        return null;
-    }
-}
-
-export function writeSoundPref(pref: SoundPref): void {
-    try {
-        window.localStorage.setItem(CONFIG.ui.soundStorageKey, pref);
-    } catch {
-        /* storage blocked: the choice lasts for this session only */
-    }
-}
-
-/**
- * Start turns sound on, unless the visitor turned it off on a previous visit
- * (the toggle state persists, §9.4). Returns the resulting `muted` flag.
- */
-export function mutedOnStart(stored: SoundPref | null): boolean {
-    return stored === "off";
-}
-
 // ── Monotonic progress ───────────────────────────────────────────────────
 /** Highest value seen so far (derived state; never decreases). */
 export function useMonotonic(value: number): number {

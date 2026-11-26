@@ -93,11 +93,9 @@ describe("HUD", () => {
         areaId: "projects" as const,
         prompt: { title: "Clay Studio Creations", action: "Open project" },
         toast: { id: 1, text: "Projects · 4 projects" },
-        muted: false,
         isTouch: false,
         focusCanvas: noop,
         onOpenMap: noop,
-        onToggleSound: noop,
         onOpenMenu: noop,
     };
 
@@ -105,7 +103,7 @@ describe("HUD", () => {
         const html = renderToStaticMarkup(h(Hud, base));
         expect(html).toContain('aria-label="Classic site"');
         expect(html).toContain('aria-label="Open map"');
-        expect(html).toContain('aria-label="Turn sound off"');
+        expect(html).not.toMatch(/sound/i); // the world is silent (owner)
         expect(html).toContain('aria-label="Open menu"');
         expect(html).toContain("Frontend Projects");
         expect(html).toContain("Clay Studio Creations");
@@ -152,7 +150,7 @@ describe("dialogs", () => {
     it("menu renders every tab as a tab with one selected", () => {
         const state = { ...initialWorldState(), menuTab: "contact" as const };
         const html = renderToStaticMarkup(
-            h(MenuModal, { state, commands: new WorldStore().commands, topmost: true, onToggleSound: noop, onClose: noop })
+            h(MenuModal, { state, commands: new WorldStore().commands, topmost: true, onClose: noop })
         );
         for (const t of MENU_TABS) expect(html).toContain(`>${t.label}</button>`);
         expect(html.match(/aria-selected="true"/g)).toHaveLength(1);

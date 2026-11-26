@@ -789,7 +789,6 @@ export const CONFIG = {
     ui: {
         toastMs: 3000,
         mobileMaxWidth: 640,
-        soundStorageKey: "field-v3:sound",
     },
 
     audio: {

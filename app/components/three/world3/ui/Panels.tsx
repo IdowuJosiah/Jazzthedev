@@ -242,7 +242,6 @@ const DESKTOP_CONTROLS = [
     { keys: "Space", action: "Brake / drift" },
     { keys: "E", action: "Open (Enter too)" },
     { keys: "M", action: "Map" },
-    { keys: "N", action: "Sound on / off" },
     { keys: "R", action: "Reset the car" },
     { keys: "P", action: "Photo mode" },
     { keys: "Esc", action: "Menu / close" },
@@ -260,11 +259,10 @@ interface MenuProps {
     state: WorldState;
     commands: WorldCommandSet;
     topmost: boolean;
-    onToggleSound: () => void;
     onClose: () => void;
 }
 
-export function MenuModal({ state, commands, topmost, onToggleSound, onClose }: MenuProps) {
+export function MenuModal({ state, commands, topmost, onClose }: MenuProps) {
     const ref = useRef<HTMLElement>(null);
     const titleId = useId();
     const baseId = useId();
@@ -332,7 +330,7 @@ export function MenuModal({ state, commands, topmost, onToggleSound, onClose }: 
                     tabIndex={0}
                 >
                     {tab === "settings" && (
-                        <SettingsTab state={state} commands={commands} onToggleSound={onToggleSound} onClose={onClose} />
+                        <SettingsTab state={state} commands={commands} onClose={onClose} />
                     )}
                     {tab === "controls" && (
                         <>
@@ -397,12 +395,10 @@ export function MenuModal({ state, commands, topmost, onToggleSound, onClose }: 
 function SettingsTab({
     state,
     commands,
-    onToggleSound,
     onClose,
 }: {
     state: WorldState;
     commands: WorldCommandSet;
-    onToggleSound: () => void;
     onClose: () => void;
 }) {
     const qualityName = useId();
@@ -453,10 +449,6 @@ function SettingsTab({
                 </div>
             </fieldset>
             <div className="w3-fieldset">
-                <label className="w3-check">
-                    <input type="checkbox" checked={!state.muted} onChange={onToggleSound} />
-                    Sound
-                </label>
                 <label className="w3-check">
                     <input
                         type="checkbox"

@@ -159,7 +159,7 @@ export function build(ctx: AreaContext): AboutHandle {
         plaza.raycast = () => {};
         group.add(plaza);
 
-        // ── 3D title (static, ACCENT_INK.brand) ──────────────────────────
+        // ── 3D title (dynamic, knockable; ACCENT_INK.brand) ──────────────────────────
         const t3 = def.title3D;
         if (t3) {
             title = ctx.text3d.word(t3.text, {

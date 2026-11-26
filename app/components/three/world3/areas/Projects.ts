@@ -279,7 +279,7 @@ export function build(ctx: AreaContext): ProjectsHandle {
     };
 
     try {
-        // ── 3D title (static, ACCENT_INK.projects) ───────────────────────
+        // ── 3D title (dynamic, knockable; ACCENT_INK.projects) ───────────────────────
         const t3 = ctx.def.title3D;
         if (t3) {
             title = ctx.text3d.word(t3.text, {

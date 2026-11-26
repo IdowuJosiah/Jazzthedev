@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
-import { LuArrowUpRight, LuCamera, LuMap, LuMenu, LuMoon, LuSun, LuVolume2, LuVolumeX, LuX } from "react-icons/lu";
+import { LuArrowUpRight, LuCamera, LuMap, LuMenu, LuMoon, LuSun, LuX } from "react-icons/lu";
 import type { EffectiveTime } from "../Config";
 import { AREA_BY_ID } from "../Layout";
 import type { Toast } from "../State";
@@ -11,7 +11,7 @@ import { CLASSIC_SITE_URL } from "./FailCard";
 
 // ─────────────────────────────────────────────────────────────────────────
 // HUD (§6.2). Top-left: wordmark + area chip. Top-right, always visible:
-// Classic site (collapses to an icon at ≤ 640 px), Day / night, Map, Sound,
+// Classic site (collapses to an icon at ≤ 640 px), Day / night, Map,
 // Menu. Bottom
 // centre: the prompt card naming what is in range (on touch the tappable E
 // sits in the TouchControls cluster). Toasts at the top centre for
@@ -49,12 +49,10 @@ interface HudProps {
     areaId: AreaId | null;
     prompt: Prompt | null;
     toast: Toast | null;
-    muted: boolean;
     isTouch: boolean;
     /** Focuses the world canvas. */
     focusCanvas: () => void;
     onOpenMap: () => void;
-    onToggleSound: () => void;
     onOpenMenu: () => void;
     /** What the world shows; the button offers the other (default "day"). */
     effectiveTime?: EffectiveTime;
@@ -97,18 +95,6 @@ export default function Hud(p: HudProps) {
                         onClick={p.onOpenMap}
                     >
                         <LuMap size={20} aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        className="w3-iconbtn"
-                        aria-label={p.muted ? "Turn sound on" : "Turn sound off"}
-                        aria-keyshortcuts="N"
-                        onClick={(e) => {
-                            p.onToggleSound();
-                            refocusAfterPointer(e, p.focusCanvas);
-                        }}
-                    >
-                        {p.muted ? <LuVolumeX size={20} aria-hidden="true" /> : <LuVolume2 size={20} aria-hidden="true" />}
                     </button>
                     <button
                         type="button"

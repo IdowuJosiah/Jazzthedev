@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { Areas, type AreaServices } from "./Areas";
+import { CONFIG } from "./Config";
 import { AREA_BY_ID } from "./Layout";
 import type { AreaBuilder, AreaId, RuntimeInfo, Word3D, WorldInteractable } from "./types";
 import { Disposal } from "./utils/disposal";
@@ -9,8 +10,10 @@ function makeServices() {
     const words: Word3D[] = [];
     const services = {
         text3d: {
-            word: () => {
-                const w: Word3D = { group: new THREE.Group(), letters: [], reset: vi.fn() };
+            word: (_text: string, opts: { dynamic: boolean }) => {
+                // A dynamic word's letters carry bodies; the fake only needs one to be present.
+                const letters = opts.dynamic ? ([{ body: {} }] as unknown as Word3D["letters"]) : [];
+                const w: Word3D = { group: new THREE.Group(), letters, reset: vi.fn() };
                 words.push(w);
                 return w;
             },
@@ -116,5 +119,58 @@ describe("Areas (Wave 1 integration)", () => {
         expect(areas.interact(panel)).toBe(true);
         expect(ran).toHaveBeenCalledTimes(1);
         expect(panel).not.toHaveBeenCalled();
+    });
+
+    describe("knockable titles (dynamic words Areas sends home)", () => {
+        const RESET = CONFIG.physics.heroLetterResetDistance;
+        const titleBuilder =
+            (dynamic: boolean, ownsWordReset = false): AreaBuilder =>
+            (ctx) => {
+                const w = ctx.text3d.word("MUSIC", { cap: 2.4, depth: 0.6, color: "#000000", dynamic, curveSegments: 8 });
+                w.group.position.set(10, 0, -20);
+                ctx.group.add(w.group);
+                return { group: ctx.group, ownsWordReset };
+            };
+
+        it("resets a dynamic title once on the car's near → far change, even while culled", () => {
+            const { services, words } = makeServices();
+            const areas = new Areas(services);
+            areas.build(new Map<AreaId, AreaBuilder>([["music", titleBuilder(true)]]));
+            const reset = words[0].reset as ReturnType<typeof vi.fn>;
+            reset.mockClear(); // the arming call
+            areas.update(1 / 60, 0, rt(10, -20)); // near
+            areas.update(1 / 60, 0, rt(10 + RESET - 1, -20)); // still near
+            expect(reset).not.toHaveBeenCalled();
+            areas.setAreaVisible("music", false);
+            areas.update(1 / 60, 0, rt(10 + RESET + 1, -20)); // crosses out (culled)
+            areas.update(1 / 60, 0, rt(10 + RESET + 40, -20)); // stays far
+            expect(reset).toHaveBeenCalledTimes(1);
+            areas.update(1 / 60, 0, rt(10, -18)); // back near
+            areas.update(1 / 60, 0, rt(10, -20 - RESET - 1)); // leaves again
+            expect(reset).toHaveBeenCalledTimes(2);
+        });
+
+        it("resetWords() and reset(id) send dynamic titles home; static ones and self-owned words are left alone", () => {
+            const { services, words } = makeServices();
+            const areas = new Areas(services);
+            areas.build(
+                new Map<AreaId, AreaBuilder>([
+                    ["welcome", titleBuilder(true, true)],
+                    ["music", titleBuilder(true)],
+                    ["eko", titleBuilder(false)],
+                ])
+            );
+            // Areas build in table order, so find each word by the area group it sits in.
+            const resetOf = (id: AreaId) =>
+                words.find((w) => w.group.parent?.name === `area:${id}`)!.reset as ReturnType<typeof vi.fn>;
+            const [own, loose, fixed] = [resetOf("welcome"), resetOf("music"), resetOf("eko")];
+            for (const r of [own, loose, fixed]) r.mockClear();
+            areas.resetWords();
+            expect([own.mock.calls.length, loose.mock.calls.length, fixed.mock.calls.length]).toEqual([0, 1, 0]);
+            areas.reset("music");
+            expect(loose).toHaveBeenCalledTimes(2);
+            areas.update(1 / 60, 0, rt(10 + RESET + 1, -20));
+            expect(own).not.toHaveBeenCalled(); // Welcome's own update() handles it
+        });
     });
 });

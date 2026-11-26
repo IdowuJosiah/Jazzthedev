@@ -7,7 +7,7 @@ import { WorldStore } from "@/app/components/three/world3/State";
 import { CONFIG } from "@/app/components/three/world3/Config";
 import type { AreaId } from "@/app/components/three/world3/types";
 import Hud, { Announcer, PhotoBar } from "@/app/components/three/world3/ui/Hud";
-import { Loader, StartCard, mutedOnStart, readSoundPref, writeSoundPref } from "@/app/components/three/world3/ui/StartScreen";
+import { Loader, StartCard } from "@/app/components/three/world3/ui/StartScreen";
 import { ContentPanel, MenuModal } from "@/app/components/three/world3/ui/Panels";
 import MapModal from "@/app/components/three/world3/ui/MapModal";
 import TouchControls, { isTouchDevice } from "@/app/components/three/world3/ui/TouchControls";
@@ -101,23 +101,12 @@ export default function FieldExperience() {
         return () => window.clearTimeout(t);
     }, [store, toast]);
 
-    // ── Sound choice persists whatever toggled it (HUD, menu, or the N key) ──
-    useEffect(() => {
-        if (running) writeSoundPref(state.muted ? "off" : "on");
-    }, [running, state.muted]);
-
     // ── Commands ─────────────────────────────────────────────────────────
     const onStart = useCallback(() => {
-        // All inside the click: the audio context may only start on a user gesture.
-        const muted = mutedOnStart(readSoundPref());
-        // The sound choice first, so unlock() sees it (and skips music.ogg when off).
-        store.commands.setMuted(muted);
         store.commands.start();
-        writeSoundPref(muted ? "off" : "on");
         canvasRef.current?.focus({ preventScroll: true });
     }, [store]);
 
-    const onToggleSound = useCallback(() => store.commands.setMuted(!store.snapshot.muted), [store]);
     // Sets the mode explicitly (the opposite of what shows), leaving "auto".
     const onToggleTime = useCallback(
         () => store.commands.setTimeMode(store.snapshot.effectiveTime === "night" ? "day" : "night"),
@@ -166,11 +155,9 @@ export default function FieldExperience() {
                     areaId={state.areaId}
                     prompt={state.prompt}
                     toast={state.toast}
-                    muted={state.muted}
                     isTouch={isTouch}
                     focusCanvas={focusCanvas}
                     onOpenMap={onOpenMap}
-                    onToggleSound={onToggleSound}
                     onOpenMenu={onOpenMenu}
                     effectiveTime={state.effectiveTime}
                     onToggleTime={onToggleTime}
@@ -212,7 +199,6 @@ export default function FieldExperience() {
                     state={state}
                     commands={store.commands}
                     topmost
-                    onToggleSound={onToggleSound}
                     onClose={onCloseMenu}
                 />
             )}

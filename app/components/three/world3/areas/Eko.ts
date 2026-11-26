@@ -181,7 +181,7 @@ export function buildEko(ctx: AreaContext, { screenSources = PHONE_SCREEN_SOURCE
     try {
         const quat = faceCameraQuat();
 
-        // ── 3D title (static, ACCENT_INK.eko) ────────────────────────────
+        // ── 3D title (dynamic, knockable; ACCENT_INK.eko) ────────────────────────────
         const t3 = ctx.def.title3D;
         if (t3) {
             title = ctx.text3d.word(t3.text, {

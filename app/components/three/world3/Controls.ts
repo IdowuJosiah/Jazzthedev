@@ -7,7 +7,7 @@ import { clamp } from "./utils/math";
 // - Movement uses `e.code` (physical WASD / arrows / Shift / Space), so it works
 //   on AZERTY and other layouts.
 // - Mnemonic shortcuts use `e.key` (lower-cased): E/Enter interact, R respawn,
-//   M map, N mute, P photo mode, Escape menu / close the top layer.
+//   M map, P photo mode, Escape menu / close the top layer.
 // - Keys act only while focus belongs to the world (nothing, the canvas or
 //   <body>) — except Escape. A focused link, button, form control or the
 //   FieldSummary sheet keeps its keys, so Enter/Space never fire twice and
@@ -28,7 +28,6 @@ export interface ControlHandlers {
     /** M. */
     toggleMap(): void;
     /** N. */
-    toggleMute(): void;
     /** P. */
     togglePhotoMode(): void;
     /** Escape: open the menu, or close the topmost panel / map. */
@@ -36,7 +35,7 @@ export interface ControlHandlers {
 }
 
 type DrivingAction = "forward" | "back" | "left" | "right" | "boost" | "brake";
-export type DiscreteAction = "interact" | "respawn" | "map" | "mute" | "photo" | "escape";
+export type DiscreteAction = "interact" | "respawn" | "map" | "photo" | "escape";
 
 /** Physical keys (KeyboardEvent.code) → driving action. */
 export const DRIVE_CODES: Readonly<Record<string, DrivingAction>> = Object.freeze({
@@ -59,7 +58,6 @@ export const ACTION_KEYS: Readonly<Record<string, DiscreteAction>> = Object.free
     enter: "interact",
     r: "respawn",
     m: "map",
-    n: "mute",
     p: "photo",
     escape: "escape",
 });
@@ -143,7 +141,7 @@ export class Controls {
 
     /**
      * Driving, interact and respawn on/off (e.g. before Start, while a panel is
-     * open). Map / mute / photo / Escape keep working. Disabling clears held input.
+     * open). Map / photo / Escape keep working. Disabling clears held input.
      */
     setEnabled(on: boolean) {
         this.enabled = on;
@@ -232,9 +230,6 @@ export class Controls {
                 return;
             case "map":
                 this.handlers.toggleMap();
-                return;
-            case "mute":
-                this.handlers.toggleMute();
                 return;
             case "photo":
                 this.handlers.togglePhotoMode();

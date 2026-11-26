@@ -164,7 +164,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
         expect(registeredAreaIds()).toContain("eko");
     });
 
-    it("the static 3D title EEKO in ACCENT_INK.eko, placed once at its Layout point, faceCamera", () => {
+    it("the dynamic (knockable) 3D title EEKO in ACCENT_INK.eko, placed once at its Layout point, faceCamera", () => {
         const s = stubCtx();
         const h = build(s.ctx);
         expect(s.words).toHaveLength(1);
@@ -176,7 +176,7 @@ describe("areas/Eko (§2.4, §5.2)", () => {
             depth: TY.areaTitle.depth,
             curveSegments: TY.areaTitle.curveSegments,
             color: ACCENT_INK.eko,
-            dynamic: false,
+            dynamic: true,
         });
         expect(word.group.parent).toBe(s.ctx.group);
         expect(word.group.position.toArray()).toEqual([t3.x, 0, t3.z]);

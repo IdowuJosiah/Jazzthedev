@@ -315,15 +315,7 @@ export const credits: CreditEntry[] = [
     },
     { name: "Trees, palms, bushes, boulders", author: "Generated with Tripo AI", license: "Owner's paid plan", url: "https://www.tripo3d.ai" },
     { name: "Nature Kit", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/nature-kit" },
-    { name: "Interface Sounds", author: "Kenney", license: "CC0 1.0", url: "https://kenney.nl/assets/interface-sounds" },
     { name: "Palm Tree", author: "Quaternius", license: "CC0 1.0", url: "https://poly.pizza/m/P0tgwyXBgr" },
-    { name: "Cool City (music bed)", author: "mintodog", license: "CC0 1.0", url: "https://opengameart.org/content/cool-city" },
-    {
-        name: "Racing car engine loop",
-        author: "domasx2",
-        license: "CC0 1.0",
-        url: "https://opengameart.org/content/racing-car-engine-sound-loops",
-    },
 ];
 
 /** One-line sign text on the Credits jetty. */

@@ -646,9 +646,6 @@ export class Experience {
                 if (this.store.snapshot.mapOpen) this.store.commands.closeMap();
                 else this.store.commands.openMap();
             },
-            toggleMute: () => {
-                if (this.store.snapshot.phase === "running") this.store.commands.setMuted(!this.store.snapshot.muted);
-            },
             togglePhotoMode: () => this.store.commands.togglePhotoMode(),
             escape: () => this.escape(),
         });
@@ -936,8 +933,8 @@ export class Experience {
         const w = this.w;
         if (!w || this.started || this.store.snapshot.phase !== "ready") return;
         this.started = true;
-        // The audio context may only start inside this user gesture.
-        this.audio.unlock(this.store.snapshot.muted);
+        // No sound (owner): the audio context is never unlocked, so every sound
+        // call is a no-op and no audio file is downloaded.
         const spawnArea = areaAt(SPAWN.x, SPAWN.z)?.id ?? null;
         // The spawn area counts as visited without a toast (the Start card was the welcome).
         this.store.set({
@@ -1002,6 +999,7 @@ export class Experience {
         const interimHero = this.interimWords.get("welcome");
         if (interimHero) interimHero.reset();
         else w.areas.reset("welcome");
+        w.areas.resetWords(); // the area titles are physics letters too
     }
 
     private syncInput(w: World) {
